@@ -68,6 +68,16 @@ body {
   gap: 12px;
 }
 
+.category-grid--big {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (min-width: 540px) {
+  .category-grid--big {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 .category-card {
   background: #fff9ed;
   border: 1px solid #d4c4a8;
@@ -84,6 +94,119 @@ body {
 .category-card p {
   margin: 0;
   font-size: 13px;
+}
+
+.category-card--link {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+
+.catalog-search,
+.catalog-filters {
+  margin-bottom: 12px;
+}
+
+.catalog-filters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.catalog-input {
+  width: 100%;
+  border: 1px solid #d4c4a8;
+  border-radius: 10px;
+  padding: 10px;
+  font-family: inherit;
+  background: #fff9ed;
+}
+
+.catalog-page-title {
+  margin: 0 0 12px;
+  color: #5d6b3a;
+}
+
+.products-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (min-width: 540px) {
+  .products-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.product-card {
+  background: #fff9ed;
+  border: 1px solid #d4c4a8;
+  border-radius: 14px;
+  padding: 10px;
+}
+
+.product-card h3 {
+  margin: 10px 0 8px;
+  font-size: 14px;
+  min-height: 36px;
+}
+
+.product-card__image-wrap {
+  position: relative;
+}
+
+.product-card__image {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 10px;
+  background: #efe8d8;
+}
+
+.carousel-dots {
+  display: flex;
+  gap: 5px;
+  justify-content: center;
+  margin-top: 6px;
+}
+
+.carousel-dot {
+  width: 8px;
+  height: 8px;
+  border: 0;
+  border-radius: 999px;
+  background: #d4c4a8;
+}
+
+.carousel-dot.active {
+  background: #5d6b3a;
+}
+
+.product-price {
+  margin: 0;
+  font-weight: 600;
+}
+
+.stock-chip {
+  margin: 8px 0;
+  font-size: 12px;
+}
+
+.stock-chip.in-stock {
+  color: #2a6b2a;
+}
+
+.stock-chip.on-order {
+  color: #8a5a18;
+}
+
+.product-btn {
+  width: 100%;
+}
+
+.empty-note {
+  margin-top: 12px;
 }
 
 .bottom-nav {
