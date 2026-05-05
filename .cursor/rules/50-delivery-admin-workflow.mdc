@@ -1,0 +1,19 @@
+---
+description: Delivery, admin, and release workflow constraints
+alwaysApply: true
+---
+
+# Delivery, Admin, And Workflow Rules
+
+- Keep all admin features inside Telegram Mini App; no separate admin site by default.
+- Admin section visibility is role-based and hidden for non-admin users.
+- Delivery flow must support both delivery and pickup, with staged CDEK integration.
+- Start with mock delivery tariffs only where live API is not approved yet.
+- Commit messages follow Conventional Commits and describe user-facing intent.
+
+## Release Discipline
+
+- Before completion, verify changed flows manually or with tests.
+- If a rule conflict appears, prioritize explicit product constraints from MURU rules.
+- Do not change folder structure, payment policy, or core UX map without approval.
+- Report what was verified, what remains mock/stub, and what requires next approval.

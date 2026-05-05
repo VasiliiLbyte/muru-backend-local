@@ -1,0 +1,19 @@
+---
+description: Frontend standards for Telegram Mini App UX and MURU branding
+alwaysApply: true
+---
+
+# Frontend Telegram UX Rules
+
+- Use Telegram Mini App APIs correctly: `ready()`, `expand()`, theme params, native Back/Main buttons.
+- Preserve SPA navigation behavior; no full page reloads for internal transitions.
+- Design mobile-first for Telegram viewport and safe-area constraints.
+- Keep MURU visual identity fixed: Montserrat, approved palette, no unauthorized style drift.
+- Reuse shared UI components before adding new page-local variants.
+
+## Product UX Constraints
+
+- Variants (color/size) must be inside one product card, not separate products.
+- Zero-stock products stay visible with "Под заказ" and notify flow.
+- Bottom navigation keeps 5 core tabs: Catalog, Search, Cart, Favorites, Profile.
+- Any new component that changes interaction pattern should be documented before merge.

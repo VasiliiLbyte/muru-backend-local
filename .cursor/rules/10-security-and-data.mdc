@@ -1,0 +1,19 @@
+---
+description: Security and data handling standards for Telegram Mini App
+alwaysApply: true
+---
+
+# Security And Data Rules
+
+- Never hardcode secrets, tokens, service keys, or private URLs in code or logs.
+- Validate all external input at boundaries (Telegram payloads, API body/query, Sheets/Drive data).
+- Use parameterized database queries only; never interpolate SQL manually.
+- Do not expose internal errors to client UI; log technical details server-side.
+- Keep access checks explicit: admin actions only for `adminTelegramIds`.
+
+## Data Integrity
+
+- Catalog sync must preserve MURU constraints: file naming `MUxxxx-N.webp`, exactly 2 images per product.
+- Products with zero stock remain visible with "Под заказ" behavior.
+- Payment remains disabled until explicit product approval.
+- Any schema or mapping change requires backward-compatibility notes in implementation report.

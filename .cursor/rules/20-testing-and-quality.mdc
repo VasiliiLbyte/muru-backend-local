@@ -1,0 +1,19 @@
+---
+description: Testing and quality gates for shipping changes
+alwaysApply: true
+---
+
+# Testing And Quality Gates
+
+- For feature and bug-fix work, write or update tests before finalizing implementation.
+- Cover critical paths first: catalog browsing, product variants, cart, order draft creation, admin sync.
+- Run relevant unit/integration tests and report what was executed.
+- Never mark work complete with known failing checks in changed areas.
+- Do not silently swallow errors; either handle, rethrow with context, or return a typed failure.
+
+## Quality Checklist
+
+- Functions are cohesive and readable; avoid deep nesting.
+- File and symbol naming follows existing conventions.
+- No duplicate logic if reusable utilities already exist.
+- Edge cases explicitly handled: empty data, invalid IDs, timeout/fetch failures.

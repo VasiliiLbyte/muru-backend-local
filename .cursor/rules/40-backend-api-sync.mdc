@@ -1,0 +1,19 @@
+---
+description: Backend API, sync, and architecture conventions
+alwaysApply: true
+---
+
+# Backend API And Sync Rules
+
+- Keep route -> controller -> service separation clear; business logic belongs in services.
+- Use a consistent API response envelope for success, data, and error fields.
+- Validate request payloads with schemas before service execution.
+- Prefer idempotent sync operations and deterministic image mapping.
+- Keep Google integration isolated in dedicated sync services for easier testing.
+
+## Sync Contract
+
+- `/api/admin/sync` reads Sheets, scans Drive folder, maps by file name, generates public links.
+- Persist exactly two image URLs per product where data is valid.
+- If mapping is partial or ambiguous, write structured sync logs and keep system consistent.
+- Admin-only endpoints must reject unauthorized Telegram IDs by default.

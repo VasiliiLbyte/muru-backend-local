@@ -1,0 +1,19 @@
+---
+description: Core execution model for all MURU tasks
+alwaysApply: true
+---
+
+# MURU Core Operating Model
+
+- Follow a strict order for non-trivial work: Plan -> Implement -> Verify -> Report.
+- Start from existing project patterns before introducing new abstractions.
+- Keep changes small, reviewable, and scoped to the user request.
+- Prefer immutable updates and pure helper functions where practical.
+- If a task affects architecture or many files, propose the plan first and then execute.
+
+## Definition Of Done
+
+- User request implemented end-to-end.
+- Relevant checks/tests run and results reported.
+- No style or behavior conflicts with MURU brand and product rules.
+- Any risks, trade-offs, or deferred work explicitly listed.
