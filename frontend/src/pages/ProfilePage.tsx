@@ -1,9 +1,10 @@
 type ProfilePageProps = {
   userId?: number
   isAdmin: boolean
+  onOpenAdmin: () => void
 }
 
-export const ProfilePage = ({ userId, isAdmin }: ProfilePageProps) => {
+export const ProfilePage = ({ userId, isAdmin, onOpenAdmin }: ProfilePageProps) => {
   return (
     <section className="page-card">
       <h1>Профиль</h1>
@@ -13,7 +14,11 @@ export const ProfilePage = ({ userId, isAdmin }: ProfilePageProps) => {
         <li>Мои заказы</li>
         <li>Адреса доставки</li>
         <li>Избранное</li>
-        {isAdmin ? <li className="admin-item">Админ</li> : null}
+        {isAdmin ? (
+          <li className="admin-item admin-link" onClick={onOpenAdmin}>
+            Админ
+          </li>
+        ) : null}
       </ul>
     </section>
   )

@@ -2,6 +2,7 @@
 
 interface ImportMetaEnv {
   readonly VITE_ADMIN_IDS?: string
+  readonly VITE_API_BASE_URL?: string
 }
 
 interface ImportMeta {
