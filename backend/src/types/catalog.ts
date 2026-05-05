@@ -50,3 +50,9 @@ export type CatalogProductListItem = {
   category: string
   subcategory: string
 }
+
+export type CatalogProductDetail = CatalogProductListItem & {
+  description: string
+  specs: Record<string, string>
+  variants: Variant[]
+}

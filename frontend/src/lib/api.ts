@@ -1,4 +1,4 @@
-import type { CatalogNode, CatalogProduct } from '../types/catalog'
+import type { CatalogNode, CatalogProduct, CatalogProductDetail } from '../types/catalog'
 
 export type SyncApiResult = {
   totalRows: number
@@ -55,4 +55,13 @@ export const fetchCatalogProducts = async (params: {
     throw new Error(payload.error ?? 'Failed to load catalog products')
   }
   return payload.data as CatalogProduct[]
+}
+
+export const fetchCatalogProductBySku = async (sku: string): Promise<CatalogProductDetail> => {
+  const response = await fetch(`${API_BASE_URL}/api/catalog/products/${encodeURIComponent(sku)}`)
+  const payload = await response.json()
+  if (!response.ok || !payload.success) {
+    throw new Error(payload.error ?? 'Failed to load product detail')
+  }
+  return payload.data as CatalogProductDetail
 }

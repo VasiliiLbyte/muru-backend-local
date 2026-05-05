@@ -6,12 +6,13 @@ import { CatalogFilters } from '../components/CatalogFilters'
 import { CatalogSearch } from '../components/CatalogSearch'
 import { BottomNavigation } from '../components/BottomNavigation'
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp'
-import { fetchCatalogProducts, fetchCatalogTree } from '../lib/api'
-import type { CatalogNode, CatalogProduct } from '../types/catalog'
+import { fetchCatalogProductBySku, fetchCatalogProducts, fetchCatalogTree } from '../lib/api'
+import type { CatalogNode, CatalogProduct, CatalogProductDetail } from '../types/catalog'
 import { CatalogCategoryPage } from '../pages/CatalogCategoryPage'
 import { CatalogHomePage } from '../pages/CatalogHomePage'
 import { CatalogProductsPage } from '../pages/CatalogProductsPage'
 import { PlaceholderPage } from '../pages/PlaceholderPage'
+import { ProductDetailPage } from '../pages/ProductDetailPage'
 import { ProfilePage } from '../pages/ProfilePage'
 
 const DEFAULT_TAB = 'Каталог'
@@ -24,6 +25,7 @@ type CatalogRoutesProps = {
   onSearchChange: (value: string) => void
   onFilterChange: (key: 'color' | 'size' | 'priceMax', value: string) => void
   onProductsChange: (items: CatalogProduct[]) => void
+  onOpenProductDetail: (sku: string) => void
 }
 
 const CatalogRoutes = ({
@@ -34,6 +36,7 @@ const CatalogRoutes = ({
   onSearchChange,
   onFilterChange,
   onProductsChange,
+  onOpenProductDetail,
 }: CatalogRoutesProps) => {
   const params = useParams<{ categorySlug?: string; subcategorySlug?: string }>()
   const category = tree.find((item) => item.slug === params.categorySlug)
@@ -77,7 +80,11 @@ const CatalogRoutes = ({
           path="/:categorySlug/:subcategorySlug"
           element={
             category && subcategory ? (
-              <CatalogProductsPage title={`${category.name} / ${subcategory.name}`} products={products} />
+              <CatalogProductsPage
+                title={`${category.name} / ${subcategory.name}`}
+                products={products}
+                onOpenProductDetail={onOpenProductDetail}
+              />
             ) : (
               <Navigate to="/catalog" />
             )
@@ -94,6 +101,7 @@ const AppShell = () => {
   const [isAdminPageOpen, setIsAdminPageOpen] = useState(false)
   const [catalogTree, setCatalogTree] = useState<CatalogNode[]>([])
   const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>([])
+  const [selectedProduct, setSelectedProduct] = useState<CatalogProductDetail | null>(null)
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState({ color: '', size: '', priceMax: '' })
   const { userId, isAdmin } = useTelegramWebApp()
@@ -105,6 +113,7 @@ const AppShell = () => {
   const handleSelectTab = (tab: string) => {
     setActiveTab(tab)
     setIsAdminPageOpen(false)
+    setSelectedProduct(null)
     if (tab === 'Каталог') navigate('/catalog')
   }
 
@@ -113,6 +122,10 @@ const AppShell = () => {
       return <AdminPage userId={userId} onBack={() => setIsAdminPageOpen(false)} />
     }
     if (activeTab === 'Каталог') {
+      if (selectedProduct) {
+        return <ProductDetailPage product={selectedProduct} />
+      }
+
       return (
         <Routes>
           <Route
@@ -126,6 +139,11 @@ const AppShell = () => {
                 onSearchChange={setSearch}
                 onFilterChange={(key, value) => setFilters((prev) => ({ ...prev, [key]: value }))}
                 onProductsChange={setCatalogProducts}
+                onOpenProductDetail={(sku) => {
+                  fetchCatalogProductBySku(sku)
+                    .then(setSelectedProduct)
+                    .catch(() => setSelectedProduct(null))
+                }}
               />
             }
           />
@@ -151,8 +169,8 @@ const AppShell = () => {
   ])
 
   return (
-    <div className="app-shell">
-      <main className="app-content">{pageContent}</main>
+    <div className="mx-auto flex min-h-screen max-w-[560px] flex-col bg-muru-ivory">
+      <main className="flex-1 px-4 pb-24 pt-4">{pageContent}</main>
       <BottomNavigation activeTab={activeTab} onSelectTab={handleSelectTab} />
     </div>
   )

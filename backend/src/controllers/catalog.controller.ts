@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express'
 
-import { getCatalogProducts, getCatalogTree } from '../services/catalog.service'
+import { getCatalogProductBySku, getCatalogProducts, getCatalogTree } from '../services/catalog.service'
 
 export const getCatalogTreeHandler = async (_req: Request, res: Response) => {
   try {
@@ -30,6 +30,27 @@ export const getCatalogProductsHandler = async (req: Request, res: Response) => 
     res.status(500).json({
       success: false,
       error: 'Failed to load catalog products',
+      details: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+}
+
+export const getCatalogProductBySkuHandler = async (req: Request, res: Response) => {
+  try {
+    const sku = String(req.params.sku || '').toUpperCase()
+    if (!sku) {
+      return res.status(400).json({ success: false, error: 'SKU is required' })
+    }
+
+    const product = await getCatalogProductBySku(sku)
+    if (!product) {
+      return res.status(404).json({ success: false, error: 'Product not found' })
+    }
+    return res.json({ success: true, data: product })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to load product details',
       details: error instanceof Error ? error.message : 'Unknown error',
     })
   }

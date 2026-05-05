@@ -33,28 +33,37 @@ export const AdminPage = ({ userId, onBack }: AdminPageProps) => {
   }
 
   return (
-    <section className="page-card">
-      <h1>Админ-панель</h1>
-      <p>Синхронизация каталога из Google Sheets + Google Drive.</p>
+    <section className="rounded-2xl border border-muru-accent bg-[#fff9ed] p-4">
+      <h1 className="text-xl font-semibold text-muru-olive">Админ-панель</h1>
+      <p className="mt-2 text-sm">Синхронизация каталога из Google Sheets + Google Drive.</p>
 
-      <div className="admin-actions">
-        <button type="button" className="primary-btn" disabled={isLoading} onClick={handleSync}>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button
+          type="button"
+          className="rounded-xl bg-muru-olive px-4 py-2 text-sm font-medium text-muru-ivory"
+          disabled={isLoading}
+          onClick={handleSync}
+        >
           {isLoading ? 'Синхронизация...' : 'Синхронизировать каталог'}
         </button>
-        <button type="button" className="secondary-btn" onClick={onBack}>
+        <button
+          type="button"
+          className="rounded-xl bg-[#efe8d8] px-4 py-2 text-sm font-medium"
+          onClick={onBack}
+        >
           Назад в профиль
         </button>
       </div>
 
-      {error ? <p className="admin-error">{error}</p> : null}
+      {error ? <p className="mt-3 text-sm text-red-700">{error}</p> : null}
 
       {result ? (
-        <div className="admin-result">
+        <div className="mt-3 rounded-xl bg-[#efe8d8] p-3 text-sm">
           <p>Всего строк: {result.totalRows}</p>
           <p>Синхронизировано: {result.syncedProducts}</p>
           <p>Пропущено: {result.skippedProducts}</p>
           {result.errors.length > 0 ? (
-            <ul className="admin-errors-list">
+            <ul className="mt-2 list-disc pl-5">
               {result.errors.slice(0, 10).map((item) => (
                 <li key={`${item.sku}-${item.reason}`}>
                   {item.sku}: {item.reason}

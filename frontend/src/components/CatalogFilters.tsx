@@ -16,21 +16,21 @@ export const CatalogFilters = ({
   onPriceMaxChange,
 }: CatalogFiltersProps) => {
   return (
-    <div className="catalog-filters">
+    <div className="mb-3 grid grid-cols-3 gap-2">
       <input
-        className="catalog-input"
+        className="w-full rounded-xl border border-muru-accent bg-[#fff9ed] px-3 py-2 text-sm"
         placeholder="Фильтр по цвету"
         value={color}
         onChange={(event) => onColorChange(event.target.value)}
       />
       <input
-        className="catalog-input"
+        className="w-full rounded-xl border border-muru-accent bg-[#fff9ed] px-3 py-2 text-sm"
         placeholder="Фильтр по размеру"
         value={size}
         onChange={(event) => onSizeChange(event.target.value)}
       />
       <input
-        className="catalog-input"
+        className="w-full rounded-xl border border-muru-accent bg-[#fff9ed] px-3 py-2 text-sm"
         placeholder="Макс. цена"
         value={priceMax}
         onChange={(event) => onPriceMaxChange(event.target.value)}

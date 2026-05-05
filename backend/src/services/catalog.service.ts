@@ -1,5 +1,5 @@
 import { pool } from '../utils/db'
-import type { CatalogNode, CatalogProductListItem } from '../types/catalog'
+import type { CatalogNode, CatalogProductDetail, CatalogProductListItem, Variant } from '../types/catalog'
 
 const TOP_LEVEL_CATEGORIES = [
   'Флористика',
@@ -33,6 +33,20 @@ type ProductRow = {
   image_url_1: string
   image_url_2: string
   category_name: string | null
+  color: string | null
+  size: string | null
+}
+
+type ProductDetailRow = {
+  sku: string
+  name: string
+  price: string
+  in_stock: number
+  image_url_1: string
+  image_url_2: string
+  category_name: string | null
+  description: string
+  specs: Record<string, string> | null
   color: string | null
   size: string | null
 }
@@ -158,4 +172,61 @@ export const getCatalogProducts = async (params: {
   }
 
   return Array.from(grouped.values())
+}
+
+export const getCatalogProductBySku = async (sku: string): Promise<CatalogProductDetail | null> => {
+  const result = await pool.query<ProductDetailRow>(
+    `SELECT
+       p.sku,
+       p.name,
+       p.price::text,
+       p.in_stock,
+       p.image_url_1,
+       p.image_url_2,
+       p.description,
+       p.specs,
+       c.name AS category_name,
+       v.color,
+       v.size
+     FROM products p
+     LEFT JOIN categories c ON c.id = p.category_id
+     LEFT JOIN variants v ON v.product_id = p.id
+     WHERE p.sku = $1`,
+    [sku],
+  )
+
+  if (result.rows.length === 0) return null
+  const first = result.rows[0]
+  const categoryPath = first.category_name ?? 'Без категории'
+  const [category = categoryPath, subcategory = 'Общее'] = parseCategoryPath(categoryPath)
+
+  const variantSet = new Set<string>()
+  const variants: Variant[] = []
+  const colors = new Set<string>()
+  const sizes = new Set<string>()
+
+  for (const row of result.rows) {
+    if (row.color) colors.add(row.color)
+    if (row.size) sizes.add(row.size)
+    const key = `${row.color ?? ''}|${row.size ?? ''}`
+    if (!variantSet.has(key) && (row.color || row.size)) {
+      variantSet.add(key)
+      variants.push({ color: row.color ?? undefined, size: row.size ?? undefined })
+    }
+  }
+
+  return {
+    sku: first.sku,
+    name: first.name,
+    price: Number(first.price),
+    inStock: first.in_stock,
+    imageUrls: [first.image_url_1, first.image_url_2],
+    colors: Array.from(colors),
+    sizes: Array.from(sizes),
+    category,
+    subcategory,
+    description: first.description ?? '',
+    specs: first.specs ?? {},
+    variants,
+  }
 }

@@ -5,12 +5,12 @@ type CatalogSearchProps = {
 
 export const CatalogSearch = ({ value, onChange }: CatalogSearchProps) => {
   return (
-    <div className="catalog-search">
+    <div className="mb-3">
       <input
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder="Поиск по названию или SKU"
-        className="catalog-input"
+        className="w-full rounded-xl border border-muru-accent bg-[#fff9ed] px-3 py-2 text-sm"
       />
     </div>
   )

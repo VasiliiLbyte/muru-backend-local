@@ -15,3 +15,14 @@ export type CatalogProduct = {
   category: string
   subcategory: string
 }
+
+export type CatalogVariant = {
+  color?: string
+  size?: string
+}
+
+export type CatalogProductDetail = CatalogProduct & {
+  description: string
+  specs: Record<string, string>
+  variants: CatalogVariant[]
+}
