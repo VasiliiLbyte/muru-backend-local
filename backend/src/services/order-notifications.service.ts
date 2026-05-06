@@ -14,14 +14,23 @@ export const notifyAdminsByTelegram = async (order: OrderDraft): Promise<void> =
   const summary = formatOrderSummary(order)
   const targetIds = env.orderNotifyTelegramIds.length > 0 ? env.orderNotifyTelegramIds : env.adminTelegramIds
 
+  if (!env.telegramBotToken) {
+    throw new Error('TELEGRAM_BOT_TOKEN is required for Telegram notifications')
+  }
+
   for (const chatId of targetIds) {
-    console.log('[telegram-order-notify:stub]', {
-      mode: 'stub',
-      botTokenConfigured: Boolean(env.telegramBotToken),
-      chatId,
-      orderId: order.id,
-      message: summary,
+    const response = await fetch(`https://api.telegram.org/bot${env.telegramBotToken}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: summary,
+      }),
     })
+    if (!response.ok) {
+      const errorBody = await response.text()
+      throw new Error(`Telegram notify failed for chat ${chatId}: ${errorBody}`)
+    }
   }
 }
 
@@ -34,5 +43,39 @@ export const notifyByEmail = async (order: OrderDraft): Promise<void> => {
     subject: `Новый заказ #${order.id}`,
     body: summary,
   })
+}
+
+export const notifyRestockRequestByTelegram = async (payload: {
+  telegramUserId: number
+  sku: string
+  productName: string
+}): Promise<void> => {
+  if (!env.telegramBotToken) {
+    throw new Error('TELEGRAM_BOT_TOKEN is required for Telegram notifications')
+  }
+
+  const targetIds = env.orderNotifyTelegramIds.length > 0 ? env.orderNotifyTelegramIds : env.adminTelegramIds
+  const message = [
+    'Запрос на уведомление о поступлении',
+    `SKU: ${payload.sku}`,
+    `Товар: ${payload.productName}`,
+    `Telegram user: ${payload.telegramUserId}`,
+    `Время: ${new Date().toISOString()}`,
+  ].join('\n')
+
+  for (const chatId of targetIds) {
+    const response = await fetch(`https://api.telegram.org/bot${env.telegramBotToken}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: message,
+      }),
+    })
+    if (!response.ok) {
+      const errorBody = await response.text()
+      throw new Error(`Restock notify failed for chat ${chatId}: ${errorBody}`)
+    }
+  }
 }
 

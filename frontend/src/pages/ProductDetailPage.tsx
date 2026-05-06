@@ -5,6 +5,7 @@ import type { CatalogProductDetail } from '../types/catalog'
 type ProductDetailPageProps = {
   product: CatalogProductDetail
   onAddToCart: (product: CatalogProductDetail) => void
+  onNotifyRestock: (product: CatalogProductDetail) => void
   onToggleFavorite: (product: CatalogProductDetail) => void
   isFavorite: boolean
   isAuthorized: boolean
@@ -13,6 +14,7 @@ type ProductDetailPageProps = {
 export const ProductDetailPage = ({
   product,
   onAddToCart,
+  onNotifyRestock,
   onToggleFavorite,
   isFavorite,
   isAuthorized,
@@ -87,9 +89,9 @@ export const ProductDetailPage = ({
         <button
           type="button"
           className="mt-5 w-full rounded-xl bg-muru-olive px-4 py-3 text-sm font-medium text-muru-ivory"
-          onClick={() => onAddToCart(product)}
+          onClick={() => (product.inStock > 0 ? onAddToCart(product) : onNotifyRestock(product))}
         >
-          В корзину
+          {product.inStock > 0 ? 'В корзину' : 'Сообщить о поступлении'}
         </button>
         {!isAuthorized ? <p className="mt-2 text-xs text-[#8f2b2b]">Для избранного нужна авторизация в Telegram.</p> : null}
       </div>

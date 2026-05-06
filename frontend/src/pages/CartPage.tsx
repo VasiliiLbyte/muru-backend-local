@@ -33,7 +33,7 @@ export const CartPage = ({ userId, onGoCatalog, onCheckout }: CartPageProps) => 
         <p className="mt-2 text-sm text-[#6f6666]">Добавьте товары, чтобы перейти к оформлению заказа.</p>
         <button
           type="button"
-          className="mt-5 rounded-xl bg-muru-olive px-6 py-3 text-sm font-semibold text-muru-ivory"
+          className="mt-5 rounded-xl bg-[#8f2b2b] px-6 py-3 text-sm font-semibold text-[#fff5ef]"
           onClick={onGoCatalog}
         >
           Перейти в каталог

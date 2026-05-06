@@ -1,6 +1,14 @@
 import type { Request, Response } from 'express'
+import { z } from 'zod'
 
+import { notifyRestockRequestByTelegram } from '../services/order-notifications.service'
 import { getCatalogProductBySku, getCatalogProducts, getCatalogTree } from '../services/catalog.service'
+
+const restockPayloadSchema = z.object({
+  telegramUserId: z.number().int().positive(),
+  sku: z.string().min(1),
+  productName: z.string().min(1),
+})
 
 export const getCatalogTreeHandler = async (_req: Request, res: Response) => {
   try {
@@ -52,6 +60,32 @@ export const getCatalogProductBySkuHandler = async (req: Request, res: Response)
       success: false,
       error: 'Failed to load product details',
       details: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+}
+
+export const restockNotifyHandler = async (req: Request, res: Response) => {
+  const parsed = restockPayloadSchema.safeParse(req.body)
+  if (!parsed.success) {
+    return res.status(400).json({
+      success: false,
+      data: null,
+      error: parsed.error.issues.map((issue) => issue.message).join('; '),
+    })
+  }
+
+  try {
+    await notifyRestockRequestByTelegram(parsed.data)
+    return res.json({
+      success: true,
+      data: { notified: true },
+      error: null,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to send restock notification',
     })
   }
 }

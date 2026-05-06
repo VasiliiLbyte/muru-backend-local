@@ -12,7 +12,12 @@ export type TelegramWebApp = {
   themeParams?: Record<string, string>
   ready: () => void
   expand: () => void
-  BackButton: { show: () => void; hide: () => void }
+  BackButton: {
+    show: () => void
+    hide: () => void
+    onClick?: (handler: () => void) => void
+    offClick?: (handler: () => void) => void
+  }
   MainButton: {
     setText: (text: string) => void
     show: () => void

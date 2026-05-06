@@ -68,6 +68,22 @@ export const fetchCatalogProductBySku = async (sku: string): Promise<CatalogProd
   return payload.data as CatalogProductDetail
 }
 
+export const notifyRestock = async (payloadBody: {
+  telegramUserId: number
+  sku: string
+  productName: string
+}): Promise<void> => {
+  const response = await fetch(`${API_BASE_URL}/api/catalog/restock-notify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payloadBody),
+  })
+  const payload = await response.json()
+  if (!response.ok || !payload.success) {
+    throw new Error(payload.error ?? 'Failed to send restock notification')
+  }
+}
+
 type DraftPayload = {
   telegramUserId: number
   items: CartItem[]

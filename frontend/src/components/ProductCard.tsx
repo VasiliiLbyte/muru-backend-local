@@ -6,9 +6,10 @@ type ProductCardProps = {
   product: CatalogProduct
   onOpenDetail: (sku: string) => void
   onAddToCart: (product: CatalogProduct) => void
+  onNotifyRestock: (product: CatalogProduct) => void
 }
 
-export const ProductCard = ({ product, onOpenDetail, onAddToCart }: ProductCardProps) => {
+export const ProductCard = ({ product, onOpenDetail, onAddToCart, onNotifyRestock }: ProductCardProps) => {
   const [imageIndex, setImageIndex] = useState(0)
   const images = product.imageUrls
 
@@ -44,9 +45,9 @@ export const ProductCard = ({ product, onOpenDetail, onAddToCart }: ProductCardP
       <button
         type="button"
         className="mt-2 w-full rounded-xl bg-muru-olive px-3 py-2 text-sm font-medium text-muru-ivory"
-        onClick={() => onAddToCart(product)}
+        onClick={() => (product.inStock > 0 ? onAddToCart(product) : onNotifyRestock(product))}
       >
-        В корзину
+        {product.inStock > 0 ? 'В корзину' : 'Сообщить о поступлении'}
       </button>
     </article>
   )

@@ -7,6 +7,7 @@ type ProfilePageProps = {
   userId?: number
   isAdmin: boolean
   webAppClose?: () => void
+  onGoCatalog: () => void
   onOpenFavorites: () => void
   onOpenOrders: () => void
   onOpenAdmin: () => void
@@ -23,6 +24,7 @@ export const ProfilePage = ({
   userId,
   isAdmin,
   webAppClose,
+  onGoCatalog,
   onOpenFavorites,
   onOpenOrders,
   onOpenAdmin,
@@ -87,6 +89,17 @@ export const ProfilePage = ({
         .map((part) => part[0]?.toUpperCase() ?? '')
         .join('')
     : 'M'
+
+  if (isLoading && !profile) {
+    return (
+      <section className="space-y-3 rounded-2xl border border-muru-accent bg-[#fff9ed] p-4">
+        <div className="h-8 w-40 animate-pulse rounded bg-[#efe8d8]" />
+        <div className="h-24 animate-pulse rounded-2xl bg-[#efe8d8]" />
+        <div className="h-36 animate-pulse rounded-2xl bg-[#efe8d8]" />
+        <div className="h-48 animate-pulse rounded-2xl bg-[#efe8d8]" />
+      </section>
+    )
+  }
 
   return (
     <section className="space-y-3 rounded-2xl border border-muru-accent bg-[#fff9ed] p-4">
@@ -192,7 +205,19 @@ export const ProfilePage = ({
             ))}
           </tbody>
         </table>
-        {orders.length === 0 ? <p className="mt-2 text-sm">История заказов пока пуста.</p> : null}
+        {orders.length === 0 ? (
+          <div className="mt-3 rounded-xl border border-muru-accent bg-[#fff9ed] p-5 text-center">
+            <div className="text-4xl">🧾</div>
+            <p className="mt-2 text-sm">Здесь пока пусто</p>
+            <button
+              type="button"
+              className="mt-3 rounded-xl bg-[#8f2b2b] px-4 py-2 text-xs font-semibold text-[#fff5ef]"
+              onClick={onGoCatalog}
+            >
+              Перейти в каталог
+            </button>
+          </div>
+        ) : null}
       </div>
 
       <div className="grid gap-2">

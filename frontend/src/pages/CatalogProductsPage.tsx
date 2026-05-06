@@ -6,6 +6,8 @@ type CatalogProductsPageProps = {
   products: CatalogProduct[]
   onOpenProductDetail: (sku: string) => void
   onAddToCart: (product: CatalogProduct) => void
+  onNotifyRestock: (product: CatalogProduct) => void
+  isLoading?: boolean
 }
 
 export const CatalogProductsPage = ({
@@ -13,20 +15,32 @@ export const CatalogProductsPage = ({
   products,
   onOpenProductDetail,
   onAddToCart,
+  onNotifyRestock,
+  isLoading = false,
 }: CatalogProductsPageProps) => {
   return (
     <section className="space-y-3">
       <h1 className="text-xl font-semibold text-muru-olive">{title}</h1>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {products.map((product) => (
-          <ProductCard
-            key={product.sku}
-            product={product}
-            onOpenDetail={onOpenProductDetail}
-            onAddToCart={onAddToCart}
-          />
-        ))}
-      </div>
+      {isLoading ? (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {[...Array(6)].map((_, idx) => (
+            <div key={idx} className="h-56 animate-pulse rounded-2xl bg-[#efe8d8]" />
+          ))}
+        </div>
+      ) : null}
+      {!isLoading ? (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {products.map((product) => (
+            <ProductCard
+              key={product.sku}
+              product={product}
+              onOpenDetail={onOpenProductDetail}
+              onAddToCart={onAddToCart}
+              onNotifyRestock={onNotifyRestock}
+            />
+          ))}
+        </div>
+      ) : null}
       {products.length === 0 ? <p className="text-sm">Товары не найдены.</p> : null}
     </section>
   )

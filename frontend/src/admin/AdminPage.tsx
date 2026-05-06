@@ -132,6 +132,13 @@ export const AdminPage = ({ userId, onBack }: AdminPageProps) => {
 
       {error ? <p className="mt-3 text-sm text-red-700">{error}</p> : null}
 
+      {isLoading && !lastResult ? (
+        <div className="mt-4 grid gap-2">
+          <div className="h-20 animate-pulse rounded-xl bg-[#efe8d8]" />
+          <div className="h-20 animate-pulse rounded-xl bg-[#efe8d8]" />
+        </div>
+      ) : null}
+
       {lastResult ? (
         <div className="mt-4 rounded-xl bg-[#efe8d8] p-3 text-sm">
           <h2 className="font-semibold text-muru-olive">Итог последней синхронизации</h2>

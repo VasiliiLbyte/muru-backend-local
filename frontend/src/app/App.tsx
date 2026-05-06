@@ -8,7 +8,7 @@ import { CatalogSearch } from '../components/CatalogSearch'
 import { BottomNavigation } from '../components/BottomNavigation'
 import { FavoritesProvider, useFavorites } from '../favorites/FavoritesContext'
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp'
-import { fetchCatalogProductBySku, fetchCatalogProducts, fetchCatalogTree } from '../lib/api'
+import { fetchCatalogProductBySku, fetchCatalogProducts, fetchCatalogTree, notifyRestock } from '../lib/api'
 import type { CatalogNode, CatalogProduct, CatalogProductDetail } from '../types/catalog'
 import { CatalogCategoryPage } from '../pages/CatalogCategoryPage'
 import { CatalogHomePage } from '../pages/CatalogHomePage'
@@ -32,6 +32,9 @@ type CatalogRoutesProps = {
   onProductsChange: (items: CatalogProduct[]) => void
   onOpenProductDetail: (sku: string) => void
   onAddToCart: (product: CatalogProduct) => void
+  onNotifyRestock: (product: CatalogProduct) => void
+  onProductsLoading: (value: boolean) => void
+  isProductsLoading: boolean
 }
 
 const CatalogRoutes = ({
@@ -44,6 +47,9 @@ const CatalogRoutes = ({
   onProductsChange,
   onOpenProductDetail,
   onAddToCart,
+  onNotifyRestock,
+  onProductsLoading,
+  isProductsLoading,
 }: CatalogRoutesProps) => {
   const params = useParams<{ categorySlug?: string; subcategorySlug?: string }>()
   const category = tree.find((item) => item.slug === params.categorySlug)
@@ -51,6 +57,7 @@ const CatalogRoutes = ({
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
+      onProductsLoading(true)
       fetchCatalogProducts({
         category: category?.name,
         subcategory: subcategory?.name,
@@ -61,10 +68,11 @@ const CatalogRoutes = ({
       })
         .then(onProductsChange)
         .catch(() => onProductsChange([]))
+        .finally(() => onProductsLoading(false))
     }, 250)
 
     return () => clearTimeout(timeoutId)
-  }, [category, subcategory, search, filters, onProductsChange])
+  }, [category, subcategory, search, filters, onProductsChange, onProductsLoading])
 
   return (
     <>
@@ -92,6 +100,8 @@ const CatalogRoutes = ({
                 products={products}
                 onOpenProductDetail={onOpenProductDetail}
                 onAddToCart={onAddToCart}
+                onNotifyRestock={onNotifyRestock}
+                isLoading={isProductsLoading}
               />
             ) : (
               <Navigate to="/catalog" />
@@ -110,12 +120,13 @@ const AppShell = () => {
   const [isAdminPageOpen, setIsAdminPageOpen] = useState(false)
   const [catalogTree, setCatalogTree] = useState<CatalogNode[]>([])
   const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>([])
+  const [isCatalogLoading, setIsCatalogLoading] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<CatalogProductDetail | null>(null)
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState({ color: '', size: '', priceMax: '' })
   const { userId, isAdmin, webApp } = useTelegramWebApp()
   const { addProduct, loadDraft } = useCart()
-  const { favorites, favoriteSkus, loadFavorites, toggleFavorite } = useFavorites()
+  const { favorites, favoriteSkus, isLoading: favoritesLoading, loadFavorites, toggleFavorite } = useFavorites()
 
   useEffect(() => {
     fetchCatalogTree().then(setCatalogTree).catch(() => setCatalogTree([]))
@@ -126,6 +137,47 @@ const AppShell = () => {
       loadDraft(userId).catch(() => undefined)
     }
   }, [activeTab, loadDraft, userId])
+
+  useEffect(() => {
+    const app = webApp
+    if (!app) return
+    const isInnerScreen = Boolean(selectedProduct || isCheckoutOpen || isAdminPageOpen)
+    const handleBack = () => {
+      if (selectedProduct) {
+        setSelectedProduct(null)
+        return
+      }
+      if (isCheckoutOpen) {
+        setIsCheckoutOpen(false)
+        return
+      }
+      if (isAdminPageOpen) {
+        setIsAdminPageOpen(false)
+      }
+    }
+
+    if (isInnerScreen) {
+      app.BackButton.show()
+      app.BackButton.onClick?.(handleBack)
+    } else {
+      app.BackButton.hide()
+    }
+
+    return () => {
+      app.BackButton.offClick?.(handleBack)
+      if (!isInnerScreen) app.BackButton.hide()
+    }
+  }, [webApp, selectedProduct, isCheckoutOpen, isAdminPageOpen])
+
+  const handleNotifyRestock = (product: CatalogProduct | CatalogProductDetail) => {
+    if (!userId) {
+      alert('Требуется авторизация в Telegram для уведомления о поступлении.')
+      return
+    }
+    notifyRestock({ telegramUserId: userId, sku: product.sku, productName: product.name })
+      .then(() => alert('Запрос принят. Мы уведомим вас о поступлении товара.'))
+      .catch((error) => alert(error instanceof Error ? error.message : 'Не удалось отправить уведомление'))
+  }
 
   useEffect(() => {
     if (userId) {
@@ -151,6 +203,7 @@ const AppShell = () => {
           <ProductDetailPage
             product={selectedProduct}
             onAddToCart={addProduct}
+            onNotifyRestock={handleNotifyRestock}
             isAuthorized={Boolean(userId)}
             isFavorite={favoriteSkus.has(selectedProduct.sku)}
             onToggleFavorite={(product) => {
@@ -185,6 +238,9 @@ const AppShell = () => {
                     .catch(() => setSelectedProduct(null))
                 }}
                 onAddToCart={addProduct}
+                onNotifyRestock={handleNotifyRestock}
+                onProductsLoading={setIsCatalogLoading}
+                isProductsLoading={isCatalogLoading}
               />
             }
           />
@@ -198,6 +254,7 @@ const AppShell = () => {
           userId={userId}
           isAdmin={isAdmin}
           webAppClose={webApp?.close}
+          onGoCatalog={() => handleSelectTab('Каталог')}
           onOpenFavorites={() => handleSelectTab('Избранное')}
           onOpenOrders={() => handleSelectTab('Корзина')}
           onOpenAdmin={() => setIsAdminPageOpen(true)}
@@ -205,7 +262,7 @@ const AppShell = () => {
       )
     }
     if (activeTab === 'Избранное') {
-      return <FavoritesPage items={favorites} onGoCatalog={() => handleSelectTab('Каталог')} />
+      return <FavoritesPage items={favorites} isLoading={favoritesLoading} onGoCatalog={() => handleSelectTab('Каталог')} />
     }
     if (activeTab === 'Корзина') {
       if (isCheckoutOpen) {
