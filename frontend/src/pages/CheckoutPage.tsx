@@ -38,7 +38,7 @@ export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
         deliveryMode: createdOrder.deliveryMode,
         deliveryOption: createdOrder.deliveryOption,
       })
-      alert(`Заказ №${createdOrder.id} создан. Ожидайте уведомления менеджера`)
+      alert(`Заказ №${createdOrder.id} принят. Ожидайте звонка менеджера`)
       onBackToCart()
     } finally {
       setIsSubmitting(false)

@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express'
 import { z } from 'zod'
 
+import { notifyAdminsByTelegram, notifyByEmail } from '../services/order-notifications.service'
 import { createOrder, getDraftOrderByTelegramUserId, getOrdersByTelegramUserId, saveDraftOrder } from '../services/orders.service'
 
 const itemSchema = z.object({
@@ -85,13 +86,11 @@ export const createOrderHandler = async (req: Request, res: Response) => {
 
   try {
     const order = await createOrder(parsed.data)
-    console.log('[order-notify]', {
-      orderId: order.id,
-      telegramUserId: order.telegramUserId,
-      total: order.total,
-      deliveryMode: order.deliveryMode,
-      deliveryOption: order.deliveryOption,
-      status: order.status,
+    void notifyAdminsByTelegram(order).catch((notifyError) => {
+      console.error('[telegram-order-notify:error]', notifyError)
+    })
+    void notifyByEmail(order).catch((notifyError) => {
+      console.error('[email-order-notify:error]', notifyError)
     })
     return res.json({ success: true, data: order, error: null })
   } catch (error) {
