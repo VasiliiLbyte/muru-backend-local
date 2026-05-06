@@ -1,4 +1,6 @@
 import type { OrderDraft } from '../types/order'
+import { callTelegramApi } from './telegram-http.service'
+import { sendEmail } from './email.service'
 import { env } from '../utils/env'
 
 const formatOrderSummary = (order: OrderDraft) =>
@@ -14,35 +16,67 @@ export const notifyAdminsByTelegram = async (order: OrderDraft): Promise<void> =
   const summary = formatOrderSummary(order)
   const targetIds = env.orderNotifyTelegramIds.length > 0 ? env.orderNotifyTelegramIds : env.adminTelegramIds
 
-  if (!env.telegramBotToken) {
-    throw new Error('TELEGRAM_BOT_TOKEN is required for Telegram notifications')
-  }
-
   for (const chatId of targetIds) {
-    const response = await fetch(`https://api.telegram.org/bot${env.telegramBotToken}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text: summary,
-      }),
+    await callTelegramApi('sendMessage', {
+      chat_id: chatId,
+      text: summary,
     })
-    if (!response.ok) {
-      const errorBody = await response.text()
-      throw new Error(`Telegram notify failed for chat ${chatId}: ${errorBody}`)
-    }
   }
 }
 
 export const notifyByEmail = async (order: OrderDraft): Promise<void> => {
-  const summary = formatOrderSummary(order)
-  console.log('[email-order-notify:stub]', {
-    mode: 'stub',
-    to: env.orderNotifyEmail,
-    smtpConfigured: Boolean(env.smtpHost && env.smtpUser && env.smtpPass),
-    subject: `Новый заказ #${order.id}`,
-    body: summary,
+  const itemsHtml = order.items
+    .map(
+      (item) => `<tr>
+      <td>${item.name}</td>
+      <td>${item.quantity} шт.</td>
+      <td>${item.price.toFixed(2)} ₽</td>
+    </tr>`,
+    )
+    .join('')
+
+  await sendEmail({
+    to: env.orderNotifyEmail || 'Muru_online@mail.ru',
+    subject: `Новый заказ MURU #${order.id}`,
+    html: `
+      <h2>Новый заказ #${order.id}</h2>
+      <p><strong>Telegram ID:</strong> ${order.telegramUserId}</p>
+      <p><strong>Доставка:</strong> ${order.deliveryMode === 'pickup' ? 'Самовывоз' : (order.deliveryOption ?? 'Доставка')}</p>
+      <p><strong>Адрес:</strong> ${order.address || '—'}</p>
+      <p><strong>Комментарий:</strong> ${order.comment || '—'}</p>
+      <table border="1" cellpadding="6" style="border-collapse:collapse">
+        <thead><tr><th>Товар</th><th>Количество</th><th>Цена</th></tr></thead>
+        <tbody>${itemsHtml}</tbody>
+      </table>
+      <p><strong>Итого: ${order.total.toFixed(2)} ₽</strong></p>
+      <p>Дата: ${new Date().toLocaleString('ru-RU')}</p>
+    `,
   })
+}
+
+export const notifyClientByTelegram = async (order: OrderDraft): Promise<void> => {
+  if (!env.telegramBotToken) return
+
+  try {
+    await callTelegramApi('sendMessage', {
+      chat_id: order.telegramUserId,
+      parse_mode: 'HTML',
+      text: [
+        `✅ <b>Заказ #${order.id} принят!</b>`,
+        '',
+        `Сумма: <b>${order.total.toFixed(2)} ₽</b>`,
+        `Доставка: ${order.deliveryMode === 'pickup' ? 'Самовывоз' : (order.deliveryOption ?? 'Курьер')}`,
+        order.address ? `Адрес: ${order.address}` : '',
+        '',
+        'Менеджер свяжется с вами в ближайшее время.',
+        'По вопросам: @muru_support',
+      ]
+        .filter(Boolean)
+        .join('\n'),
+    })
+  } catch (error) {
+    console.error('[notify-client:error]', error)
+  }
 }
 
 export const notifyRestockRequestByTelegram = async (payload: {
@@ -50,10 +84,6 @@ export const notifyRestockRequestByTelegram = async (payload: {
   sku: string
   productName: string
 }): Promise<void> => {
-  if (!env.telegramBotToken) {
-    throw new Error('TELEGRAM_BOT_TOKEN is required for Telegram notifications')
-  }
-
   const targetIds = env.orderNotifyTelegramIds.length > 0 ? env.orderNotifyTelegramIds : env.adminTelegramIds
   const message = [
     'Запрос на уведомление о поступлении',
@@ -64,18 +94,10 @@ export const notifyRestockRequestByTelegram = async (payload: {
   ].join('\n')
 
   for (const chatId of targetIds) {
-    const response = await fetch(`https://api.telegram.org/bot${env.telegramBotToken}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text: message,
-      }),
+    await callTelegramApi('sendMessage', {
+      chat_id: chatId,
+      text: message,
     })
-    if (!response.ok) {
-      const errorBody = await response.text()
-      throw new Error(`Restock notify failed for chat ${chatId}: ${errorBody}`)
-    }
   }
 }
 

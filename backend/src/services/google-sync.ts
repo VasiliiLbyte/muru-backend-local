@@ -16,7 +16,7 @@ const rowSchema = z.object({
   variants: z.string().default(''),
 })
 
-type DriveImageRef = { order: 1 | 2; fileId: string }
+type DriveImageRef = { order: number; fileId: string }
 
 const slugify = (value: string) =>
   value
@@ -57,12 +57,14 @@ const parseVariants = (raw: string): Variant[] => {
     })
 }
 
-const extractSkuAndOrder = (filename: string): { sku: string; order: 1 | 2 } | null => {
-  const match = filename.match(/^(MU\d{4})-(1|2)\.webp$/i)
+const extractSkuAndOrder = (filename: string): { sku: string; order: number } | null => {
+  const match = filename.match(/^(MU\d{4})-(\d+)\.webp$/i)
   if (!match) return null
+  const parsedOrder = Number(match[2])
+  if (!Number.isInteger(parsedOrder) || parsedOrder < 1) return null
   return {
     sku: match[1].toUpperCase(),
-    order: Number(match[2]) as 1 | 2,
+    order: parsedOrder,
   }
 }
 
@@ -150,7 +152,7 @@ const normalizeProduct = (
     .filter(Boolean)
 
   const orderedRefs = (imageRefs ?? []).sort((a, b) => a.order - b.order)
-  if (orderedRefs.length !== 2 || orderedRefs[0].order !== 1 || orderedRefs[1].order !== 2) {
+  if (orderedRefs.length < 1) {
     return null
   }
 
@@ -163,7 +165,7 @@ const normalizeProduct = (
     description: parsed.data.description,
     specs: parseSpecs(parsed.data.specs),
     variants: parseVariants(parsed.data.variants),
-    imageUrls: [buildPublicUrl(orderedRefs[0].fileId), buildPublicUrl(orderedRefs[1].fileId)],
+    imageUrls: orderedRefs.map((ref) => buildPublicUrl(ref.fileId)),
   }
 }
 
@@ -186,8 +188,8 @@ const upsertProduct = async (product: Product) => {
     const categoryId = categoryResult.rows[0].id
 
     const productResult = await client.query<{ id: number }>(
-      `INSERT INTO products (sku, name, description, price, in_stock, specs, image_url_1, image_url_2, category_id, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,NOW())
+      `INSERT INTO products (sku, name, description, price, in_stock, specs, image_url_1, image_url_2, image_urls, category_id, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9::jsonb,$10,NOW())
        ON CONFLICT (sku)
        DO UPDATE SET
          name = EXCLUDED.name,
@@ -197,6 +199,7 @@ const upsertProduct = async (product: Product) => {
          specs = EXCLUDED.specs,
          image_url_1 = EXCLUDED.image_url_1,
          image_url_2 = EXCLUDED.image_url_2,
+         image_urls = EXCLUDED.image_urls,
          category_id = EXCLUDED.category_id,
          updated_at = NOW()
        RETURNING id`,
@@ -208,7 +211,8 @@ const upsertProduct = async (product: Product) => {
         product.inStock,
         JSON.stringify(product.specs),
         product.imageUrls[0],
-        product.imageUrls[1],
+        product.imageUrls[1] ?? product.imageUrls[0],
+        JSON.stringify(product.imageUrls),
         categoryId,
       ],
     )
@@ -250,7 +254,7 @@ export const syncCatalogFromGoogle = async (): Promise<SyncResult> => {
     const product = normalizeProduct(row, driveImageMap.get(sku))
     if (!product) {
       skippedProducts += 1
-      errors.push({ sku, reason: 'Invalid row data or image set is not exactly MUxxxx-1/2.webp' })
+      errors.push({ sku, reason: 'Invalid row data or image set is empty (expected MUxxxx-N.webp, N >= 1)' })
       continue
     }
 

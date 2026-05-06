@@ -1,7 +1,9 @@
 import type { Request, Response } from 'express'
 import { z } from 'zod'
 
-import { notifyAdminsByTelegram, notifyByEmail } from '../services/order-notifications.service'
+import type { AuthenticatedRequest } from '../middleware/auth.middleware'
+import { decreaseStockInSheets } from '../services/google-sheets-write.service'
+import { notifyAdminsByTelegram, notifyByEmail, notifyClientByTelegram } from '../services/order-notifications.service'
 import { createOrder, getDraftOrderByTelegramUserId, getOrdersByTelegramUserId, saveDraftOrder } from '../services/orders.service'
 
 const itemSchema = z.object({
@@ -14,7 +16,7 @@ const itemSchema = z.object({
 })
 
 const draftPayloadSchema = z.object({
-  telegramUserId: z.number().int().positive(),
+  telegramUserId: z.number().int().positive().optional(),
   items: z.array(itemSchema),
   deliveryMode: z.enum(['delivery', 'pickup']),
   deliveryOption: z.string().optional(),
@@ -26,11 +28,9 @@ const draftPayloadSchema = z.object({
 })
 
 export const getDraftOrderHandler = async (req: Request, res: Response) => {
-  const telegramUserId = Number(req.params.telegramUserId)
-  if (!Number.isInteger(telegramUserId) || telegramUserId <= 0) {
-    return res.status(400).json({ success: false, data: null, error: 'Invalid telegramUserId' })
-  }
+  const telegramUserId = (req as AuthenticatedRequest).auth?.telegramId
 
+  if (!telegramUserId) return res.status(401).json({ success: false, data: null, error: 'Unauthorized' })
   try {
     const draft = await getDraftOrderByTelegramUserId(telegramUserId)
     return res.json({ success: true, data: draft, error: null })
@@ -44,6 +44,9 @@ export const getDraftOrderHandler = async (req: Request, res: Response) => {
 }
 
 export const saveDraftOrderHandler = async (req: Request, res: Response) => {
+  const telegramUserId = (req as AuthenticatedRequest).auth?.telegramId
+  if (!telegramUserId) return res.status(401).json({ success: false, data: null, error: 'Unauthorized' })
+
   const parsed = draftPayloadSchema.safeParse(req.body)
   if (!parsed.success) {
     return res.status(400).json({
@@ -57,7 +60,7 @@ export const saveDraftOrderHandler = async (req: Request, res: Response) => {
   }
 
   try {
-    const draft = await saveDraftOrder(parsed.data)
+    const draft = await saveDraftOrder({ ...parsed.data, telegramUserId })
     return res.json({ success: true, data: draft, error: null })
   } catch (error) {
     return res.status(500).json({
@@ -69,6 +72,9 @@ export const saveDraftOrderHandler = async (req: Request, res: Response) => {
 }
 
 export const createOrderHandler = async (req: Request, res: Response) => {
+  const telegramUserId = (req as AuthenticatedRequest).auth?.telegramId
+  if (!telegramUserId) return res.status(401).json({ success: false, data: null, error: 'Unauthorized' })
+
   const parsed = draftPayloadSchema.safeParse(req.body)
   if (!parsed.success) {
     return res.status(400).json({
@@ -85,9 +91,21 @@ export const createOrderHandler = async (req: Request, res: Response) => {
   }
 
   try {
-    const order = await createOrder(parsed.data)
+    const order = await createOrder({ ...parsed.data, telegramUserId })
+    const stockUpdates = order.items.map((item) => ({
+      sku: item.sku,
+      quantity: item.quantity,
+    }))
+
+    void decreaseStockInSheets(stockUpdates).catch((err) => {
+      console.error('[sheets-write:error]', err)
+    })
+
     void notifyAdminsByTelegram(order).catch((notifyError) => {
       console.error('[telegram-order-notify:error]', notifyError)
+    })
+    void notifyClientByTelegram(order).catch((err) => {
+      console.error('[telegram-client-notify:error]', err)
     })
     void notifyByEmail(order).catch((notifyError) => {
       console.error('[email-order-notify:error]', notifyError)
@@ -103,16 +121,8 @@ export const createOrderHandler = async (req: Request, res: Response) => {
 }
 
 export const getMyOrdersHandler = async (req: Request, res: Response) => {
-  const queryId = req.query.telegramUserId
-  const headerId = req.header('x-telegram-user-id')
-  const telegramUserId = Number(queryId ?? headerId)
-  if (!Number.isInteger(telegramUserId) || telegramUserId <= 0) {
-    return res.status(400).json({
-      success: false,
-      data: null,
-      error: 'Invalid telegramUserId',
-    })
-  }
+  const telegramUserId = (req as AuthenticatedRequest).auth?.telegramId
+  if (!telegramUserId) return res.status(401).json({ success: false, data: null, error: 'Unauthorized' })
 
   try {
     const orders = await getOrdersByTelegramUserId(telegramUserId)

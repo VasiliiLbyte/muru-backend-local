@@ -32,6 +32,7 @@ type ProductRow = {
   in_stock: number
   image_url_1: string
   image_url_2: string
+  image_urls: string[] | null
   category_name: string | null
   color: string | null
   size: string | null
@@ -44,11 +45,22 @@ type ProductDetailRow = {
   in_stock: number
   image_url_1: string
   image_url_2: string
+  image_urls: string[] | null
   category_name: string | null
   description: string
   specs: Record<string, string> | null
   color: string | null
   size: string | null
+}
+
+const normalizeImageUrls = (
+  imageUrls: string[] | null | undefined,
+  imageUrl1: string | null | undefined,
+  imageUrl2: string | null | undefined,
+): string[] => {
+  const fromJson = Array.isArray(imageUrls) ? imageUrls.filter(Boolean) : []
+  if (fromJson.length > 0) return fromJson
+  return [imageUrl1, imageUrl2].filter((url): url is string => Boolean(url))
 }
 
 const buildCatalogTree = (categoryPaths: string[]) => {
@@ -134,6 +146,7 @@ export const getCatalogProducts = async (params: {
        p.in_stock,
        p.image_url_1,
        p.image_url_2,
+       p.image_urls,
        c.name AS category_name,
        v.color,
        v.size
@@ -158,7 +171,7 @@ export const getCatalogProducts = async (params: {
         name: row.name,
         price: Number(row.price),
         inStock: row.in_stock,
-        imageUrls: [row.image_url_1, row.image_url_2],
+        imageUrls: normalizeImageUrls(row.image_urls, row.image_url_1, row.image_url_2),
         colors: [],
         sizes: [],
         category: categoryName,
@@ -183,6 +196,7 @@ export const getCatalogProductBySku = async (sku: string): Promise<CatalogProduc
        p.in_stock,
        p.image_url_1,
        p.image_url_2,
+       p.image_urls,
        p.description,
        p.specs,
        c.name AS category_name,
@@ -220,7 +234,7 @@ export const getCatalogProductBySku = async (sku: string): Promise<CatalogProduc
     name: first.name,
     price: Number(first.price),
     inStock: first.in_stock,
-    imageUrls: [first.image_url_1, first.image_url_2],
+    imageUrls: normalizeImageUrls(first.image_urls, first.image_url_1, first.image_url_2),
     colors: Array.from(colors),
     sizes: Array.from(sizes),
     category,

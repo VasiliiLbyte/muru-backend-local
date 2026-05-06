@@ -9,7 +9,7 @@ export type CatalogProduct = {
   name: string
   price: number
   inStock: number
-  imageUrls: [string, string]
+  imageUrls: string[]
   colors: string[]
   sizes: string[]
   category: string

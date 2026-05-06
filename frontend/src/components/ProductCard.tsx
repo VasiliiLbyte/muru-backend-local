@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 
 import type { CatalogProduct } from '../types/catalog'
 
@@ -11,7 +11,11 @@ type ProductCardProps = {
 
 export const ProductCard = ({ product, onOpenDetail, onAddToCart, onNotifyRestock }: ProductCardProps) => {
   const [imageIndex, setImageIndex] = useState(0)
-  const images = product.imageUrls
+  const images = useMemo(
+    () => (product.imageUrls.length > 0 ? product.imageUrls : ['https://placehold.co/600x600?text=MURU']),
+    [product.imageUrls],
+  )
+  const safeImageIndex = Math.min(imageIndex, images.length - 1)
 
   return (
     <article className="rounded-2xl border border-muru-accent bg-[#fff9ed] p-3 shadow-sm">
@@ -21,7 +25,7 @@ export const ProductCard = ({ product, onOpenDetail, onAddToCart, onNotifyRestoc
         onClick={() => onOpenDetail(product.sku)}
       >
         <img
-          src={images[imageIndex]}
+          src={images[safeImageIndex]}
           alt={product.name}
           className="aspect-square w-full rounded-xl bg-[#efe8d8] object-cover"
         />
@@ -31,7 +35,7 @@ export const ProductCard = ({ product, onOpenDetail, onAddToCart, onNotifyRestoc
             <button
               key={`${product.sku}-${idx}`}
               type="button"
-              className={`h-2 w-2 rounded-full ${idx === imageIndex ? 'bg-muru-olive' : 'bg-muru-accent'}`}
+              className={`h-2 w-2 rounded-full ${idx === safeImageIndex ? 'bg-muru-olive' : 'bg-muru-accent'}`}
               onClick={() => setImageIndex(idx)}
               aria-label={`Фото ${idx + 1}`}
             />

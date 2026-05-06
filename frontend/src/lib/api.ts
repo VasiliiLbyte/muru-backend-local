@@ -1,6 +1,7 @@
 import type { CatalogNode, CatalogProduct, CatalogProductDetail } from '../types/catalog'
 import type { CartItem, CheckoutForm, DraftOrder, OrderHistoryItem, ProfileData } from '../types/cart'
 import type { FavoriteItem } from '../types/favorite'
+import { getStoredToken } from './auth'
 
 export type SyncApiResult = {
   totalRows: number
@@ -11,8 +12,28 @@ export type SyncApiResult = {
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000'
 
+const safeFetch = async (url: string, options?: RequestInit): Promise<Response> => {
+  try {
+    const response = await fetch(url, options)
+    if (response.status === 502 || response.status === 503 || response.status === 504) {
+      throw new Error('Сервер временно недоступен. Попробуйте позже.')
+    }
+    return response
+  } catch (error) {
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('Нет соединения с сервером. Проверьте интернет.', { cause: error })
+    }
+    throw error
+  }
+}
+
+const getAuthHeaders = (): HeadersInit => {
+  const token = getStoredToken()
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
 export const triggerCatalogSync = async (telegramUserId: number): Promise<SyncApiResult> => {
-  const response = await fetch(`${API_BASE_URL}/api/admin/sync`, {
+  const response = await safeFetch(`${API_BASE_URL}/api/admin/sync`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -30,7 +51,7 @@ export const triggerCatalogSync = async (telegramUserId: number): Promise<SyncAp
 }
 
 export const fetchCatalogTree = async (): Promise<CatalogNode[]> => {
-  const response = await fetch(`${API_BASE_URL}/api/catalog/tree`)
+  const response = await safeFetch(`${API_BASE_URL}/api/catalog/tree`)
   const payload = await response.json()
   if (!response.ok || !payload.success) {
     throw new Error(payload.error ?? 'Failed to load catalog tree')
@@ -51,7 +72,7 @@ export const fetchCatalogProducts = async (params: {
     if (value !== undefined && value !== '') searchParams.set(key, String(value))
   })
   const query = searchParams.toString()
-  const response = await fetch(`${API_BASE_URL}/api/catalog/products${query ? `?${query}` : ''}`)
+  const response = await safeFetch(`${API_BASE_URL}/api/catalog/products${query ? `?${query}` : ''}`)
   const payload = await response.json()
   if (!response.ok || !payload.success) {
     throw new Error(payload.error ?? 'Failed to load catalog products')
@@ -60,7 +81,7 @@ export const fetchCatalogProducts = async (params: {
 }
 
 export const fetchCatalogProductBySku = async (sku: string): Promise<CatalogProductDetail> => {
-  const response = await fetch(`${API_BASE_URL}/api/catalog/products/${encodeURIComponent(sku)}`)
+  const response = await safeFetch(`${API_BASE_URL}/api/catalog/products/${encodeURIComponent(sku)}`)
   const payload = await response.json()
   if (!response.ok || !payload.success) {
     throw new Error(payload.error ?? 'Failed to load product detail')
@@ -73,9 +94,9 @@ export const notifyRestock = async (payloadBody: {
   sku: string
   productName: string
 }): Promise<void> => {
-  const response = await fetch(`${API_BASE_URL}/api/catalog/restock-notify`, {
+  const response = await safeFetch(`${API_BASE_URL}/api/catalog/restock-notify`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify(payloadBody),
   })
   const payload = await response.json()
@@ -98,7 +119,9 @@ type DraftPayload = {
 }
 
 export const fetchOrderDraft = async (telegramUserId: number): Promise<DraftOrder | null> => {
-  const response = await fetch(`${API_BASE_URL}/api/orders/draft/${telegramUserId}`)
+  const response = await safeFetch(`${API_BASE_URL}/api/orders/draft/${telegramUserId}`, {
+    headers: getAuthHeaders(),
+  })
   const payload = await response.json()
   if (!response.ok || !payload.success) {
     throw new Error(payload.error ?? 'Failed to load draft order')
@@ -107,9 +130,9 @@ export const fetchOrderDraft = async (telegramUserId: number): Promise<DraftOrde
 }
 
 export const saveOrderDraft = async (payloadBody: DraftPayload): Promise<DraftOrder> => {
-  const response = await fetch(`${API_BASE_URL}/api/orders/draft/save`, {
+  const response = await safeFetch(`${API_BASE_URL}/api/orders/draft/save`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify(payloadBody),
   })
   const payload = await response.json()
@@ -120,9 +143,9 @@ export const saveOrderDraft = async (payloadBody: DraftPayload): Promise<DraftOr
 }
 
 export const createOrder = async (payloadBody: DraftPayload): Promise<DraftOrder> => {
-  const response = await fetch(`${API_BASE_URL}/api/orders/create`, {
+  const response = await safeFetch(`${API_BASE_URL}/api/orders/create`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify(payloadBody),
   })
   const payload = await response.json()
@@ -133,8 +156,8 @@ export const createOrder = async (payloadBody: DraftPayload): Promise<DraftOrder
 }
 
 export const fetchMyOrders = async (telegramUserId: number): Promise<OrderHistoryItem[]> => {
-  const response = await fetch(`${API_BASE_URL}/api/orders/my?telegramUserId=${telegramUserId}`, {
-    headers: { 'x-telegram-user-id': String(telegramUserId) },
+  const response = await safeFetch(`${API_BASE_URL}/api/orders/my?telegramUserId=${telegramUserId}`, {
+    headers: getAuthHeaders(),
   })
   const payload = await response.json()
   if (!response.ok || !payload.success) {
@@ -144,8 +167,8 @@ export const fetchMyOrders = async (telegramUserId: number): Promise<OrderHistor
 }
 
 export const fetchMyProfile = async (telegramUserId: number): Promise<ProfileData> => {
-  const response = await fetch(`${API_BASE_URL}/api/profile/me?telegramUserId=${telegramUserId}`, {
-    headers: { 'x-telegram-user-id': String(telegramUserId) },
+  const response = await safeFetch(`${API_BASE_URL}/api/profile/me?telegramUserId=${telegramUserId}`, {
+    headers: getAuthHeaders(),
   })
   const payload = await response.json()
   if (!response.ok || !payload.success) {
@@ -155,9 +178,9 @@ export const fetchMyProfile = async (telegramUserId: number): Promise<ProfileDat
 }
 
 export const saveMyProfile = async (payloadBody: ProfileData): Promise<ProfileData> => {
-  const response = await fetch(`${API_BASE_URL}/api/profile/save`, {
+  const response = await safeFetch(`${API_BASE_URL}/api/profile/save`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify(payloadBody),
   })
   const payload = await response.json()
@@ -168,8 +191,8 @@ export const saveMyProfile = async (payloadBody: ProfileData): Promise<ProfileDa
 }
 
 export const fetchMyFavorites = async (telegramUserId: number): Promise<FavoriteItem[]> => {
-  const response = await fetch(`${API_BASE_URL}/api/favorites/my?telegramUserId=${telegramUserId}`, {
-    headers: { 'x-telegram-user-id': String(telegramUserId) },
+  const response = await safeFetch(`${API_BASE_URL}/api/favorites/my?telegramUserId=${telegramUserId}`, {
+    headers: getAuthHeaders(),
   })
   const payload = await response.json()
   if (!response.ok || !payload.success) {
@@ -179,9 +202,9 @@ export const fetchMyFavorites = async (telegramUserId: number): Promise<Favorite
 }
 
 export const addFavorite = async (telegramUserId: number, sku: string): Promise<void> => {
-  const response = await fetch(`${API_BASE_URL}/api/favorites/add`, {
+  const response = await safeFetch(`${API_BASE_URL}/api/favorites/add`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify({ telegramUserId, sku }),
   })
   const payload = await response.json()
@@ -191,9 +214,9 @@ export const addFavorite = async (telegramUserId: number, sku: string): Promise<
 }
 
 export const removeFavorite = async (telegramUserId: number, sku: string): Promise<void> => {
-  const response = await fetch(`${API_BASE_URL}/api/favorites/remove`, {
+  const response = await safeFetch(`${API_BASE_URL}/api/favorites/remove`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify({ telegramUserId, sku }),
   })
   const payload = await response.json()

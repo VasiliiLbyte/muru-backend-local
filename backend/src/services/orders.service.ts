@@ -243,6 +243,12 @@ export const createOrder = async (input: CheckoutDraftInput): Promise<OrderDraft
     )
     const order = inserted.rows[0]
     await replaceOrderItems(client, order.id, input.items)
+    for (const item of input.items) {
+      await client.query(
+        `UPDATE products SET in_stock = GREATEST(0, in_stock - $1) WHERE sku = $2`,
+        [item.quantity, item.sku],
+      )
+    }
     await client.query(
       `UPDATE orders SET is_draft = FALSE, updated_at = NOW()
        WHERE telegram_user_id = $1 AND is_draft = TRUE`,

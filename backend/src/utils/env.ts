@@ -1,12 +1,34 @@
+import { existsSync } from 'node:fs'
+import { resolve } from 'node:path'
+
+import dotenv from 'dotenv'
 import { z } from 'zod'
 
+const envCandidatePaths = [
+  resolve(process.cwd(), '.env'),
+  resolve(process.cwd(), '../.env'),
+  resolve(process.cwd(), '.cursor/.env'),
+  resolve(process.cwd(), '../.cursor/.env'),
+]
+
+const resolvedEnvPath = envCandidatePaths.find((filePath) => existsSync(filePath))
+
+if (resolvedEnvPath) {
+  dotenv.config({ path: resolvedEnvPath })
+}
+
 const envSchema = z.object({
+  NODE_ENV: z.string().optional(),
   PORT: z.string().optional(),
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
+  JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
+  DEV_TELEGRAM_USER_ID: z.string().optional(),
+  ALLOWED_ORIGINS: z.string().optional(),
   ADMIN_TELEGRAM_IDS: z.string().default(''),
   ORDER_NOTIFY_TELEGRAM_IDS: z.string().default(''),
   TELEGRAM_BOT_TOKEN: z.string().optional(),
-  ORDER_NOTIFY_EMAIL: z.string().email().default('Muru_online@mail.ru'),
+  TELEGRAM_MINI_APP_URL: z.string().optional(),
+  ORDER_NOTIFY_EMAIL: z.union([z.string().email(), z.literal('')]).default('Muru_online@mail.ru'),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.string().optional(),
   SMTP_USER: z.string().optional(),
@@ -35,13 +57,23 @@ const orderNotifyTelegramIds = parsed.data.ORDER_NOTIFY_TELEGRAM_IDS
   .map((item) => Number(item.trim()))
   .filter((value) => Number.isInteger(value))
 
+const allowedOrigins = (parsed.data.ALLOWED_ORIGINS ?? '')
+  .split(',')
+  .map((item) => item.trim())
+  .filter(Boolean)
+
 export const env = {
+  nodeEnv: parsed.data.NODE_ENV || 'development',
   port: Number(parsed.data.PORT || 4000),
   databaseUrl: parsed.data.DATABASE_URL,
+  jwtSecret: parsed.data.JWT_SECRET,
+  devTelegramUserId: parsed.data.DEV_TELEGRAM_USER_ID ?? '',
+  allowedOrigins,
   adminTelegramIds,
   orderNotifyTelegramIds,
   telegramBotToken: parsed.data.TELEGRAM_BOT_TOKEN ?? '',
-  orderNotifyEmail: parsed.data.ORDER_NOTIFY_EMAIL,
+  telegramMiniAppUrl: parsed.data.TELEGRAM_MINI_APP_URL ?? '',
+  orderNotifyEmail: parsed.data.ORDER_NOTIFY_EMAIL || 'Muru_online@mail.ru',
   smtpHost: parsed.data.SMTP_HOST ?? '',
   smtpPort: Number(parsed.data.SMTP_PORT || 0),
   smtpUser: parsed.data.SMTP_USER ?? '',

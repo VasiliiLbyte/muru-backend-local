@@ -65,6 +65,37 @@ cd frontend && npm run build
 cd backend && npm run build
 ```
 
+## Деплой на Beget VPS
+
+### Подготовка
+1. VPS: Ubuntu 22.04, 2 vCPU, 2GB RAM
+2. Домен: настрой A-запись на IP сервера
+3. Nginx + Let's Encrypt SSL
+
+### Деплой backend
+```bash
+git clone https://github.com/your/repo.git /var/www/muru
+cd /var/www/muru
+cp .env.example .env
+# Заполни .env реальными значениями
+cd backend && npm ci && npm run build && cd ..
+pm2 start ecosystem.config.js
+pm2 save
+pm2 startup
+```
+
+### Деплой frontend
+```bash
+cd frontend && npm ci && npm run build
+# dist/ загружать на Vercel или отдавать через nginx
+```
+
+### Обновление
+```bash
+git pull origin main
+bash deploy.sh
+```
+
 ## Admin Sync Endpoint
 
 - Endpoint: `POST /api/admin/sync`

@@ -12,11 +12,23 @@ CREATE TABLE IF NOT EXISTS products (
   price NUMERIC(12, 2) NOT NULL DEFAULT 0,
   in_stock INTEGER NOT NULL DEFAULT 0,
   specs JSONB NOT NULL DEFAULT '{}'::jsonb,
+  -- image_url_1: первое фото (обязательное)
   image_url_1 TEXT NOT NULL,
+  -- image_url_2: второе фото (дублирует image_url_1 если фото одно)
   image_url_2 TEXT NOT NULL,
   category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- image_urls: JSONB массив всех фото (основной источник)
+ALTER TABLE products
+  ADD COLUMN IF NOT EXISTS image_urls JSONB NOT NULL DEFAULT '[]'::jsonb;
+
+UPDATE products
+SET image_urls = (
+  SELECT to_jsonb(array_remove(ARRAY[image_url_1, image_url_2], NULL))
+)
+WHERE (image_urls IS NULL OR image_urls = '[]'::jsonb);
 
 CREATE TABLE IF NOT EXISTS variants (
   id SERIAL PRIMARY KEY,
@@ -83,3 +95,15 @@ CREATE TABLE IF NOT EXISTS favorites (
 
 CREATE INDEX IF NOT EXISTS idx_favorites_telegram_user_id ON favorites(telegram_user_id);
 CREATE INDEX IF NOT EXISTS idx_favorites_product_sku ON favorites(product_sku);
+
+CREATE TABLE IF NOT EXISTS users (
+  id SERIAL PRIMARY KEY,
+  telegram_id BIGINT UNIQUE NOT NULL,
+  first_name VARCHAR(255),
+  last_name VARCHAR(255),
+  username VARCHAR(255),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_login_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_users_telegram_id ON users(telegram_id);

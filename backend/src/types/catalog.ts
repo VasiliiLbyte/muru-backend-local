@@ -18,7 +18,7 @@ export type Product = {
   description: string
   specs: Record<string, string>
   variants: Variant[]
-  imageUrls: [string, string]
+  imageUrls: string[]
 }
 
 export type SyncError = {
@@ -44,7 +44,7 @@ export type CatalogProductListItem = {
   name: string
   price: number
   inStock: number
-  imageUrls: [string, string]
+  imageUrls: string[]
   colors: string[]
   sizes: string[]
   category: string

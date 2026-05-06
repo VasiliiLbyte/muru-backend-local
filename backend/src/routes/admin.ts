@@ -40,4 +40,30 @@ adminRouter.post('/sync', async (req, res) => {
   }
 })
 
+adminRouter.post('/sync/stock', async (req, res) => {
+  const telegramUserId = parseTelegramUserId(req.header('x-telegram-user-id'), req.body?.telegramUserId)
+  if (!telegramUserId || !env.adminTelegramIds.includes(telegramUserId)) {
+    return res.status(403).json({
+      success: false,
+      data: null,
+      error: 'Forbidden: admin access required',
+    })
+  }
+
+  try {
+    const result = await syncCatalogFromGoogle()
+    return res.json({
+      success: true,
+      data: { message: 'Stock synced', ...result },
+      error: null,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      data: null,
+      error: error instanceof Error ? error.message : 'Stock sync failed',
+    })
+  }
+})
+
 export { adminRouter }

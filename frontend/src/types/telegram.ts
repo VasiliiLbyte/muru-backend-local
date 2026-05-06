@@ -6,6 +6,7 @@ export type TelegramWebAppUser = {
 }
 
 export type TelegramWebApp = {
+  initData?: string
   initDataUnsafe?: {
     user?: TelegramWebAppUser
   }
