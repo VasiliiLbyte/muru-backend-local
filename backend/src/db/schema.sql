@@ -72,3 +72,14 @@ CREATE TABLE IF NOT EXISTS user_profiles (
 );
 
 CREATE INDEX IF NOT EXISTS idx_user_profiles_telegram_user_id ON user_profiles(telegram_user_id);
+
+CREATE TABLE IF NOT EXISTS favorites (
+  id SERIAL PRIMARY KEY,
+  telegram_user_id BIGINT NOT NULL,
+  product_sku TEXT NOT NULL REFERENCES products(sku) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (telegram_user_id, product_sku)
+);
+
+CREATE INDEX IF NOT EXISTS idx_favorites_telegram_user_id ON favorites(telegram_user_id);
+CREATE INDEX IF NOT EXISTS idx_favorites_product_sku ON favorites(product_sku);

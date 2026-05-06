@@ -6,6 +6,7 @@ import { CartProvider, useCart } from '../cart/CartContext'
 import { CatalogFilters } from '../components/CatalogFilters'
 import { CatalogSearch } from '../components/CatalogSearch'
 import { BottomNavigation } from '../components/BottomNavigation'
+import { FavoritesProvider, useFavorites } from '../favorites/FavoritesContext'
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp'
 import { fetchCatalogProductBySku, fetchCatalogProducts, fetchCatalogTree } from '../lib/api'
 import type { CatalogNode, CatalogProduct, CatalogProductDetail } from '../types/catalog'
@@ -14,6 +15,7 @@ import { CatalogHomePage } from '../pages/CatalogHomePage'
 import { CatalogProductsPage } from '../pages/CatalogProductsPage'
 import { CartPage } from '../pages/CartPage'
 import { CheckoutPage } from '../pages/CheckoutPage'
+import { FavoritesPage } from '../pages/FavoritesPage'
 import { PlaceholderPage } from '../pages/PlaceholderPage'
 import { ProductDetailPage } from '../pages/ProductDetailPage'
 import { ProfilePage } from '../pages/ProfilePage'
@@ -113,6 +115,7 @@ const AppShell = () => {
   const [filters, setFilters] = useState({ color: '', size: '', priceMax: '' })
   const { userId, isAdmin, webApp } = useTelegramWebApp()
   const { addProduct, loadDraft } = useCart()
+  const { favorites, favoriteSkus, loadFavorites, toggleFavorite } = useFavorites()
 
   useEffect(() => {
     fetchCatalogTree().then(setCatalogTree).catch(() => setCatalogTree([]))
@@ -123,6 +126,12 @@ const AppShell = () => {
       loadDraft(userId).catch(() => undefined)
     }
   }, [activeTab, loadDraft, userId])
+
+  useEffect(() => {
+    if (userId) {
+      loadFavorites(userId).catch(() => undefined)
+    }
+  }, [userId, loadFavorites])
 
   const handleSelectTab = (tab: string) => {
     setActiveTab(tab)
@@ -138,7 +147,23 @@ const AppShell = () => {
     }
     if (activeTab === 'Каталог') {
       if (selectedProduct) {
-        return <ProductDetailPage product={selectedProduct} onAddToCart={addProduct} />
+        return (
+          <ProductDetailPage
+            product={selectedProduct}
+            onAddToCart={addProduct}
+            isAuthorized={Boolean(userId)}
+            isFavorite={favoriteSkus.has(selectedProduct.sku)}
+            onToggleFavorite={(product) => {
+              toggleFavorite(userId, {
+                sku: product.sku,
+                name: product.name,
+                price: product.price,
+                imageUrl: product.imageUrls[0],
+                inStock: product.inStock,
+              }).catch(() => undefined)
+            }}
+          />
+        )
       }
 
       return (
@@ -173,9 +198,14 @@ const AppShell = () => {
           userId={userId}
           isAdmin={isAdmin}
           webAppClose={webApp?.close}
+          onOpenFavorites={() => handleSelectTab('Избранное')}
+          onOpenOrders={() => handleSelectTab('Корзина')}
           onOpenAdmin={() => setIsAdminPageOpen(true)}
         />
       )
+    }
+    if (activeTab === 'Избранное') {
+      return <FavoritesPage items={favorites} onGoCatalog={() => handleSelectTab('Каталог')} />
     }
     if (activeTab === 'Корзина') {
       if (isCheckoutOpen) {
@@ -206,7 +236,9 @@ function App() {
   return (
     <BrowserRouter>
       <CartProvider>
-        <AppShell />
+        <FavoritesProvider>
+          <AppShell />
+        </FavoritesProvider>
       </CartProvider>
     </BrowserRouter>
   )

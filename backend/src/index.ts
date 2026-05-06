@@ -4,6 +4,7 @@ import express from 'express'
 
 import { adminRouter } from './routes/admin'
 import { catalogRouter } from './routes/catalog.routes'
+import { favoritesRouter } from './routes/favorites.routes'
 import { ordersRouter } from './routes/orders.routes'
 import { profileRouter } from './routes/profile.routes'
 import { env } from './utils/env'
@@ -17,6 +18,7 @@ app.use(cors())
 app.use(express.json())
 app.use('/api/admin', adminRouter)
 app.use('/api/catalog', catalogRouter)
+app.use('/api/favorites', favoritesRouter)
 app.use('/api/orders', ordersRouter)
 app.use('/api/profile', profileRouter)
 

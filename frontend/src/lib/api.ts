@@ -1,5 +1,6 @@
 import type { CatalogNode, CatalogProduct, CatalogProductDetail } from '../types/catalog'
 import type { CartItem, CheckoutForm, DraftOrder, OrderHistoryItem, ProfileData } from '../types/cart'
+import type { FavoriteItem } from '../types/favorite'
 
 export type SyncApiResult = {
   totalRows: number
@@ -148,4 +149,39 @@ export const saveMyProfile = async (payloadBody: ProfileData): Promise<ProfileDa
     throw new Error(payload.error ?? 'Failed to save profile')
   }
   return payload.data as ProfileData
+}
+
+export const fetchMyFavorites = async (telegramUserId: number): Promise<FavoriteItem[]> => {
+  const response = await fetch(`${API_BASE_URL}/api/favorites/my?telegramUserId=${telegramUserId}`, {
+    headers: { 'x-telegram-user-id': String(telegramUserId) },
+  })
+  const payload = await response.json()
+  if (!response.ok || !payload.success) {
+    throw new Error(payload.error ?? 'Failed to load favorites')
+  }
+  return payload.data as FavoriteItem[]
+}
+
+export const addFavorite = async (telegramUserId: number, sku: string): Promise<void> => {
+  const response = await fetch(`${API_BASE_URL}/api/favorites/add`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ telegramUserId, sku }),
+  })
+  const payload = await response.json()
+  if (!response.ok || !payload.success) {
+    throw new Error(payload.error ?? 'Failed to add favorite')
+  }
+}
+
+export const removeFavorite = async (telegramUserId: number, sku: string): Promise<void> => {
+  const response = await fetch(`${API_BASE_URL}/api/favorites/remove`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ telegramUserId, sku }),
+  })
+  const payload = await response.json()
+  if (!response.ok || !payload.success) {
+    throw new Error(payload.error ?? 'Failed to remove favorite')
+  }
 }
