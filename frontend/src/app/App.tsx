@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
 
-import { AdminPage } from '../admin/AdminPage'
+import { AdminDashboard } from '../admin/AdminDashboard'
 import { CatalogFilters } from '../components/CatalogFilters'
 import { CatalogSearch } from '../components/CatalogSearch'
 import { BottomNavigation } from '../components/BottomNavigation'
@@ -119,7 +119,7 @@ const AppShell = () => {
 
   const renderPage = () => {
     if (isAdminPageOpen && isAdmin) {
-      return <AdminPage userId={userId} onBack={() => setIsAdminPageOpen(false)} />
+      return <AdminDashboard userId={userId} onBack={() => setIsAdminPageOpen(false)} />
     }
     if (activeTab === 'Каталог') {
       if (selectedProduct) {
@@ -157,16 +157,7 @@ const AppShell = () => {
     return <PlaceholderPage title={activeTab} />
   }
 
-  const pageContent = useMemo(renderPage, [
-    activeTab,
-    isAdminPageOpen,
-    isAdmin,
-    userId,
-    catalogTree,
-    catalogProducts,
-    search,
-    filters,
-  ])
+  const pageContent = renderPage()
 
   return (
     <div className="mx-auto flex min-h-screen max-w-[560px] flex-col bg-muru-ivory">

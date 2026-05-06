@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo } from 'react'
 import '@tma.js/sdk'
 
 import type { TelegramWebApp } from '../types/telegram'
@@ -13,28 +13,23 @@ const parseAdminIds = (rawValue?: string): number[] => {
 }
 
 export const useTelegramWebApp = () => {
-  const [webApp, setWebApp] = useState<TelegramWebApp | undefined>(
-    window.Telegram?.WebApp,
-  )
+  const webApp: TelegramWebApp | undefined = useMemo(() => window.Telegram?.WebApp, [])
 
   useEffect(() => {
-    const app = window.Telegram?.WebApp
-    if (!app) return
+    if (!webApp) return
 
-    app.ready()
-    app.expand()
-    app.BackButton.hide()
-    app.MainButton.setText('Оформить заказ')
-    app.MainButton.show()
+    webApp.ready()
+    webApp.expand()
+    webApp.BackButton.hide()
+    webApp.MainButton.setText('Оформить заказ')
+    webApp.MainButton.show()
 
-    if (app.themeParams) {
-      Object.entries(app.themeParams).forEach(([key, value]) => {
+    if (webApp.themeParams) {
+      Object.entries(webApp.themeParams).forEach(([key, value]) => {
         document.documentElement.style.setProperty(`--tg-${key}`, value)
       })
     }
-
-    setWebApp(app)
-  }, [])
+  }, [webApp])
 
   const userId = webApp?.initDataUnsafe?.user?.id
   const adminIds = useMemo(

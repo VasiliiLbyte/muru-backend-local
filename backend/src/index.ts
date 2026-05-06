@@ -2,7 +2,7 @@ import cors from 'cors'
 import dotenv from 'dotenv'
 import express from 'express'
 
-import { adminRouter } from './routes/admin.routes'
+import { adminRouter } from './routes/admin'
 import { catalogRouter } from './routes/catalog.routes'
 import { env } from './utils/env'
 

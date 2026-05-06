@@ -74,3 +74,21 @@ cd backend && npm run build
   - scans Drive files by `MUxxxx-1.webp` and `MUxxxx-2.webp`,
   - generates public image links,
   - upserts products/categories/variants into PostgreSQL.
+
+## Как запустить админку
+
+1. В `.env` укажи админские Telegram ID:
+   - `VITE_ADMIN_IDS` для фронтенда,
+   - `ADMIN_TELEGRAM_IDS` для бэкенда.
+2. Запусти backend:
+   - `cd backend`
+   - `npm install`
+   - `npm run dev`
+3. Запусти frontend:
+   - `cd frontend`
+   - `npm install`
+   - `npm run dev`
+4. Открой Mini App, перейди в вкладку `Профиль` и нажми `Админ`.
+5. На странице `AdminDashboard` используй кнопки:
+   - `Синхронизировать каталог` для запуска `POST /api/admin/sync`,
+   - `Обновить` для повторного запуска синхронизации и обновления статуса/лога.
