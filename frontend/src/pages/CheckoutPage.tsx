@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { useCart } from '../cart/CartContext'
 
@@ -8,31 +8,64 @@ type CheckoutPageProps = {
 }
 
 const mockAddressSuggestions = [
-  'Москва, Тверская улица, 7',
-  'Москва, Ленинградский проспект, 15',
-  'Москва, Кутузовский проспект, 29',
+  'Санкт-Петербург, Невский проспект, 38',
+  'Санкт-Петербург, Лиговский проспект, 50',
+  'Санкт-Петербург, Большой проспект П.С., 18',
+  'Санкт-Петербург, Московский проспект, 103',
 ]
 
 const cdekOptions = [
-  { label: 'CDEK Курьер до двери', price: 390, eta: '2-4 дня' },
-  { label: 'CDEK Пункт выдачи', price: 250, eta: '2-3 дня' },
-  { label: 'CDEK Экспресс', price: 590, eta: '1-2 дня' },
+  { label: 'Супер-экспресс', code: 'super-express', price: 890, eta: 'сегодня до 22:00' },
+  { label: 'Экспресс склад-дверь', code: 'express-warehouse-door', price: 540, eta: '1-2 дня' },
+  { label: 'Экспресс склад-склад', code: 'express-warehouse-warehouse', price: 390, eta: '1-2 дня' },
+  { label: 'Посылка склад-дверь', code: 'parcel-warehouse-door', price: 320, eta: '2-4 дня' },
 ]
 
 export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
   const { items, checkout, updateCheckout, submitOrder, total, subtotal, persistDraft, isLoading, error } = useCart()
-  const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const hasItems = useMemo(() => items.length > 0, [items.length])
 
-  const handleConfirm = async () => {
-    setSuccessMessage(null)
-    await submitOrder(userId)
-    setSuccessMessage('Заказ создан. Статус: Черновик')
-  }
+  const handleConfirm = useCallback(async () => {
+    if (isSubmitting) return
+    setIsSubmitting(true)
+    try {
+      const createdOrder = await submitOrder(userId)
+      console.log('[checkout-confirmed]', {
+        orderId: createdOrder.id,
+        total: createdOrder.total,
+        deliveryMode: createdOrder.deliveryMode,
+        deliveryOption: createdOrder.deliveryOption,
+      })
+      alert(`Заказ №${createdOrder.id} создан. Ожидайте уведомления менеджера`)
+      onBackToCart()
+    } finally {
+      setIsSubmitting(false)
+    }
+  }, [isSubmitting, submitOrder, userId, onBackToCart])
+
+  useEffect(() => {
+    const webApp = window.Telegram?.WebApp
+    if (!webApp) return
+
+    webApp.MainButton.setText('Подтвердить заказ')
+    if (hasItems && !isLoading && !isSubmitting) {
+      webApp.MainButton.enable()
+    } else {
+      webApp.MainButton.disable()
+    }
+    webApp.MainButton.show()
+    webApp.MainButton.onClick(handleConfirm)
+
+    return () => {
+      webApp.MainButton.offClick(handleConfirm)
+      webApp.MainButton.hide()
+    }
+  }, [handleConfirm, hasItems, isLoading, isSubmitting])
 
   return (
-    <section className="space-y-3">
+    <section className="space-y-3 pb-3">
       <div className="rounded-2xl border border-muru-accent bg-[#fff9ed] p-4">
         <h1 className="text-xl font-semibold text-muru-olive">Оформление заказа</h1>
         <p className="mt-2 text-sm">Заполните данные доставки и подтвердите заказ.</p>
@@ -143,8 +176,6 @@ export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
       </div>
 
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
-      {successMessage ? <p className="text-sm text-green-700">{successMessage}</p> : null}
-
       <div className="grid gap-2">
         <button
           type="button"
@@ -156,7 +187,7 @@ export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
         <button
           type="button"
           className="rounded-xl bg-[#e3dccd] px-4 py-2 text-sm font-medium"
-          disabled={isLoading || !hasItems}
+          disabled={isLoading || isSubmitting || !hasItems}
           onClick={() => persistDraft(userId)}
         >
           Сохранить черновик
@@ -164,7 +195,7 @@ export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
         <button
           type="button"
           className="rounded-xl bg-muru-olive px-4 py-3 text-sm font-semibold text-muru-ivory"
-          disabled={isLoading || !hasItems}
+          disabled={isLoading || isSubmitting || !hasItems}
           onClick={handleConfirm}
         >
           Подтвердить заказ

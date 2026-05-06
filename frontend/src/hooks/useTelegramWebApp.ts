@@ -21,8 +21,7 @@ export const useTelegramWebApp = () => {
     webApp.ready()
     webApp.expand()
     webApp.BackButton.hide()
-    webApp.MainButton.setText('Оформить заказ')
-    webApp.MainButton.show()
+    webApp.MainButton.hide()
 
     if (webApp.themeParams) {
       Object.entries(webApp.themeParams).forEach(([key, value]) => {

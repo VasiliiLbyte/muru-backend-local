@@ -17,6 +17,10 @@ export type TelegramWebApp = {
     setText: (text: string) => void
     show: () => void
     hide: () => void
+    onClick: (handler: () => void) => void
+    offClick: (handler: () => void) => void
+    enable: () => void
+    disable: () => void
   }
 }
 

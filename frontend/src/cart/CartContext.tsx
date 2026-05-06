@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
 
 import { createOrder, fetchOrderDraft, saveOrderDraft } from '../lib/api'
-import type { CartItem, CheckoutForm } from '../types/cart'
+import type { CartItem, CheckoutForm, DraftOrder } from '../types/cart'
 import type { CatalogProduct, CatalogProductDetail } from '../types/catalog'
 
 type CartContextValue = {
@@ -17,7 +17,7 @@ type CartContextValue = {
   removeItem: (sku: string) => void
   updateCheckout: (patch: Partial<CheckoutForm>) => void
   persistDraft: (telegramUserId?: number) => Promise<void>
-  submitOrder: (telegramUserId?: number) => Promise<void>
+  submitOrder: (telegramUserId?: number) => Promise<DraftOrder>
 }
 
 const defaultCheckout: CheckoutForm = {
@@ -127,7 +127,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       setIsLoading(true)
       setError(null)
       try {
-        await createOrder({
+        const createdOrder = await createOrder({
           telegramUserId,
           items,
           deliveryMode: checkout.deliveryMode,
@@ -140,6 +140,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         })
         setItems([])
         setCheckout(defaultCheckout)
+        return createdOrder
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Не удалось создать заказ'
         setError(message)
