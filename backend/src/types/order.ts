@@ -37,3 +37,11 @@ export type OrderDraft = {
   items: OrderItemInput[]
 }
 
+export type OrderHistoryItem = {
+  id: number
+  createdAt: string
+  status: string
+  total: number
+  items: OrderItemInput[]
+}
+

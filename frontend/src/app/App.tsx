@@ -111,7 +111,7 @@ const AppShell = () => {
   const [selectedProduct, setSelectedProduct] = useState<CatalogProductDetail | null>(null)
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState({ color: '', size: '', priceMax: '' })
-  const { userId, isAdmin } = useTelegramWebApp()
+  const { userId, isAdmin, webApp } = useTelegramWebApp()
   const { addProduct, loadDraft } = useCart()
 
   useEffect(() => {
@@ -168,7 +168,14 @@ const AppShell = () => {
       )
     }
     if (activeTab === 'Профиль') {
-      return <ProfilePage userId={userId} isAdmin={isAdmin} onOpenAdmin={() => setIsAdminPageOpen(true)} />
+      return (
+        <ProfilePage
+          userId={userId}
+          isAdmin={isAdmin}
+          webAppClose={webApp?.close}
+          onOpenAdmin={() => setIsAdminPageOpen(true)}
+        />
+      )
     }
     if (activeTab === 'Корзина') {
       if (isCheckoutOpen) {

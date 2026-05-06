@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express'
 import { z } from 'zod'
 
-import { createOrder, getDraftOrderByTelegramUserId, saveDraftOrder } from '../services/orders.service'
+import { createOrder, getDraftOrderByTelegramUserId, getOrdersByTelegramUserId, saveDraftOrder } from '../services/orders.service'
 
 const itemSchema = z.object({
   sku: z.string().min(1),
@@ -99,6 +99,34 @@ export const createOrderHandler = async (req: Request, res: Response) => {
       success: false,
       data: null,
       error: error instanceof Error ? error.message : 'Failed to create order',
+    })
+  }
+}
+
+export const getMyOrdersHandler = async (req: Request, res: Response) => {
+  const queryId = req.query.telegramUserId
+  const headerId = req.header('x-telegram-user-id')
+  const telegramUserId = Number(queryId ?? headerId)
+  if (!Number.isInteger(telegramUserId) || telegramUserId <= 0) {
+    return res.status(400).json({
+      success: false,
+      data: null,
+      error: 'Invalid telegramUserId',
+    })
+  }
+
+  try {
+    const orders = await getOrdersByTelegramUserId(telegramUserId)
+    return res.json({
+      success: true,
+      data: orders,
+      error: null,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to load order history',
     })
   }
 }

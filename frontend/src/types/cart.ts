@@ -34,3 +34,18 @@ export type DraftOrder = {
   total: number
   items: CartItem[]
 }
+
+export type ProfileData = {
+  telegramUserId: number
+  fullName: string
+  phone: string
+  deliveryAddresses: string[]
+}
+
+export type OrderHistoryItem = {
+  id: number
+  createdAt: string
+  status: string
+  total: number
+  items: CartItem[]
+}

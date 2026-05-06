@@ -1,7 +1,7 @@
 import type { PoolClient } from 'pg'
 
 import { pool } from '../utils/db'
-import type { CheckoutDraftInput, OrderDraft, OrderItemInput } from '../types/order'
+import type { CheckoutDraftInput, OrderDraft, OrderHistoryItem, OrderItemInput } from '../types/order'
 
 const normalizeMoney = (value: number | undefined) => {
   if (typeof value !== 'number' || !Number.isFinite(value)) return 0
@@ -271,4 +271,58 @@ export const createOrder = async (input: CheckoutDraftInput): Promise<OrderDraft
   } finally {
     client.release()
   }
+}
+
+export const getOrdersByTelegramUserId = async (telegramUserId: number): Promise<OrderHistoryItem[]> => {
+  const ordersResult = await pool.query<{
+    id: number
+    created_at: string
+    status: string
+    total: string
+  }>(
+    `SELECT id, created_at::text, status, total::text
+     FROM orders
+     WHERE telegram_user_id = $1
+     ORDER BY created_at DESC`,
+    [telegramUserId],
+  )
+
+  if (ordersResult.rows.length === 0) return []
+
+  const itemsResult = await pool.query<{
+    order_id: number
+    product_sku: string
+    product_name: string
+    price: string
+    quantity: number
+    color: string | null
+    size: string | null
+  }>(
+    `SELECT order_id, product_sku, product_name, price::text, quantity, color, size
+     FROM order_items
+     WHERE order_id = ANY($1::int[])`,
+    [ordersResult.rows.map((row) => row.id)],
+  )
+
+  const itemMap = new Map<number, OrderItemInput[]>()
+  for (const row of itemsResult.rows) {
+    const list = itemMap.get(row.order_id) ?? []
+    list.push({
+      sku: row.product_sku,
+      name: row.product_name,
+      price: Number(row.price),
+      quantity: row.quantity,
+      color: row.color ?? undefined,
+      size: row.size ?? undefined,
+    })
+    itemMap.set(row.order_id, list)
+  }
+
+  return ordersResult.rows.map((row) => ({
+    id: row.id,
+    createdAt: row.created_at,
+    status: row.status,
+    total: Number(row.total),
+    items: itemMap.get(row.id) ?? [],
+  }))
 }

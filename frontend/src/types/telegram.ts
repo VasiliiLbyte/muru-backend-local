@@ -22,6 +22,7 @@ export type TelegramWebApp = {
     enable: () => void
     disable: () => void
   }
+  close?: () => void
 }
 
 declare global {

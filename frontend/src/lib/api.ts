@@ -1,5 +1,5 @@
 import type { CatalogNode, CatalogProduct, CatalogProductDetail } from '../types/catalog'
-import type { CartItem, CheckoutForm, DraftOrder } from '../types/cart'
+import type { CartItem, CheckoutForm, DraftOrder, OrderHistoryItem, ProfileData } from '../types/cart'
 
 export type SyncApiResult = {
   totalRows: number
@@ -112,4 +112,39 @@ export const createOrder = async (payloadBody: DraftPayload): Promise<DraftOrder
     throw new Error(payload.error ?? 'Failed to create order')
   }
   return payload.data as DraftOrder
+}
+
+export const fetchMyOrders = async (telegramUserId: number): Promise<OrderHistoryItem[]> => {
+  const response = await fetch(`${API_BASE_URL}/api/orders/my?telegramUserId=${telegramUserId}`, {
+    headers: { 'x-telegram-user-id': String(telegramUserId) },
+  })
+  const payload = await response.json()
+  if (!response.ok || !payload.success) {
+    throw new Error(payload.error ?? 'Failed to load order history')
+  }
+  return payload.data as OrderHistoryItem[]
+}
+
+export const fetchMyProfile = async (telegramUserId: number): Promise<ProfileData> => {
+  const response = await fetch(`${API_BASE_URL}/api/profile/me?telegramUserId=${telegramUserId}`, {
+    headers: { 'x-telegram-user-id': String(telegramUserId) },
+  })
+  const payload = await response.json()
+  if (!response.ok || !payload.success) {
+    throw new Error(payload.error ?? 'Failed to load profile')
+  }
+  return payload.data as ProfileData
+}
+
+export const saveMyProfile = async (payloadBody: ProfileData): Promise<ProfileData> => {
+  const response = await fetch(`${API_BASE_URL}/api/profile/save`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payloadBody),
+  })
+  const payload = await response.json()
+  if (!response.ok || !payload.success) {
+    throw new Error(payload.error ?? 'Failed to save profile')
+  }
+  return payload.data as ProfileData
 }
