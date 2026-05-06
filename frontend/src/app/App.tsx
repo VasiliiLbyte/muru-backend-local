@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
 
 import { AdminDashboard } from '../admin/AdminDashboard'
+import { CartProvider, useCart } from '../cart/CartContext'
 import { CatalogFilters } from '../components/CatalogFilters'
 import { CatalogSearch } from '../components/CatalogSearch'
 import { BottomNavigation } from '../components/BottomNavigation'
@@ -11,6 +12,8 @@ import type { CatalogNode, CatalogProduct, CatalogProductDetail } from '../types
 import { CatalogCategoryPage } from '../pages/CatalogCategoryPage'
 import { CatalogHomePage } from '../pages/CatalogHomePage'
 import { CatalogProductsPage } from '../pages/CatalogProductsPage'
+import { CartPage } from '../pages/CartPage'
+import { CheckoutPage } from '../pages/CheckoutPage'
 import { PlaceholderPage } from '../pages/PlaceholderPage'
 import { ProductDetailPage } from '../pages/ProductDetailPage'
 import { ProfilePage } from '../pages/ProfilePage'
@@ -26,6 +29,7 @@ type CatalogRoutesProps = {
   onFilterChange: (key: 'color' | 'size' | 'priceMax', value: string) => void
   onProductsChange: (items: CatalogProduct[]) => void
   onOpenProductDetail: (sku: string) => void
+  onAddToCart: (product: CatalogProduct) => void
 }
 
 const CatalogRoutes = ({
@@ -37,6 +41,7 @@ const CatalogRoutes = ({
   onFilterChange,
   onProductsChange,
   onOpenProductDetail,
+  onAddToCart,
 }: CatalogRoutesProps) => {
   const params = useParams<{ categorySlug?: string; subcategorySlug?: string }>()
   const category = tree.find((item) => item.slug === params.categorySlug)
@@ -84,6 +89,7 @@ const CatalogRoutes = ({
                 title={`${category.name} / ${subcategory.name}`}
                 products={products}
                 onOpenProductDetail={onOpenProductDetail}
+                onAddToCart={onAddToCart}
               />
             ) : (
               <Navigate to="/catalog" />
@@ -98,6 +104,7 @@ const CatalogRoutes = ({
 const AppShell = () => {
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState(DEFAULT_TAB)
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false)
   const [isAdminPageOpen, setIsAdminPageOpen] = useState(false)
   const [catalogTree, setCatalogTree] = useState<CatalogNode[]>([])
   const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>([])
@@ -105,13 +112,21 @@ const AppShell = () => {
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState({ color: '', size: '', priceMax: '' })
   const { userId, isAdmin } = useTelegramWebApp()
+  const { addProduct, loadDraft } = useCart()
 
   useEffect(() => {
     fetchCatalogTree().then(setCatalogTree).catch(() => setCatalogTree([]))
   }, [])
 
+  useEffect(() => {
+    if (activeTab === 'Корзина') {
+      loadDraft(userId).catch(() => undefined)
+    }
+  }, [activeTab, loadDraft, userId])
+
   const handleSelectTab = (tab: string) => {
     setActiveTab(tab)
+    setIsCheckoutOpen(false)
     setIsAdminPageOpen(false)
     setSelectedProduct(null)
     if (tab === 'Каталог') navigate('/catalog')
@@ -123,7 +138,7 @@ const AppShell = () => {
     }
     if (activeTab === 'Каталог') {
       if (selectedProduct) {
-        return <ProductDetailPage product={selectedProduct} />
+        return <ProductDetailPage product={selectedProduct} onAddToCart={addProduct} />
       }
 
       return (
@@ -144,6 +159,7 @@ const AppShell = () => {
                     .then(setSelectedProduct)
                     .catch(() => setSelectedProduct(null))
                 }}
+                onAddToCart={addProduct}
               />
             }
           />
@@ -153,6 +169,12 @@ const AppShell = () => {
     }
     if (activeTab === 'Профиль') {
       return <ProfilePage userId={userId} isAdmin={isAdmin} onOpenAdmin={() => setIsAdminPageOpen(true)} />
+    }
+    if (activeTab === 'Корзина') {
+      if (isCheckoutOpen) {
+        return <CheckoutPage userId={userId} onBackToCart={() => setIsCheckoutOpen(false)} />
+      }
+      return <CartPage userId={userId} onCheckout={() => setIsCheckoutOpen(true)} />
     }
     return <PlaceholderPage title={activeTab} />
   }
@@ -170,7 +192,9 @@ const AppShell = () => {
 function App() {
   return (
     <BrowserRouter>
-      <AppShell />
+      <CartProvider>
+        <AppShell />
+      </CartProvider>
     </BrowserRouter>
   )
 }

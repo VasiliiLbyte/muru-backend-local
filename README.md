@@ -92,3 +92,31 @@ cd backend && npm run build
 5. На странице `AdminDashboard` используй кнопки:
    - `Синхронизировать каталог` для запуска `POST /api/admin/sync`,
    - `Обновить` для повторного запуска синхронизации и обновления статуса/лога.
+
+## Корзина и оформление заказа
+
+- Корзина находится во вкладке `Корзина` в Mini App.
+- Данные корзины и формы checkout сохраняются как серверный черновик через:
+  - `GET /api/orders/draft/:telegramUserId`
+  - `POST /api/orders/draft/save`
+- Подтверждение заказа выполняется через:
+  - `POST /api/orders/create`
+- Заказ сохраняется в PostgreSQL со статусом `Черновик`, а уведомление пока отправляется как `console.log` на backend.
+
+### Запуск checkout flow локально
+
+1. Применить схему БД (включая `orders` и `order_items`):
+   - `psql "$DATABASE_URL" -f backend/src/db/schema.sql`
+2. Поднять backend:
+   - `cd backend`
+   - `npm install`
+   - `npm run dev`
+3. Поднять frontend:
+   - `cd frontend`
+   - `npm install`
+   - `npm run dev`
+4. Открыть Mini App:
+   - добавить товары в корзину,
+   - перейти к `Оформить заказ`,
+   - выбрать `Доставка` или `Самовывоз`,
+   - нажать `Подтвердить заказ`.

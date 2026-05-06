@@ -1,4 +1,5 @@
 import type { CatalogNode, CatalogProduct, CatalogProductDetail } from '../types/catalog'
+import type { CartItem, CheckoutForm, DraftOrder } from '../types/cart'
 
 export type SyncApiResult = {
   totalRows: number
@@ -64,4 +65,51 @@ export const fetchCatalogProductBySku = async (sku: string): Promise<CatalogProd
     throw new Error(payload.error ?? 'Failed to load product detail')
   }
   return payload.data as CatalogProductDetail
+}
+
+type DraftPayload = {
+  telegramUserId: number
+  items: CartItem[]
+  deliveryMode: CheckoutForm['deliveryMode']
+  deliveryOption?: string
+  deliveryPrice?: number
+  deliveryEta?: string
+  address?: string
+  comment?: string
+  birthDate?: string
+}
+
+export const fetchOrderDraft = async (telegramUserId: number): Promise<DraftOrder | null> => {
+  const response = await fetch(`${API_BASE_URL}/api/orders/draft/${telegramUserId}`)
+  const payload = await response.json()
+  if (!response.ok || !payload.success) {
+    throw new Error(payload.error ?? 'Failed to load draft order')
+  }
+  return (payload.data as DraftOrder | null) ?? null
+}
+
+export const saveOrderDraft = async (payloadBody: DraftPayload): Promise<DraftOrder> => {
+  const response = await fetch(`${API_BASE_URL}/api/orders/draft/save`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payloadBody),
+  })
+  const payload = await response.json()
+  if (!response.ok || !payload.success) {
+    throw new Error(payload.error ?? 'Failed to save draft order')
+  }
+  return payload.data as DraftOrder
+}
+
+export const createOrder = async (payloadBody: DraftPayload): Promise<DraftOrder> => {
+  const response = await fetch(`${API_BASE_URL}/api/orders/create`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payloadBody),
+  })
+  const payload = await response.json()
+  if (!response.ok || !payload.success) {
+    throw new Error(payload.error ?? 'Failed to create order')
+  }
+  return payload.data as DraftOrder
 }

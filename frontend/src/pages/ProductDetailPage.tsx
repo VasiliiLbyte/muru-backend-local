@@ -4,9 +4,10 @@ import type { CatalogProductDetail } from '../types/catalog'
 
 type ProductDetailPageProps = {
   product: CatalogProductDetail
+  onAddToCart: (product: CatalogProductDetail) => void
 }
 
-export const ProductDetailPage = ({ product }: ProductDetailPageProps) => {
+export const ProductDetailPage = ({ product, onAddToCart }: ProductDetailPageProps) => {
   const [imageIndex, setImageIndex] = useState(0)
   const specEntries = useMemo(() => Object.entries(product.specs || {}), [product.specs])
 
@@ -67,6 +68,7 @@ export const ProductDetailPage = ({ product }: ProductDetailPageProps) => {
         <button
           type="button"
           className="mt-5 w-full rounded-xl bg-muru-olive px-4 py-3 text-sm font-medium text-muru-ivory"
+          onClick={() => onAddToCart(product)}
         >
           В корзину
         </button>
