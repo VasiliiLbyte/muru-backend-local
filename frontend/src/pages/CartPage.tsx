@@ -127,7 +127,7 @@ export const CartPage = ({ userId, onGoCatalog, onCheckout }: CartPageProps) => 
           </button>
           <button
             type="button"
-            className="rounded-xl bg-[#8f2b2b] px-4 py-4 text-base font-semibold text-[#fff5ef]"
+            className="rounded-xl bg-[#b91c1c] px-4 py-4 text-base font-semibold text-[#fff5ef]"
             disabled={isLoading}
             onClick={async () => {
               await persistDraft(userId)

@@ -105,16 +105,16 @@ export const ProfilePage = ({
     <section className="space-y-3 rounded-2xl border border-muru-accent bg-[#fff9ed] p-4">
       <h1 className="text-xl font-semibold text-muru-olive">Мой профиль</h1>
 
-      <div className="rounded-2xl bg-[#efe8d8] p-3">
-        <div className="flex items-center gap-3">
-          <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-to-br from-[#ff9d80] to-[#ff4d74] text-2xl font-semibold text-white">
+      <div className="rounded-2xl bg-[#f5ecdc] p-4 shadow-sm">
+        <div className="flex items-center gap-4">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#ff986e] to-[#ff5a6e] text-2xl font-semibold text-white shadow-sm">
             {initials}
           </div>
-          <div className="text-sm">
-            <p className="font-semibold">{profileData.fullName || 'Пользователь Telegram'}</p>
+          <div className="text-sm leading-6 text-[#4f4545]">
+            <p className="text-base font-semibold">{profileData.fullName || 'Пользователь Telegram'}</p>
             <p>Баланс: 0 ₽</p>
             <p>Бонусы: 0 ❤️</p>
-            <p>Персональная скидка: 10%</p>
+            <p className="font-medium text-[#8f2b2b]">Персональная скидка: 10%</p>
           </div>
         </div>
       </div>
