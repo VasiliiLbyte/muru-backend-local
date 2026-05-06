@@ -22,7 +22,20 @@ const cdekOptions = [
 ]
 
 export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
-  const { items, checkout, updateCheckout, submitOrder, total, subtotal, persistDraft, isLoading, error } = useCart()
+  const {
+    items,
+    checkout,
+    updateCheckout,
+    submitOrder,
+    total,
+    subtotal,
+    discount,
+    promoCode,
+    isPromoActive,
+    persistDraft,
+    isLoading,
+    error,
+  } = useCart()
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const hasItems = useMemo(() => items.length > 0, [items.length])
@@ -146,6 +159,19 @@ export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
       </div>
 
       <div className="rounded-2xl border border-muru-accent bg-[#fff9ed] p-4">
+        <label className="text-sm font-semibold text-muru-olive" htmlFor="checkout-promo">
+          Промокод
+        </label>
+        <input
+          id="checkout-promo"
+          value={isPromoActive ? promoCode : ''}
+          readOnly
+          placeholder="Промокод не активирован"
+          className="mt-2 w-full rounded-xl border border-muru-accent bg-white px-3 py-2 text-sm"
+        />
+      </div>
+
+      <div className="rounded-2xl border border-muru-accent bg-[#fff9ed] p-4">
         <label className="text-sm font-semibold text-muru-olive" htmlFor="checkout-comment">
           Комментарий
         </label>
@@ -171,6 +197,7 @@ export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
 
       <div className="rounded-2xl border border-muru-accent bg-[#fff9ed] p-4 text-sm">
         <p>Товары: {subtotal.toFixed(2)} ₽</p>
+        <p>Скидка: - {discount.toFixed(2)} ₽</p>
         <p>Доставка: {(checkout.deliveryMode === 'pickup' ? 0 : checkout.deliveryPrice).toFixed(2)} ₽</p>
         <p className="mt-1 font-semibold">Итого: {total.toFixed(2)} ₽</p>
       </div>

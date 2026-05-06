@@ -4,26 +4,74 @@ import { useCart } from '../cart/CartContext'
 
 type CartPageProps = {
   userId?: number
+  onGoCatalog: () => void
   onCheckout: () => void
 }
 
-export const CartPage = ({ userId, onCheckout }: CartPageProps) => {
-  const { items, subtotal, isLoading, updateQuantity, removeItem, persistDraft } = useCart()
+export const CartPage = ({ userId, onGoCatalog, onCheckout }: CartPageProps) => {
+  const {
+    items,
+    subtotal,
+    discount,
+    total,
+    promoCode,
+    isPromoActive,
+    isLoading,
+    updateQuantity,
+    removeItem,
+    persistDraft,
+    activatePromoMock,
+  } = useCart()
 
   const hasItems = useMemo(() => items.length > 0, [items.length])
+
+  if (!hasItems) {
+    return (
+      <section className="flex min-h-[70vh] flex-col items-center justify-center rounded-2xl border border-muru-accent bg-[#fff9ed] p-6 text-center">
+        <div className="text-8xl">❤️</div>
+        <h1 className="mt-4 text-3xl font-semibold text-[#5e5252]">Корзина пуста</h1>
+        <p className="mt-2 text-sm text-[#6f6666]">Добавьте товары, чтобы перейти к оформлению заказа.</p>
+        <button
+          type="button"
+          className="mt-5 rounded-xl bg-muru-olive px-6 py-3 text-sm font-semibold text-muru-ivory"
+          onClick={onGoCatalog}
+        >
+          Перейти в каталог
+        </button>
+      </section>
+    )
+  }
 
   return (
     <section className="space-y-4 pb-3">
       <div className="rounded-2xl border border-muru-accent bg-[#fff9ed] p-4">
-        <h1 className="text-4xl font-semibold text-[#5e5252]">Корзина</h1>
-        {!hasItems ? <p className="mt-2 text-sm text-[#6f6666]">Здесь пока пусто. Добавьте товары из каталога.</p> : null}
+        <div className="flex items-center justify-between gap-2">
+          <h1 className="text-4xl font-semibold text-[#5e5252]">Корзина</h1>
+          <button
+            type="button"
+            className="rounded-xl bg-[#efe8d8] px-3 py-2 text-xs font-medium"
+            onClick={() => activatePromoMock('MURU10')}
+          >
+            Активировать промокод
+          </button>
+        </div>
+        {isPromoActive ? <p className="mt-2 text-xs text-[#8f2b2b]">Промокод активирован: {promoCode}</p> : null}
       </div>
 
       {items.map((item) => (
         <article key={item.sku} className="rounded-2xl border border-muru-accent bg-[#fff9ed] p-3">
-          <h2 className="text-sm font-semibold text-[#3f3636]">{item.name}</h2>
-          <p className="mt-1 text-sm text-[#6f6666]">Цена/шт</p>
-          <p className="text-xl font-semibold text-[#3f3636]">{item.price.toFixed(1)} ₽</p>
+          <div className="flex gap-3">
+            <img
+              src={item.imageUrl ?? 'https://placehold.co/72x72?text=MURU'}
+              alt={item.name}
+              className="h-[72px] w-[72px] rounded-lg bg-[#f3ead7] object-cover"
+            />
+            <div className="flex-1">
+              <h2 className="text-sm font-semibold text-[#3f3636]">{item.name}</h2>
+              <p className="mt-1 text-xs text-[#6f6666]">Цена/шт</p>
+              <p className="text-xl font-semibold text-[#3f3636]">{item.price.toFixed(1)} ₽</p>
+            </div>
+          </div>
           <div className="mt-2 flex items-center gap-1">
             <button
               type="button"
@@ -59,9 +107,13 @@ export const CartPage = ({ userId, onCheckout }: CartPageProps) => {
             <span>Товары</span>
             <span>{subtotal.toFixed(1)} ₽</span>
           </div>
+          <div className="flex items-center justify-between">
+            <span>Скидка</span>
+            <span>- {discount.toFixed(1)} ₽</span>
+          </div>
           <div className="flex items-center justify-between font-semibold text-lg">
             <span>Итого</span>
-            <span>{subtotal.toFixed(1)} ₽</span>
+            <span>{total.toFixed(1)} ₽</span>
           </div>
         </div>
         <div className="mt-3 grid gap-2">
@@ -75,14 +127,14 @@ export const CartPage = ({ userId, onCheckout }: CartPageProps) => {
           </button>
           <button
             type="button"
-            className="rounded-xl bg-muru-olive px-4 py-3 text-sm font-semibold text-muru-ivory"
-            disabled={!hasItems || isLoading}
+            className="rounded-xl bg-[#8f2b2b] px-4 py-4 text-base font-semibold text-[#fff5ef]"
+            disabled={isLoading}
             onClick={async () => {
               await persistDraft(userId)
               onCheckout()
             }}
           >
-            Перейти к оформлению
+            Оформить заказ
           </button>
         </div>
       </div>

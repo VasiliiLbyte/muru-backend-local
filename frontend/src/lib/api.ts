@@ -77,6 +77,7 @@ type DraftPayload = {
   address?: string
   comment?: string
   birthDate?: string
+  promoCode?: string
 }
 
 export const fetchOrderDraft = async (telegramUserId: number): Promise<DraftOrder | null> => {

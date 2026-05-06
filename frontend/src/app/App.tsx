@@ -181,7 +181,13 @@ const AppShell = () => {
       if (isCheckoutOpen) {
         return <CheckoutPage userId={userId} onBackToCart={() => setIsCheckoutOpen(false)} />
       }
-      return <CartPage userId={userId} onCheckout={() => setIsCheckoutOpen(true)} />
+      return (
+        <CartPage
+          userId={userId}
+          onGoCatalog={() => handleSelectTab('Каталог')}
+          onCheckout={() => setIsCheckoutOpen(true)}
+        />
+      )
     }
     return <PlaceholderPage title={activeTab} />
   }
