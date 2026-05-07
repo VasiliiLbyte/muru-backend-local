@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import '@tma.js/sdk'
 
-import { authenticateWithTelegram, clearToken } from '../lib/auth'
+import { authenticateWithTelegram, clearToken, getStoredToken } from '../lib/auth'
 import type { TelegramWebApp } from '../types/telegram'
 
 const parseAdminIds = (rawValue?: string): number[] => {
@@ -87,6 +87,17 @@ export const useTelegramWebApp = () => {
 
   useEffect(() => {
     const runAuth = async () => {
+      // Если токен уже есть — не делаем новый запрос авторизации
+      const existingToken = getStoredToken()
+      if (existingToken) {
+        // Берём userId из initDataUnsafe без нового запроса
+        const unsafeId = webApp?.initDataUnsafe?.user?.id
+        if (Number.isInteger(unsafeId)) {
+          setAuthUserId(unsafeId)
+          return
+        }
+      }
+
       const initData = webApp?.initData || parseInitDataFromLaunchParams()
       const effectiveInitData = initData || (isNonProduction() ? 'dev_fallback' : '')
       if (!effectiveInitData) return

@@ -69,7 +69,6 @@ export const notifyClientByTelegram = async (order: OrderDraft): Promise<void> =
         order.address ? `Адрес: ${order.address}` : '',
         '',
         'Менеджер свяжется с вами в ближайшее время.',
-        'По вопросам: @muru_support',
       ]
         .filter(Boolean)
         .join('\n'),
