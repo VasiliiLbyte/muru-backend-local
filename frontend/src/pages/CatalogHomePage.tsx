@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 
 import type { CatalogNode } from '../types/catalog'
 
@@ -18,6 +18,7 @@ const ORDERED_CATEGORIES = [
 ]
 
 export const CatalogHomePage = ({ tree }: CatalogHomePageProps) => {
+  const navigate = useNavigate()
   const map = new Map(tree.map((item) => [item.name, item]))
 
   return (
@@ -31,21 +32,25 @@ export const CatalogHomePage = ({ tree }: CatalogHomePageProps) => {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {ORDERED_CATEGORIES.map((name) => {
           const category = map.get(name)
-          const link = category ? `/catalog/${category.slug}` : '/catalog'
+          const link = category ? `/catalog/${encodeURIComponent(category.slug)}` : '/catalog'
           return (
-            <Link
+            <button
               key={name}
-              to={link}
+              type="button"
               className={`block rounded-2xl border border-muru-accent bg-[#fff9ed] p-3 ${
                 category ? 'hover:bg-[#f5efdf]' : 'opacity-60'
               }`}
+              onClick={() => {
+                if (category) navigate(link)
+              }}
+              disabled={!category}
             >
               <div className="mb-3 aspect-[4/3] rounded-xl bg-[#efe8d8]"></div>
               <h2 className="text-sm font-semibold text-muru-olive">{name}</h2>
               <p className="mt-1 text-xs">
                 {category ? `${category.children.length} подкатегорий` : 'Скоро появится'}
               </p>
-            </Link>
+            </button>
           )
         })}
       </div>
