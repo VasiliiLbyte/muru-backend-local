@@ -32,6 +32,7 @@ export const ProfilePage = ({
   const [profile, setProfile] = useState<ProfileData | null>(null)
   const [orders, setOrders] = useState<OrderHistoryItem[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const hasAuth = useMemo(() => Boolean(userId), [userId])
 
@@ -42,10 +43,17 @@ export const ProfilePage = ({
       .then(([profileData, ordersData]) => {
         setProfile(profileData)
         setOrders(ordersData)
+        setError(null)
       })
       .catch((err) => setError(err instanceof Error ? err.message : 'Не удалось загрузить данные профиля'))
       .finally(() => setIsLoading(false))
   }, [userId])
+
+  useEffect(() => {
+    if (!successMessage) return
+    const timeoutId = window.setTimeout(() => setSuccessMessage(null), 3000)
+    return () => window.clearTimeout(timeoutId)
+  }, [successMessage])
 
   if (!hasAuth) {
     return (
@@ -61,9 +69,11 @@ export const ProfilePage = ({
   const handleSaveProfile = async () => {
     setIsLoading(true)
     setError(null)
+    setSuccessMessage(null)
     try {
       const saved = await saveMyProfile(profileData)
       setProfile(saved)
+      setSuccessMessage('Профиль сохранен')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось сохранить профиль')
     } finally {
@@ -239,6 +249,7 @@ export const ProfilePage = ({
         ) : null}
       </div>
 
+      {successMessage ? <p className="text-sm text-green-700">{successMessage}</p> : null}
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
     </section>
   )
