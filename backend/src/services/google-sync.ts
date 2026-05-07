@@ -12,7 +12,7 @@ const rowSchema = z.object({
   price: z.union([z.string(), z.number()]).optional(),
   stock: z.union([z.string(), z.number()]).optional(),
   description: z.string().default(''),
-  specs: z.string().default(''),
+  specs: z.string().optional().default(''),
   variants: z.string().default(''),
 })
 
@@ -59,14 +59,17 @@ const parseVariants = (raw: string): Variant[] => {
 }
 
 const extractSkuAndOrder = (filename: string): { sku: string; order: number } | null => {
-  const match = filename.match(/^(MU\d{4})-(\d+)\.webp$/i)
-  if (!match) return null
-  const parsedOrder = Number(match[2])
-  if (!Number.isInteger(parsedOrder) || parsedOrder < 1) return null
-  return {
-    sku: match[1].toUpperCase(),
-    order: parsedOrder,
+  // Формат с порядковым номером: MU0001-1.webp
+  const matchWithOrder = filename.match(/^(MU\d{4})-(\d+)\.\w+$/i)
+  if (matchWithOrder) {
+    return { sku: matchWithOrder[1].toUpperCase(), order: Number(matchWithOrder[2]) }
   }
+  // Формат без порядкового номера: MU0001.webp → order = 1
+  const matchSimple = filename.match(/^(MU\d{4})\.\w+$/i)
+  if (matchSimple) {
+    return { sku: matchSimple[1].toUpperCase(), order: 1 }
+  }
+  return null
 }
 
 const buildPublicUrl = (fileId: string) =>
@@ -172,7 +175,7 @@ const readDriveImagesBySku = async () => {
   const drive = google.drive({ version: 'v3', auth })
 
   const result = await drive.files.list({
-    q: `'${env.googleDriveFolderId}' in parents and mimeType='image/webp' and trashed=false`,
+    q: `'${env.googleDriveFolderId}' in parents and trashed=false and (mimeType='image/webp' or mimeType='image/jpeg' or mimeType='image/png')`,
     fields: 'files(id,name)',
     pageSize: 1000,
   })
@@ -225,11 +228,36 @@ const normalizeProduct = (
       source['описание'] ??
       source['подробная информация (описание)'] ??
       '',
-    specs: source.specs ?? source['характеристики'] ?? '',
+    specs: '',
     variants: source.variants ?? source['варианты'] ?? '',
   })
 
   if (!parsed.success) return null
+
+  // Собираем specs из отдельных колонок таблицы
+  const specsFromColumns: Record<string, string> = {}
+  const specMapping: Record<string, string> = {
+    бренд: 'Бренд',
+    материал: 'Материал',
+    'плотность ткани': 'Плотность ткани',
+    дизайн: 'Дизайн',
+    тип: 'Тип',
+    'размер наволочки': 'Размер наволочки',
+    'размер пододеяльника': 'Размер пододеяльника',
+    'размер простыни': 'Размер простыни',
+    'страна производитель': 'Страна',
+    ингредиенты: 'Ингредиенты',
+    происхождение: 'Происхождение',
+    упаковка: 'Упаковка',
+  }
+  for (const [sheetKey, displayName] of Object.entries(specMapping)) {
+    const val = source[sheetKey]?.trim()
+    if (val) specsFromColumns[displayName] = val
+  }
+
+  // Если была колонка "характеристики" в формате key:value — мержим
+  const existingSpecs = parseSpecs(source.specs ?? source['характеристики'] ?? '')
+  const finalSpecs = { ...specsFromColumns, ...existingSpecs }
 
   const sku = parsed.data.sku.toUpperCase()
   const categoryNames = parsed.data.categories
@@ -246,9 +274,11 @@ const normalizeProduct = (
     price: parseNumber(parsed.data.price),
     inStock: Math.max(0, Math.floor(parseNumber(parsed.data.stock))),
     description: parsed.data.description,
-    specs: parseSpecs(parsed.data.specs),
+    specs: finalSpecs,
     variants: parseVariants(parsed.data.variants),
     imageUrls: orderedRefs.map((ref) => buildPublicUrl(ref.fileId)),
+    color: source['цвет']?.trim() || undefined,
+    size: source['размер']?.trim() || undefined,
   }
 }
 
@@ -273,8 +303,8 @@ const upsertProduct = async (product: Product) => {
     const imageUrl1 = product.imageUrls[0] ?? DEFAULT_IMAGE_URL
     const imageUrl2 = product.imageUrls[1] ?? imageUrl1
     const productResult = await client.query<{ id: number }>(
-      `INSERT INTO products (sku, name, description, price, in_stock, specs, image_url_1, image_url_2, image_urls, category_id, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9::jsonb,$10,NOW())
+      `INSERT INTO products (sku, name, description, price, in_stock, specs, image_url_1, image_url_2, image_urls, category_id, color, size, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9::jsonb,$10,$11,$12,NOW())
        ON CONFLICT (sku)
        DO UPDATE SET
          name = EXCLUDED.name,
@@ -286,6 +316,8 @@ const upsertProduct = async (product: Product) => {
          image_url_2 = EXCLUDED.image_url_2,
          image_urls = EXCLUDED.image_urls,
          category_id = EXCLUDED.category_id,
+         color = EXCLUDED.color,
+         size = EXCLUDED.size,
          updated_at = NOW()
        RETURNING id`,
       [
@@ -299,6 +331,8 @@ const upsertProduct = async (product: Product) => {
         imageUrl2,
         JSON.stringify(product.imageUrls),
         categoryId,
+        product.color ?? null,
+        product.size ?? null,
       ],
     )
 
@@ -323,6 +357,11 @@ const upsertProduct = async (product: Product) => {
 
 export const syncCatalogFromGoogle = async (): Promise<SyncResult> => {
   const [rows, driveImageMap] = await Promise.all([readSheetRows(), readDriveImagesBySku()])
+  console.log(`[sync] Drive images found: ${driveImageMap.size} SKUs with images`)
+  if (driveImageMap.size > 0) {
+    const sample = [...driveImageMap.entries()].slice(0, 3)
+    console.log('[sync] Image samples:', sample.map(([sku, refs]) => `${sku}: ${refs.length} files`).join(', '))
+  }
   const errors: SyncError[] = []
   let syncedProducts = 0
   let skippedProducts = 0

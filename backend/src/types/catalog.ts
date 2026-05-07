@@ -19,6 +19,8 @@ export type Product = {
   specs: Record<string, string>
   variants: Variant[]
   imageUrls: string[]
+  color?: string
+  size?: string
 }
 
 export type SyncError = {

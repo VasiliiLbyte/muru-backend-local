@@ -23,6 +23,8 @@ CREATE TABLE IF NOT EXISTS products (
 -- image_urls: JSONB массив всех фото (основной источник)
 ALTER TABLE products
   ADD COLUMN IF NOT EXISTS image_urls JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS color VARCHAR(100);
+ALTER TABLE products ADD COLUMN IF NOT EXISTS size VARCHAR(100);
 
 UPDATE products
 SET image_urls = (
