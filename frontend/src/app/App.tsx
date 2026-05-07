@@ -52,8 +52,15 @@ const CatalogRoutes = ({
   isProductsLoading,
 }: CatalogRoutesProps) => {
   const params = useParams<{ categorySlug?: string; subcategorySlug?: string }>()
-  const category = tree.find((item) => item.slug === params.categorySlug)
-  const subcategory = category?.children.find((item) => item.slug === params.subcategorySlug)
+  const categorySlugRaw = params.categorySlug ?? ''
+  const categorySlugDecoded = decodeURIComponent(categorySlugRaw)
+  const subcategorySlugRaw = params.subcategorySlug ?? ''
+  const subcategorySlugDecoded = decodeURIComponent(subcategorySlugRaw)
+
+  const category = tree.find((item) => item.slug === categorySlugRaw || item.slug === categorySlugDecoded)
+  const subcategory = category?.children.find(
+    (item) => item.slug === subcategorySlugRaw || item.slug === subcategorySlugDecoded,
+  )
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
