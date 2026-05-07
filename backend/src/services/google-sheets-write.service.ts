@@ -19,7 +19,7 @@ export const decreaseStockInSheets = async (updates: StockUpdate[]): Promise<voi
 
   const readResponse = await sheets.spreadsheets.values.get({
     spreadsheetId: env.googleSheetId,
-    range: 'A1:Z',
+    range: 'Лист1!A1:Z',
   })
 
   const rows = readResponse.data.values ?? []

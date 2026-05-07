@@ -114,7 +114,7 @@ const readSheetRows = async () => {
   const sheets = google.sheets({ version: 'v4', auth })
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: env.googleSheetId,
-    range: 'A1:Z',
+    range: 'Лист1!A1:Z',
   })
 
   const rows = response.data.values ?? []
@@ -122,6 +122,7 @@ const readSheetRows = async () => {
 
   const headerRowIndex = findHeaderRowIndex(rows)
   const header = rows[headerRowIndex].map((cell) => normalizeHeaderKey(String(cell)))
+  console.log('[sync] Sheet headers found:', header.join(', '))
   return rows.slice(headerRowIndex + 1).map((row) => {
     const record: Record<string, string> = {}
     header.forEach((key, index) => {
