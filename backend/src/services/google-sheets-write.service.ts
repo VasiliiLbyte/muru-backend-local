@@ -59,8 +59,12 @@ export const decreaseStockInSheets = async (updates: StockUpdate[]): Promise<voi
 
   const { title, rows } = detected
   const header = rows[0].map((cell: string) => normalizeHeaderKey(String(cell ?? '')))
-  const skuColIndex = header.findIndex((h: string) => h === 'sku' || h === 'артикул')
-  const stockColIndex = header.findIndex((h: string) => h === 'stock' || h === 'наличие')
+  const skuColIndex = header.findIndex(
+    (h: string) => h === 'sku' || h === 'артикул' || h === 'артикул товара' || h === 'артикул товара для сайта',
+  )
+  const stockColIndex = header.findIndex(
+    (h: string) => h === 'stock' || h === 'наличие' || h === 'фактический остаток',
+  )
 
   if (skuColIndex === -1 || stockColIndex === -1) {
     console.error('[sheets-write] SKU or stock column not found in sheet')

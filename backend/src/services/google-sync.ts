@@ -93,6 +93,7 @@ const SKU_HEADER_ALIASES = [
   'sku',
   'артикул',
   'артикул товара',
+  'артикул товара для сайта',
   'sku/артикул',
   'артикул/sku',
   'код товара',
@@ -200,20 +201,30 @@ const normalizeProduct = (
     source.sku ??
     source['артикул'] ??
     source['артикул товара'] ??
+    source['артикул товара для сайта'] ??
     source['sku/артикул'] ??
     source['артикул/sku'] ??
     source['код товара'] ??
     ''
-  const section = source.section ?? source['раздел'] ?? ''
-  const subsection = source.subsection ?? source['подраздел'] ?? ''
+  const section = source.section ?? source['раздел'] ?? source['раздел каталога 1-й уровень'] ?? ''
+  const subsection =
+    source.subsection ??
+    source['подраздел'] ??
+    source['главный раздел каталога 2-й уровень'] ??
+    source['раздел каталога 2-й уровень'] ??
+    ''
   const normalizedCategories = [section, subsection].filter((item) => item.trim().length > 0).join(' > ')
   const parsed = rowSchema.safeParse({
     sku: skuValue,
-    name: source.name ?? source['название'] ?? '',
+    name: source.name ?? source['название'] ?? source['наименование товара'] ?? '',
     categories: normalizedCategories || source.categories || source['категории'] || '',
-    price: source.price ?? source['цена'],
-    stock: source.stock ?? source['наличие'],
-    description: source.description ?? source['описание'] ?? '',
+    price: source.price ?? source['цена'] ?? source['розничная цена'],
+    stock: source.stock ?? source['наличие'] ?? source['фактический остаток'],
+    description:
+      source.description ??
+      source['описание'] ??
+      source['подробная информация (описание)'] ??
+      '',
     specs: source.specs ?? source['характеристики'] ?? '',
     variants: source.variants ?? source['варианты'] ?? '',
   })
@@ -321,6 +332,7 @@ export const syncCatalogFromGoogle = async (): Promise<SyncResult> => {
       row.sku ??
       row['артикул'] ??
       row['артикул товара'] ??
+      row['артикул товара для сайта'] ??
       row['sku/артикул'] ??
       row['артикул/sku'] ??
       row['код товара'] ??
