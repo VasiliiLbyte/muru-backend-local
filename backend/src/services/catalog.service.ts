@@ -58,8 +58,10 @@ const normalizeImageUrls = (
   imageUrl1: string | null | undefined,
   imageUrl2: string | null | undefined,
 ): string[] => {
-  const fromJson = Array.isArray(imageUrls) ? imageUrls.filter(Boolean) : []
-  if (fromJson.length > 0) return fromJson
+  if (Array.isArray(imageUrls)) {
+    // image_urls is the primary source: keep [] as-is for frontend placeholder fallback
+    return imageUrls.filter(Boolean)
+  }
   return [imageUrl1, imageUrl2].filter((url): url is string => Boolean(url))
 }
 

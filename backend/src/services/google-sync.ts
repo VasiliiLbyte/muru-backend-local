@@ -17,6 +17,7 @@ const rowSchema = z.object({
 })
 
 type DriveImageRef = { order: number; fileId: string }
+const DEFAULT_IMAGE_URL = 'https://placehold.co/1200x1200?text=MURU'
 
 const slugify = (value: string) =>
   value
@@ -132,10 +133,13 @@ const normalizeProduct = (
   source: Record<string, string>,
   imageRefs: DriveImageRef[] | undefined,
 ): Product | null => {
+  const section = source.section ?? source['раздел'] ?? ''
+  const subsection = source.subsection ?? source['подраздел'] ?? ''
+  const normalizedCategories = [section, subsection].filter((item) => item.trim().length > 0).join(' > ')
   const parsed = rowSchema.safeParse({
     sku: source.sku ?? source['артикул'] ?? '',
     name: source.name ?? source['название'] ?? '',
-    categories: source.categories ?? source['категории'] ?? '',
+    categories: normalizedCategories || source.categories || source['категории'] || '',
     price: source.price ?? source['цена'],
     stock: source.stock ?? source['наличие'],
     description: source.description ?? source['описание'] ?? '',
@@ -152,9 +156,6 @@ const normalizeProduct = (
     .filter(Boolean)
 
   const orderedRefs = (imageRefs ?? []).sort((a, b) => a.order - b.order)
-  if (orderedRefs.length < 1) {
-    return null
-  }
 
   return {
     sku,
@@ -187,6 +188,8 @@ const upsertProduct = async (product: Product) => {
     )
     const categoryId = categoryResult.rows[0].id
 
+    const imageUrl1 = product.imageUrls[0] ?? DEFAULT_IMAGE_URL
+    const imageUrl2 = product.imageUrls[1] ?? imageUrl1
     const productResult = await client.query<{ id: number }>(
       `INSERT INTO products (sku, name, description, price, in_stock, specs, image_url_1, image_url_2, image_urls, category_id, updated_at)
        VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9::jsonb,$10,NOW())
@@ -210,8 +213,8 @@ const upsertProduct = async (product: Product) => {
         product.price,
         product.inStock,
         JSON.stringify(product.specs),
-        product.imageUrls[0],
-        product.imageUrls[1] ?? product.imageUrls[0],
+        imageUrl1,
+        imageUrl2,
         JSON.stringify(product.imageUrls),
         categoryId,
       ],
@@ -250,11 +253,16 @@ export const syncCatalogFromGoogle = async (): Promise<SyncResult> => {
       errors.push({ sku: 'UNKNOWN', reason: 'Missing SKU in spreadsheet row' })
       continue
     }
+    if (!sku.startsWith('MU')) {
+      skippedProducts += 1
+      errors.push({ sku, reason: 'Skipped: SKU does not start with MU' })
+      continue
+    }
 
     const product = normalizeProduct(row, driveImageMap.get(sku))
     if (!product) {
       skippedProducts += 1
-      errors.push({ sku, reason: 'Invalid row data or image set is empty (expected MUxxxx-N.webp, N >= 1)' })
+      errors.push({ sku, reason: 'Invalid row data' })
       continue
     }
 
