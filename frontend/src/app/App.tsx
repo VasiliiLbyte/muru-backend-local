@@ -56,18 +56,22 @@ const CatalogRoutes = ({
   const categorySlugDecoded = decodeURIComponent(categorySlugRaw)
   const subcategorySlugRaw = params.subcategorySlug ?? ''
   const subcategorySlugDecoded = decodeURIComponent(subcategorySlugRaw)
+  const fallbackCategoryName = categorySlugDecoded.replace(/-/g, ' ')
+  const fallbackSubcategoryName = subcategorySlugDecoded.replace(/-/g, ' ')
 
   const category = tree.find((item) => item.slug === categorySlugRaw || item.slug === categorySlugDecoded)
   const subcategory = category?.children.find(
     (item) => item.slug === subcategorySlugRaw || item.slug === subcategorySlugDecoded,
   )
+  const categoryNameForQuery = category?.name ?? (categorySlugRaw ? fallbackCategoryName : undefined)
+  const subcategoryNameForQuery = subcategory?.name ?? (subcategorySlugRaw ? fallbackSubcategoryName : undefined)
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       onProductsLoading(true)
       fetchCatalogProducts({
-        category: category?.name,
-        subcategory: subcategory?.name,
+        category: categoryNameForQuery,
+        subcategory: subcategoryNameForQuery,
         q: search || undefined,
         color: filters.color || undefined,
         size: filters.size || undefined,
@@ -79,7 +83,7 @@ const CatalogRoutes = ({
     }, 250)
 
     return () => clearTimeout(timeoutId)
-  }, [category, subcategory, search, filters, onProductsChange, onProductsLoading])
+  }, [categoryNameForQuery, subcategoryNameForQuery, search, filters, onProductsChange, onProductsLoading])
 
   return (
     <>
@@ -97,39 +101,31 @@ const CatalogRoutes = ({
         <Route
           path=":categorySlug"
           element={
-            category ? (
-              category.children.length > 0 ? (
+            category?.children.length ? (
                 <CatalogCategoryPage category={category} />
-              ) : (
-                <CatalogProductsPage
-                  title={category.name}
-                  products={products}
-                  onOpenProductDetail={onOpenProductDetail}
-                  onAddToCart={onAddToCart}
-                  onNotifyRestock={onNotifyRestock}
-                  isLoading={isProductsLoading}
-                />
-              )
             ) : (
-              <Navigate to="/catalog" />
-            )
-          }
-        />
-        <Route
-          path=":categorySlug/:subcategorySlug"
-          element={
-            category && subcategory ? (
               <CatalogProductsPage
-                title={`${category.name} / ${subcategory.name}`}
+                title={category?.name ?? fallbackCategoryName}
                 products={products}
                 onOpenProductDetail={onOpenProductDetail}
                 onAddToCart={onAddToCart}
                 onNotifyRestock={onNotifyRestock}
                 isLoading={isProductsLoading}
               />
-            ) : (
-              <Navigate to="/catalog" />
             )
+          }
+        />
+        <Route
+          path=":categorySlug/:subcategorySlug"
+          element={
+            <CatalogProductsPage
+              title={`${category?.name ?? fallbackCategoryName} / ${subcategory?.name ?? fallbackSubcategoryName}`}
+              products={products}
+              onOpenProductDetail={onOpenProductDetail}
+              onAddToCart={onAddToCart}
+              onNotifyRestock={onNotifyRestock}
+              isLoading={isProductsLoading}
+            />
           }
         />
       </Routes>
