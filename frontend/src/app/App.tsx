@@ -89,7 +89,24 @@ const CatalogRoutes = ({
         <Route path="/" element={<CatalogHomePage tree={tree} />} />
         <Route
           path="/:categorySlug"
-          element={category ? <CatalogCategoryPage category={category} /> : <Navigate to="/catalog" />}
+          element={
+            category ? (
+              category.children.length > 0 ? (
+                <CatalogCategoryPage category={category} />
+              ) : (
+                <CatalogProductsPage
+                  title={category.name}
+                  products={products}
+                  onOpenProductDetail={onOpenProductDetail}
+                  onAddToCart={onAddToCart}
+                  onNotifyRestock={onNotifyRestock}
+                  isLoading={isProductsLoading}
+                />
+              )
+            ) : (
+              <Navigate to="/catalog" />
+            )
+          }
         />
         <Route
           path="/:categorySlug/:subcategorySlug"
