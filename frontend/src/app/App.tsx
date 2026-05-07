@@ -93,9 +93,9 @@ const CatalogRoutes = ({
         onPriceMaxChange={(value) => onFilterChange('priceMax', value)}
       />
       <Routes>
-        <Route path="/" element={<CatalogHomePage tree={tree} />} />
+        <Route index element={<CatalogHomePage tree={tree} />} />
         <Route
-          path="/:categorySlug"
+          path=":categorySlug"
           element={
             category ? (
               category.children.length > 0 ? (
@@ -116,7 +116,7 @@ const CatalogRoutes = ({
           }
         />
         <Route
-          path="/:categorySlug/:subcategorySlug"
+          path=":categorySlug/:subcategorySlug"
           element={
             category && subcategory ? (
               <CatalogProductsPage
