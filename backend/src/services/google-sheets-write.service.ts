@@ -11,21 +11,54 @@ const createAuth = () =>
 
 type StockUpdate = { sku: string; quantity: number }
 
+const normalizeHeaderKey = (value: string) =>
+  value
+    .replace(/^\uFEFF/, '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+
+const detectWritableSheet = async (
+  sheetsApi: ReturnType<typeof google.sheets>,
+): Promise<{ title: string; rows: string[][] } | null> => {
+  const metadata = await sheetsApi.spreadsheets.get({
+    spreadsheetId: env.googleSheetId,
+    fields: 'sheets(properties(title))',
+  })
+  const titles =
+    metadata.data.sheets
+      ?.map((sheet) => sheet.properties?.title)
+      .filter((title): title is string => Boolean(title)) ?? []
+  const orderedTitles = ['Лист1', ...titles.filter((title) => title !== 'Лист1')]
+
+  for (const title of orderedTitles) {
+    const response = await sheetsApi.spreadsheets.values.get({
+      spreadsheetId: env.googleSheetId,
+      range: `${title}!A1:Z`,
+    })
+    const rows = response.data.values ?? []
+    if (rows.length < 2) continue
+
+    const header = rows[0].map((cell) => normalizeHeaderKey(String(cell ?? '')))
+    const hasSku = header.some((h) => h === 'sku' || h.includes('артикул'))
+    const hasStock = header.some((h) => h === 'stock' || h === 'наличие')
+    if (hasSku && hasStock) return { title, rows }
+  }
+
+  return null
+}
+
 export const decreaseStockInSheets = async (updates: StockUpdate[]): Promise<void> => {
   if (updates.length === 0) return
 
   const auth = createAuth()
   const sheets = google.sheets({ version: 'v4', auth })
 
-  const readResponse = await sheets.spreadsheets.values.get({
-    spreadsheetId: env.googleSheetId,
-    range: 'Лист1!A1:Z',
-  })
+  const detected = await detectWritableSheet(sheets)
+  if (!detected) return
 
-  const rows = readResponse.data.values ?? []
-  if (rows.length < 2) return
-
-  const header = rows[0].map((cell: string) => String(cell).trim().toLowerCase())
+  const { title, rows } = detected
+  const header = rows[0].map((cell: string) => normalizeHeaderKey(String(cell ?? '')))
   const skuColIndex = header.findIndex((h: string) => h === 'sku' || h === 'артикул')
   const stockColIndex = header.findIndex((h: string) => h === 'stock' || h === 'наличие')
 
@@ -56,7 +89,7 @@ export const decreaseStockInSheets = async (updates: StockUpdate[]): Promise<voi
     const sheetRowNumber = rowIndex + 1
     const colLetter = String.fromCharCode(65 + stockColIndex)
     batchData.push({
-      range: `${colLetter}${sheetRowNumber}`,
+      range: `${title}!${colLetter}${sheetRowNumber}`,
       values: [[newStock]],
     })
 

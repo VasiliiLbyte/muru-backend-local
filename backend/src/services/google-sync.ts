@@ -98,30 +98,64 @@ const SKU_HEADER_ALIASES = [
   'код товара',
 ]
 
+const SHEET_SCAN_LIMIT = 10
+
+const isSkuHeader = (key: string) =>
+  SKU_HEADER_ALIASES.includes(key) || key.includes('артикул') || key.includes('sku')
+
 const findHeaderRowIndex = (rows: string[][]): number => {
-  const scanLimit = Math.min(rows.length, 10)
+  const scanLimit = Math.min(rows.length, SHEET_SCAN_LIMIT)
   for (let i = 0; i < scanLimit; i += 1) {
     const normalizedRow = rows[i].map((cell) => normalizeHeaderKey(String(cell ?? '')))
-    if (normalizedRow.some((key) => SKU_HEADER_ALIASES.includes(key))) {
+    if (normalizedRow.some((key) => isSkuHeader(key))) {
       return i
     }
   }
   return 0
 }
 
+const detectSheetWithHeaders = async (
+  sheetsApi: ReturnType<typeof google.sheets>,
+): Promise<{ title: string; rows: string[][]; headerRowIndex: number } | null> => {
+  const metadata = await sheetsApi.spreadsheets.get({
+    spreadsheetId: env.googleSheetId,
+    fields: 'sheets(properties(title))',
+  })
+  const titles =
+    metadata.data.sheets
+      ?.map((sheet) => sheet.properties?.title)
+      .filter((title): title is string => Boolean(title)) ?? []
+
+  // Prefer explicit sheet first if it exists, then scan all others.
+  const orderedTitles = ['Лист1', ...titles.filter((title) => title !== 'Лист1')]
+
+  for (const title of orderedTitles) {
+    const response = await sheetsApi.spreadsheets.values.get({
+      spreadsheetId: env.googleSheetId,
+      range: `${title}!A1:Z`,
+    })
+    const rows = response.data.values ?? []
+    if (rows.length < 2) continue
+
+    const headerRowIndex = findHeaderRowIndex(rows)
+    const header = rows[headerRowIndex].map((cell) => normalizeHeaderKey(String(cell ?? '')))
+    if (header.some((key) => isSkuHeader(key))) {
+      return { title, rows, headerRowIndex }
+    }
+  }
+
+  return null
+}
+
 const readSheetRows = async () => {
   const auth = createGoogleAuth()
   const sheets = google.sheets({ version: 'v4', auth })
-  const response = await sheets.spreadsheets.values.get({
-    spreadsheetId: env.googleSheetId,
-    range: 'Лист1!A1:Z',
-  })
+  const detected = await detectSheetWithHeaders(sheets)
+  if (!detected) return []
 
-  const rows = response.data.values ?? []
-  if (rows.length < 2) return []
-
-  const headerRowIndex = findHeaderRowIndex(rows)
+  const { title, rows, headerRowIndex } = detected
   const header = rows[headerRowIndex].map((cell) => normalizeHeaderKey(String(cell)))
+  console.log('[sync] Sheet selected:', title)
   console.log('[sync] Sheet headers found:', header.join(', '))
   return rows.slice(headerRowIndex + 1).map((row) => {
     const record: Record<string, string> = {}
