@@ -82,6 +82,33 @@ const createGoogleAuth = () =>
     ],
   })
 
+const normalizeHeaderKey = (value: string) =>
+  value
+    .replace(/^\uFEFF/, '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+
+const SKU_HEADER_ALIASES = [
+  'sku',
+  'артикул',
+  'артикул товара',
+  'sku/артикул',
+  'артикул/sku',
+  'код товара',
+]
+
+const findHeaderRowIndex = (rows: string[][]): number => {
+  const scanLimit = Math.min(rows.length, 10)
+  for (let i = 0; i < scanLimit; i += 1) {
+    const normalizedRow = rows[i].map((cell) => normalizeHeaderKey(String(cell ?? '')))
+    if (normalizedRow.some((key) => SKU_HEADER_ALIASES.includes(key))) {
+      return i
+    }
+  }
+  return 0
+}
+
 const readSheetRows = async () => {
   const auth = createGoogleAuth()
   const sheets = google.sheets({ version: 'v4', auth })
@@ -93,8 +120,9 @@ const readSheetRows = async () => {
   const rows = response.data.values ?? []
   if (rows.length < 2) return []
 
-  const header = rows[0].map((cell) => String(cell).trim().toLowerCase())
-  return rows.slice(1).map((row) => {
+  const headerRowIndex = findHeaderRowIndex(rows)
+  const header = rows[headerRowIndex].map((cell) => normalizeHeaderKey(String(cell)))
+  return rows.slice(headerRowIndex + 1).map((row) => {
     const record: Record<string, string> = {}
     header.forEach((key, index) => {
       record[key] = String(row[index] ?? '').trim()
@@ -133,11 +161,19 @@ const normalizeProduct = (
   source: Record<string, string>,
   imageRefs: DriveImageRef[] | undefined,
 ): Product | null => {
+  const skuValue =
+    source.sku ??
+    source['артикул'] ??
+    source['артикул товара'] ??
+    source['sku/артикул'] ??
+    source['артикул/sku'] ??
+    source['код товара'] ??
+    ''
   const section = source.section ?? source['раздел'] ?? ''
   const subsection = source.subsection ?? source['подраздел'] ?? ''
   const normalizedCategories = [section, subsection].filter((item) => item.trim().length > 0).join(' > ')
   const parsed = rowSchema.safeParse({
-    sku: source.sku ?? source['артикул'] ?? '',
+    sku: skuValue,
     name: source.name ?? source['название'] ?? '',
     categories: normalizedCategories || source.categories || source['категории'] || '',
     price: source.price ?? source['цена'],
@@ -246,7 +282,14 @@ export const syncCatalogFromGoogle = async (): Promise<SyncResult> => {
   let skippedProducts = 0
 
   for (const row of rows) {
-    const skuRaw = row.sku ?? row['артикул'] ?? ''
+    const skuRaw =
+      row.sku ??
+      row['артикул'] ??
+      row['артикул товара'] ??
+      row['sku/артикул'] ??
+      row['артикул/sku'] ??
+      row['код товара'] ??
+      ''
     const sku = skuRaw.toUpperCase()
     if (!sku) {
       skippedProducts += 1
