@@ -209,18 +209,14 @@ const normalizeProduct = (
     source['артикул/sku'] ??
     source['код товара'] ??
     ''
-  const section = source.section ?? source['раздел'] ?? source['раздел каталога 1-й уровень'] ?? ''
-  const subsection =
-    source.subsection ??
-    source['подраздел'] ??
-    source['главный раздел каталога 2-й уровень'] ??
-    source['раздел каталога 2-й уровень'] ??
-    ''
-  const normalizedCategories = [section, subsection].filter((item) => item.trim().length > 0).join(' > ')
+  // Temporarily map catalog category from first-level section only for stable top-level grouping in UI.
+  const primarySection =
+    source['раздел каталога 1-й уровень'] ?? source.section ?? source['раздел'] ?? source.categories ?? source['категории'] ?? ''
+  const normalizedCategories = primarySection.trim()
   const parsed = rowSchema.safeParse({
     sku: skuValue,
     name: source.name ?? source['название'] ?? source['наименование товара'] ?? '',
-    categories: normalizedCategories || source.categories || source['категории'] || '',
+    categories: normalizedCategories,
     price: source.price ?? source['цена'] ?? source['розничная цена'],
     stock: source.stock ?? source['наличие'] ?? source['фактический остаток'],
     description:
