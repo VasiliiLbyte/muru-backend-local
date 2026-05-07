@@ -30,6 +30,7 @@ export type SyncResult = {
   totalRows: number
   syncedProducts: number
   skippedProducts: number
+  skippedByRule: number
   errors: SyncError[]
 }
 

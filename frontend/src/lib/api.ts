@@ -7,6 +7,7 @@ export type SyncApiResult = {
   totalRows: number
   syncedProducts: number
   skippedProducts: number
+  skippedByRule?: number
   errors: Array<{ sku: string; reason: string }>
 }
 

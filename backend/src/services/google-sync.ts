@@ -20,11 +20,11 @@ type DriveImageRef = { order: number; fileId: string }
 const DEFAULT_IMAGE_URL = 'https://placehold.co/1200x1200?text=MURU'
 
 const slugify = (value: string) =>
-  value
+  (value
     .toLowerCase()
     .trim()
     .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9-]/g, '')
+    .replace(/[^a-z0-9а-яё-]/gi, '') || 'bez-kategorii')
 
 const parseNumber = (value: string | number | undefined) => {
   if (typeof value === 'number') return value
@@ -326,6 +326,7 @@ export const syncCatalogFromGoogle = async (): Promise<SyncResult> => {
   const errors: SyncError[] = []
   let syncedProducts = 0
   let skippedProducts = 0
+  let skippedByRule = 0
 
   for (const row of rows) {
     const skuRaw =
@@ -345,7 +346,7 @@ export const syncCatalogFromGoogle = async (): Promise<SyncResult> => {
     }
     if (!sku.startsWith('MU')) {
       skippedProducts += 1
-      errors.push({ sku, reason: 'Skipped: SKU does not start with MU' })
+      skippedByRule += 1
       continue
     }
 
@@ -359,9 +360,10 @@ export const syncCatalogFromGoogle = async (): Promise<SyncResult> => {
     try {
       await upsertProduct(product)
       syncedProducts += 1
-    } catch {
+    } catch (error) {
       skippedProducts += 1
-      errors.push({ sku, reason: 'Database upsert failed' })
+      const dbReason = error instanceof Error ? error.message : 'Unknown DB error'
+      errors.push({ sku, reason: `Database upsert failed: ${dbReason}` })
     }
   }
 
@@ -369,6 +371,7 @@ export const syncCatalogFromGoogle = async (): Promise<SyncResult> => {
     totalRows: rows.length,
     syncedProducts,
     skippedProducts,
+    skippedByRule,
     errors,
   }
 }

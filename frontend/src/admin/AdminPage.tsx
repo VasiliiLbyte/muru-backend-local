@@ -145,6 +145,9 @@ export const AdminPage = ({ userId, onBack }: AdminPageProps) => {
           <p className="mt-1">Всего строк: {lastResult.totalRows}</p>
           <p>Синхронизировано: {lastResult.syncedProducts}</p>
           <p>Пропущено: {lastResult.skippedProducts}</p>
+          {typeof lastResult.skippedByRule === 'number' ? (
+            <p>Пропущено по правилу MU: {lastResult.skippedByRule}</p>
+          ) : null}
           {lastResult.errors.length > 0 ? (
             <ul className="mt-2 list-disc pl-5">
               {lastResult.errors.slice(0, 10).map((item) => (
