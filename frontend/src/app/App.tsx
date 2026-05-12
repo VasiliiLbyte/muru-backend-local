@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
 
 import { AdminDashboard } from '../admin/AdminDashboard'
@@ -55,6 +55,9 @@ const CatalogRoutes = ({
   const location = useLocation()
   const params = useParams<{ categorySlug?: string; subcategorySlug?: string }>()
 
+  const normalizedCatalogPath = (location.pathname.replace(/\/$/, '') || '/')
+  const isCatalogRoot = normalizedCatalogPath === '/catalog'
+
   const safeDecode = (value: string) => {
     if (!value) return ''
     try {
@@ -94,9 +97,9 @@ const CatalogRoutes = ({
         subcategory: subcategoryNameForQuery,
         subcategorySlug: subcategory?.slug ?? (subcategorySlugRaw || undefined),
         q: search || undefined,
-        color: filters.color || undefined,
-        size: filters.size || undefined,
-        priceMax: filters.priceMax ? Number(filters.priceMax) : undefined,
+        color: isCatalogRoot ? undefined : filters.color || undefined,
+        size: isCatalogRoot ? undefined : filters.size || undefined,
+        priceMax: isCatalogRoot ? undefined : filters.priceMax ? Number(filters.priceMax) : undefined,
       })
         .then((items) => {
           if (requestSeqRef.current !== requestId) return
@@ -125,6 +128,7 @@ const CatalogRoutes = ({
     categoryNameForQuery,
     subcategoryNameForQuery,
     search,
+    isCatalogRoot,
     filters.color,
     filters.size,
     filters.priceMax,
@@ -135,14 +139,16 @@ const CatalogRoutes = ({
   return (
     <>
       <CatalogSearch value={search} onChange={onSearchChange} />
-      <CatalogFilters
-        color={filters.color}
-        size={filters.size}
-        priceMax={filters.priceMax}
-        onColorChange={(value) => onFilterChange('color', value)}
-        onSizeChange={(value) => onFilterChange('size', value)}
-        onPriceMaxChange={(value) => onFilterChange('priceMax', value)}
-      />
+      {!isCatalogRoot ? (
+        <CatalogFilters
+          color={filters.color}
+          size={filters.size}
+          priceMax={filters.priceMax}
+          onColorChange={(value) => onFilterChange('color', value)}
+          onSizeChange={(value) => onFilterChange('size', value)}
+          onPriceMaxChange={(value) => onFilterChange('priceMax', value)}
+        />
+      ) : null}
       <Routes>
         <Route index element={<CatalogHomePage tree={tree} />} />
         <Route
@@ -192,7 +198,8 @@ const AppShell = () => {
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState({ color: '', size: '', priceMax: '' })
   const { userId, isAdmin, webApp } = useTelegramWebApp()
-  const { addProduct, loadDraft } = useCart()
+  const { addProduct, loadDraft, items: cartItems } = useCart()
+  const cartItemCount = useMemo(() => cartItems.reduce((n, i) => n + i.quantity, 0), [cartItems])
   const { favorites, favoriteSkus, isLoading: favoritesLoading, loadFavorites, toggleFavorite } = useFavorites()
 
   useEffect(() => {
@@ -257,7 +264,10 @@ const AppShell = () => {
     setIsCheckoutOpen(false)
     setIsAdminPageOpen(false)
     setSelectedProduct(null)
-    if (tab === 'Каталог') navigate('/catalog')
+    if (tab === 'Каталог') {
+      navigate('/catalog')
+      setFilters({ color: '', size: '', priceMax: '' })
+    }
   }
 
   const renderPage = () => {
@@ -350,8 +360,8 @@ const AppShell = () => {
 
   return (
     <div className="mx-auto flex min-h-screen max-w-[560px] flex-col bg-muru-ivory">
-      <main className="flex-1 px-4 pb-24 pt-4">{pageContent}</main>
-      <BottomNavigation activeTab={activeTab} onSelectTab={handleSelectTab} />
+      <main className="flex-1 px-4 pb-28 pt-4">{pageContent}</main>
+      <BottomNavigation activeTab={activeTab} onSelectTab={handleSelectTab} cartItemCount={cartItemCount} />
     </div>
   )
 }

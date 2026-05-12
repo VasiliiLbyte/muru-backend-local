@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 
 import { buildImageCandidates } from '../lib/images'
 
@@ -8,13 +8,9 @@ type SmartImageProps = {
   className?: string
 }
 
-export const SmartImage = ({ src, alt, className }: SmartImageProps) => {
+const SmartImageInner = ({ src, alt, className }: SmartImageProps) => {
   const candidates = useMemo(() => buildImageCandidates(src), [src])
   const [candidateIndex, setCandidateIndex] = useState(0)
-
-  useEffect(() => {
-    setCandidateIndex(0)
-  }, [src])
 
   const currentSrc = candidates[Math.min(candidateIndex, candidates.length - 1)]
 
@@ -29,4 +25,9 @@ export const SmartImage = ({ src, alt, className }: SmartImageProps) => {
       }}
     />
   )
+}
+
+/** Remount when `src` changes so fallback index resets without a setState-in-effect pattern. */
+export const SmartImage = (props: SmartImageProps) => {
+  return <SmartImageInner key={props.src ?? ''} {...props} />
 }

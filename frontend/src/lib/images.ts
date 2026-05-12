@@ -1,4 +1,4 @@
-const DRIVE_FILE_ID_PATTERNS = [/[\?&]id=([^&]+)/i, /\/file\/d\/([^/]+)/i]
+const DRIVE_FILE_ID_PATTERNS = [/[?&]id=([^&]+)/i, /\/file\/d\/([^/]+)/i]
 
 const extractDriveFileId = (url: string): string | null => {
   for (const pattern of DRIVE_FILE_ID_PATTERNS) {
