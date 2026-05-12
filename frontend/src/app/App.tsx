@@ -19,6 +19,7 @@ import { FavoritesPage } from '../pages/FavoritesPage'
 import { PlaceholderPage } from '../pages/PlaceholderPage'
 import { ProductDetailPage } from '../pages/ProductDetailPage'
 import { ProfilePage } from '../pages/ProfilePage'
+import { SearchPage } from '../pages/SearchPage'
 
 const DEFAULT_TAB = 'Каталог'
 
@@ -35,6 +36,7 @@ type CatalogRoutesProps = {
   onNotifyRestock: (product: CatalogProduct) => void
   onProductsLoading: (value: boolean) => void
   isProductsLoading: boolean
+  onSearchActivate?: () => void
 }
 
 const CatalogRoutes = ({
@@ -50,6 +52,7 @@ const CatalogRoutes = ({
   onNotifyRestock,
   onProductsLoading,
   isProductsLoading,
+  onSearchActivate,
 }: CatalogRoutesProps) => {
   const requestSeqRef = useRef(0)
   const location = useLocation()
@@ -138,7 +141,7 @@ const CatalogRoutes = ({
 
   return (
     <>
-      <CatalogSearch value={search} onChange={onSearchChange} />
+      <CatalogSearch value={search} onChange={onSearchChange} onActivate={onSearchActivate} />
       {!isCatalogRoot ? (
         <CatalogFilters
           color={filters.color}
@@ -271,12 +274,39 @@ const AppShell = () => {
     }
   }
 
+  const goToCatalogFromSearch = () => {
+    setSearch('')
+    handleSelectTab('Каталог')
+  }
+
+  const openProductBySku = (sku: string) => {
+    fetchCatalogProductBySku(sku).then(setSelectedProduct).catch(() => setSelectedProduct(null))
+  }
+
+  const productDetail = selectedProduct ? (
+    <ProductDetailPage
+      product={selectedProduct}
+      onAddToCart={addProduct}
+      onNotifyRestock={handleNotifyRestock}
+      isAuthorized={Boolean(userId)}
+      isFavorite={favoriteSkus.has(selectedProduct.sku)}
+      onToggleFavorite={(product) => {
+        toggleFavorite(userId, {
+          sku: product.sku,
+          name: product.name,
+          price: product.price,
+          imageUrl: product.imageUrls[0],
+          inStock: product.inStock,
+        }).catch(() => undefined)
+      }}
+    />
+  ) : null
+
   const screenTransitionKey = useMemo(() => {
+    if (selectedProduct) return `product-${selectedProduct.sku}`
     if (isAdminPageOpen && isAdmin) return 'admin'
-    if (activeTab === 'Каталог') {
-      if (selectedProduct) return `product-${selectedProduct.sku}`
-      return `catalog-${location.pathname}`
-    }
+    if (activeTab === 'Каталог') return `catalog-${location.pathname}`
+    if (activeTab === 'Поиск') return 'search'
     if (activeTab === 'Профиль') return 'profile'
     if (activeTab === 'Избранное') return 'favorites'
     if (activeTab === 'Корзина') return isCheckoutOpen ? 'checkout' : 'cart'
@@ -291,31 +321,13 @@ const AppShell = () => {
   ])
 
   const renderPage = () => {
+    if (selectedProduct) {
+      return productDetail
+    }
     if (isAdminPageOpen && isAdmin) {
       return <AdminDashboard userId={userId} onBack={() => setIsAdminPageOpen(false)} />
     }
     if (activeTab === 'Каталог') {
-      if (selectedProduct) {
-        return (
-          <ProductDetailPage
-            product={selectedProduct}
-            onAddToCart={addProduct}
-            onNotifyRestock={handleNotifyRestock}
-            isAuthorized={Boolean(userId)}
-            isFavorite={favoriteSkus.has(selectedProduct.sku)}
-            onToggleFavorite={(product) => {
-              toggleFavorite(userId, {
-                sku: product.sku,
-                name: product.name,
-                price: product.price,
-                imageUrl: product.imageUrls[0],
-                inStock: product.inStock,
-              }).catch(() => undefined)
-            }}
-          />
-        )
-      }
-
       return (
         <Routes>
           <Route
@@ -327,13 +339,10 @@ const AppShell = () => {
                 search={search}
                 filters={filters}
                 onSearchChange={setSearch}
+                onSearchActivate={() => setActiveTab('Поиск')}
                 onFilterChange={(key, value) => setFilters((prev) => ({ ...prev, [key]: value }))}
                 onProductsChange={setCatalogProducts}
-                onOpenProductDetail={(sku) => {
-                  fetchCatalogProductBySku(sku)
-                    .then(setSelectedProduct)
-                    .catch(() => setSelectedProduct(null))
-                }}
+                onOpenProductDetail={openProductBySku}
                 onAddToCart={addProduct}
                 onNotifyRestock={handleNotifyRestock}
                 onProductsLoading={setIsCatalogLoading}
@@ -343,6 +352,18 @@ const AppShell = () => {
           />
           <Route path="*" element={<Navigate to="/catalog" />} />
         </Routes>
+      )
+    }
+    if (activeTab === 'Поиск') {
+      return (
+        <SearchPage
+          query={search}
+          onQueryChange={setSearch}
+          onOpenProductDetail={openProductBySku}
+          onAddToCart={addProduct}
+          onNotifyRestock={handleNotifyRestock}
+          onGoToCatalog={goToCatalogFromSearch}
+        />
       )
     }
     if (activeTab === 'Профиль') {

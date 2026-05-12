@@ -128,7 +128,12 @@ export const getCatalogProducts = async (params: {
   if (q) {
     values.push(`%${q}%`)
     const idx = values.length
-    conditions.push(`(p.name ILIKE $${idx} OR p.sku ILIKE $${idx})`)
+    const isGlobalProductSearch = !effectiveCategorySlug && !effectiveCategoryName
+    if (isGlobalProductSearch) {
+      conditions.push(`p.name ILIKE $${idx}`)
+    } else {
+      conditions.push(`(p.name ILIKE $${idx} OR p.sku ILIKE $${idx})`)
+    }
   }
   if (color) {
     values.push(`%${color}%`)
