@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 
 import { fetchMyOrders, fetchMyProfile, saveMyProfile } from '../lib/api'
+import { pressable, pressableDisabled } from '../lib/uiClasses'
 import type { OrderHistoryItem, ProfileData } from '../types/cart'
 
 type ProfilePageProps = {
@@ -130,19 +131,19 @@ export const ProfilePage = ({
       </div>
 
       <div className="grid gap-2 rounded-2xl bg-[#efe8d8] p-3 text-sm">
-        <button type="button" className="rounded-xl bg-white px-3 py-2 text-left" onClick={onOpenFavorites}>
+        <button type="button" className={`${pressable} rounded-xl bg-white px-3 py-2 text-left`} onClick={onOpenFavorites}>
           Избранное
         </button>
-        <button type="button" className="rounded-xl bg-white px-3 py-2 text-left" onClick={onOpenOrders}>
+        <button type="button" className={`${pressable} rounded-xl bg-white px-3 py-2 text-left`} onClick={onOpenOrders}>
           Мои заказы
         </button>
-        <button type="button" className="rounded-xl bg-white px-3 py-2 text-left">
+        <button type="button" className={`${pressable} rounded-xl bg-white px-3 py-2 text-left`}>
           Отзывы
         </button>
-        <button type="button" className="rounded-xl bg-white px-3 py-2 text-left">
+        <button type="button" className={`${pressable} rounded-xl bg-white px-3 py-2 text-left`}>
           Политика конфиденциальности
         </button>
-        <button type="button" className="rounded-xl bg-white px-3 py-2 text-left">
+        <button type="button" className={`${pressable} rounded-xl bg-white px-3 py-2 text-left`}>
           Пользовательское соглашение
         </button>
       </div>
@@ -186,7 +187,7 @@ export const ProfilePage = ({
         </label>
         <button
           type="button"
-          className="rounded-xl bg-muru-olive px-4 py-2 text-sm font-medium text-muru-ivory"
+          className={`${pressableDisabled} rounded-xl bg-muru-olive px-4 py-2 text-sm font-medium text-muru-ivory`}
           disabled={isLoading}
           onClick={handleSaveProfile}
         >
@@ -221,7 +222,7 @@ export const ProfilePage = ({
             <p className="mt-2 text-sm">Здесь пока пусто</p>
             <button
               type="button"
-              className="mt-3 rounded-xl bg-[#8f2b2b] px-4 py-2 text-xs font-semibold text-[#fff5ef]"
+              className={`${pressable} mt-3 rounded-xl bg-[#8f2b2b] px-4 py-2 text-xs font-semibold text-[#fff5ef]`}
               onClick={onGoCatalog}
             >
               Перейти в каталог
@@ -233,7 +234,7 @@ export const ProfilePage = ({
       <div className="grid gap-2">
         <button
           type="button"
-          className="rounded-xl bg-[#e3dccd] px-4 py-2 text-sm font-medium"
+          className={`${pressable} rounded-xl bg-[#e3dccd] px-4 py-2 text-sm font-medium`}
           onClick={handleLogout}
         >
           Выйти
@@ -241,7 +242,7 @@ export const ProfilePage = ({
         {isAdmin ? (
           <button
             type="button"
-            className="rounded-xl bg-muru-olive px-4 py-2 text-sm font-medium text-muru-ivory"
+            className={`${pressable} rounded-xl bg-muru-olive px-4 py-2 text-sm font-medium text-muru-ivory`}
             onClick={onOpenAdmin}
           >
             Админ

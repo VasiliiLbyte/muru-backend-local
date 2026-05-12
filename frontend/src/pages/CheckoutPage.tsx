@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { useCart } from '../cart/CartContext'
+import { pressable, pressableDisabled } from '../lib/uiClasses'
 
 type CheckoutPageProps = {
   userId?: number
@@ -97,7 +98,7 @@ export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
             <button
               key={item}
               type="button"
-              className="rounded-lg bg-[#efe8d8] px-2 py-1 text-left text-xs"
+              className={`${pressable} rounded-lg bg-[#efe8d8] px-2 py-1 text-left text-xs`}
               onClick={() => updateCheckout({ address: item })}
             >
               {item}
@@ -111,7 +112,7 @@ export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
         <div className="mt-2 flex gap-2">
           <button
             type="button"
-            className={`rounded-xl px-3 py-2 text-sm ${
+            className={`${pressable} rounded-xl px-3 py-2 text-sm ${
               checkout.deliveryMode === 'delivery' ? 'bg-muru-olive text-muru-ivory' : 'bg-[#efe8d8]'
             }`}
             onClick={() => updateCheckout({ deliveryMode: 'delivery' })}
@@ -120,7 +121,7 @@ export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
           </button>
           <button
             type="button"
-            className={`rounded-xl px-3 py-2 text-sm ${
+            className={`${pressable} rounded-xl px-3 py-2 text-sm ${
               checkout.deliveryMode === 'pickup' ? 'bg-muru-olive text-muru-ivory' : 'bg-[#efe8d8]'
             }`}
             onClick={() => updateCheckout({ deliveryMode: 'pickup', deliveryPrice: 0, deliveryEta: 'Самовывоз сегодня' })}
@@ -135,7 +136,7 @@ export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
               <button
                 key={option.label}
                 type="button"
-                className={`rounded-xl border px-3 py-2 text-left text-sm ${
+                className={`${pressable} rounded-xl border px-3 py-2 text-left text-sm ${
                   checkout.deliveryOption === option.label ? 'border-muru-olive bg-[#efe8d8]' : 'border-muru-accent'
                 }`}
                 onClick={() =>
@@ -206,14 +207,14 @@ export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
       <div className="grid gap-2">
         <button
           type="button"
-          className="rounded-xl bg-[#efe8d8] px-4 py-2 text-sm font-medium"
+          className={`${pressable} rounded-xl bg-[#efe8d8] px-4 py-2 text-sm font-medium`}
           onClick={onBackToCart}
         >
           Вернуться в корзину
         </button>
         <button
           type="button"
-          className="rounded-xl bg-[#e3dccd] px-4 py-2 text-sm font-medium"
+          className={`${pressableDisabled} rounded-xl bg-[#e3dccd] px-4 py-2 text-sm font-medium`}
           disabled={isLoading || isSubmitting || !hasItems}
           onClick={() => persistDraft(userId)}
         >
@@ -221,7 +222,7 @@ export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
         </button>
         <button
           type="button"
-          className="rounded-xl bg-muru-olive px-4 py-3 text-sm font-semibold text-muru-ivory"
+          className={`${pressableDisabled} rounded-xl bg-muru-olive px-4 py-3 text-sm font-semibold text-muru-ivory`}
           disabled={isLoading || isSubmitting || !hasItems}
           onClick={handleConfirm}
         >

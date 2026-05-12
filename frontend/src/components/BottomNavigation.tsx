@@ -1,5 +1,7 @@
 import { useMemo, type FC } from 'react'
 
+import { pressable } from '../lib/uiClasses'
+
 type BottomNavigationProps = {
   activeTab: string
   onSelectTab: (tab: string) => void
@@ -121,7 +123,7 @@ export const BottomNavigation = ({ activeTab, onSelectTab, cartItemCount = 0 }: 
                 <button
                   key={tab}
                   type="button"
-                  className="flex min-w-0 touch-manipulation flex-col items-center justify-center gap-0.5 rounded-full py-2 transition-transform duration-150 active:scale-95"
+                  className={`${pressable} flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-full py-2`}
                   onClick={() => onSelectTab(tab)}
                   aria-current={active ? 'page' : undefined}
                 >

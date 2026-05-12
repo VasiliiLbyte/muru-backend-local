@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { sortCatalogNodes } from '../constants/catalog-category-order'
+import { pressable } from '../lib/uiClasses'
 import type { CatalogNode } from '../types/catalog'
 
 type CatalogHomePageProps = {
@@ -25,7 +26,7 @@ export const CatalogHomePage = ({ tree }: CatalogHomePageProps) => {
           <button
             key={category.slug}
             type="button"
-            className="block touch-manipulation rounded-2xl border border-muru-accent bg-[#fff9ed] p-3 transition-transform duration-150 hover:bg-[#f5efdf] active:scale-95"
+            className={`${pressable} block rounded-2xl border border-muru-accent bg-[#fff9ed] p-3 hover:bg-[#f5efdf]`}
             onClick={() => navigate(`/catalog/${encodeURIComponent(category.slug)}`)}
           >
             <div className="mb-3 aspect-[4/3] rounded-xl bg-[#efe8d8]"></div>

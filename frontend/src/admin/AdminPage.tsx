@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 
 import { triggerCatalogSync, type SyncApiResult } from '../lib/api'
+import { pressable, pressableDisabled } from '../lib/uiClasses'
 
 type AdminPageProps = {
   userId?: number
@@ -107,7 +108,7 @@ export const AdminPage = ({ userId, onBack }: AdminPageProps) => {
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
         <button
           type="button"
-          className="rounded-xl bg-muru-olive px-4 py-4 text-base font-semibold text-muru-ivory"
+          className={`${pressableDisabled} rounded-xl bg-muru-olive px-4 py-4 text-base font-semibold text-muru-ivory`}
           disabled={isLoading}
           onClick={handleSync}
         >
@@ -115,7 +116,7 @@ export const AdminPage = ({ userId, onBack }: AdminPageProps) => {
         </button>
         <button
           type="button"
-          className="rounded-xl bg-[#e3dccd] px-4 py-4 text-base font-semibold"
+          className={`${pressableDisabled} rounded-xl bg-[#e3dccd] px-4 py-4 text-base font-semibold`}
           disabled={isLoading}
           onClick={handleSync}
         >
@@ -123,7 +124,7 @@ export const AdminPage = ({ userId, onBack }: AdminPageProps) => {
         </button>
         <button
           type="button"
-          className="rounded-xl bg-[#efe8d8] px-4 py-2 text-sm font-medium sm:col-span-2"
+          className={`${pressable} rounded-xl bg-[#efe8d8] px-4 py-2 text-sm font-medium sm:col-span-2`}
           onClick={onBack}
         >
           Назад в профиль

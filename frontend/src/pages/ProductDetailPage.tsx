@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 
 import type { CatalogProductDetail } from '../types/catalog'
 import { SmartImage } from '../components/SmartImage'
+import { pressable, pressableTight } from '../lib/uiClasses'
 
 type ProductDetailPageProps = {
   product: CatalogProductDetail
@@ -41,7 +42,7 @@ export const ProductDetailPage = ({
             <button
               key={`${product.sku}-detail-${idx}`}
               type="button"
-              className={`h-2 w-2 rounded-full ${idx === safeImageIndex ? 'bg-muru-olive' : 'bg-muru-accent'}`}
+              className={`${pressableTight} h-2 w-2 rounded-full ${idx === safeImageIndex ? 'bg-muru-olive' : 'bg-muru-accent'}`}
               onClick={() => setImageIndex(idx)}
             />
           ))}
@@ -53,7 +54,7 @@ export const ProductDetailPage = ({
           <h1 className="text-xl font-semibold text-muru-olive">{product.name}</h1>
           <button
             type="button"
-            className={`rounded-full px-3 py-2 text-2xl ${isFavorite ? 'bg-[#fde2e2]' : 'bg-[#efe8d8]'}`}
+            className={`${pressable} rounded-full px-3 py-2 text-2xl ${isFavorite ? 'bg-[#fde2e2]' : 'bg-[#efe8d8]'}`}
             onClick={() => onToggleFavorite(product)}
             aria-label="Добавить в избранное"
           >
@@ -94,7 +95,7 @@ export const ProductDetailPage = ({
 
         <button
           type="button"
-          className="mt-5 w-full rounded-xl bg-muru-olive px-4 py-3 text-sm font-medium text-muru-ivory"
+          className={`${pressable} mt-5 w-full rounded-xl bg-muru-olive px-4 py-3 text-sm font-medium text-muru-ivory`}
           onClick={() => (product.inStock > 0 ? onAddToCart(product) : onNotifyRestock(product))}
         >
           {product.inStock > 0 ? 'В корзину' : 'Сообщить о поступлении'}

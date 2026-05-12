@@ -1,5 +1,6 @@
 import type { FavoriteItem } from '../types/favorite'
 import { SmartImage } from '../components/SmartImage'
+import { pressable } from '../lib/uiClasses'
 
 type FavoritesPageProps = {
   items: FavoriteItem[]
@@ -28,7 +29,7 @@ export const FavoritesPage = ({ items, onGoCatalog, isLoading = false }: Favorit
         <p className="mt-4 text-3xl font-semibold text-[#5e5252]">Здесь пока пусто</p>
         <button
           type="button"
-          className="mt-5 rounded-xl bg-[#8f2b2b] px-6 py-3 text-sm font-semibold text-[#fff5ef]"
+          className={`${pressable} mt-5 rounded-xl bg-[#8f2b2b] px-6 py-3 text-sm font-semibold text-[#fff5ef]`}
           onClick={onGoCatalog}
         >
           Перейти в каталог

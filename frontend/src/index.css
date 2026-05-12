@@ -18,3 +18,24 @@
     @apply min-h-screen;
   }
 }
+
+@keyframes muru-page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.muru-page-transition {
+  animation: muru-page-enter 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .muru-page-transition {
+    animation: none;
+  }
+}

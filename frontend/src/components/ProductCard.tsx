@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 
 import type { CatalogProduct } from '../types/catalog'
+import { pressable, pressableTight } from '../lib/uiClasses'
 import { SmartImage } from './SmartImage'
 
 type ProductCardProps = {
@@ -22,7 +23,7 @@ export const ProductCard = ({ product, onOpenDetail, onAddToCart, onNotifyRestoc
     <article className="rounded-2xl border border-muru-accent bg-[#fff9ed] p-3 shadow-sm">
       <button
         type="button"
-        className="w-full touch-manipulation text-left transition-transform duration-150 active:scale-95"
+        className={`${pressable} w-full text-left`}
         onClick={() => onOpenDetail(product.sku)}
       >
         <SmartImage
@@ -36,7 +37,7 @@ export const ProductCard = ({ product, onOpenDetail, onAddToCart, onNotifyRestoc
             <button
               key={`${product.sku}-${idx}`}
               type="button"
-              className={`h-2 w-2 touch-manipulation rounded-full transition-transform duration-150 active:scale-90 ${idx === safeImageIndex ? 'bg-muru-olive' : 'bg-muru-accent'}`}
+              className={`${pressableTight} h-2 w-2 rounded-full ${idx === safeImageIndex ? 'bg-muru-olive' : 'bg-muru-accent'}`}
               onClick={() => setImageIndex(idx)}
               aria-label={`Фото ${idx + 1}`}
             />
@@ -49,7 +50,7 @@ export const ProductCard = ({ product, onOpenDetail, onAddToCart, onNotifyRestoc
       </p>
       <button
         type="button"
-        className="mt-2 w-full touch-manipulation rounded-xl bg-muru-olive px-3 py-2 text-sm font-medium text-muru-ivory transition-transform duration-150 active:scale-95"
+        className={`${pressable} mt-2 w-full rounded-xl bg-muru-olive px-3 py-2 text-sm font-medium text-muru-ivory`}
         onClick={() => (product.inStock > 0 ? onAddToCart(product) : onNotifyRestock(product))}
       >
         {product.inStock > 0 ? 'В корзину' : 'Сообщить о поступлении'}

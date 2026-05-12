@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 
+import { pressable } from '../lib/uiClasses'
 import type { CatalogNode } from '../types/catalog'
 
 type CatalogCategoryPageProps = {
@@ -15,7 +16,7 @@ export const CatalogCategoryPage = ({ category }: CatalogCategoryPageProps) => {
           <Link
             key={subcategory.slug}
             to={`/catalog/${category.slug}/${subcategory.slug}`}
-            className="block touch-manipulation rounded-2xl border border-muru-accent bg-[#fff9ed] p-3 transition-transform duration-150 hover:bg-[#f5efdf] active:scale-95"
+            className={`${pressable} block rounded-2xl border border-muru-accent bg-[#fff9ed] p-3 hover:bg-[#f5efdf]`}
           >
             <div className="mb-3 aspect-[4/3] rounded-xl bg-[#efe8d8]"></div>
             <h2 className="text-sm font-semibold text-muru-olive">{subcategory.name}</h2>

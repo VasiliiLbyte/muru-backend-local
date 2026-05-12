@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 
 import { useCart } from '../cart/CartContext'
 import { SmartImage } from '../components/SmartImage'
+import { pressable, pressableDisabled } from '../lib/uiClasses'
 
 type CartPageProps = {
   userId?: number
@@ -34,7 +35,7 @@ export const CartPage = ({ userId, onGoCatalog, onCheckout }: CartPageProps) => 
         <p className="mt-2 text-sm text-[#6f6666]">Добавьте товары, чтобы перейти к оформлению заказа.</p>
         <button
           type="button"
-          className="mt-5 rounded-xl bg-[#8f2b2b] px-6 py-3 text-sm font-semibold text-[#fff5ef]"
+          className={`${pressable} mt-5 rounded-xl bg-[#8f2b2b] px-6 py-3 text-sm font-semibold text-[#fff5ef]`}
           onClick={onGoCatalog}
         >
           Перейти в каталог
@@ -50,7 +51,7 @@ export const CartPage = ({ userId, onGoCatalog, onCheckout }: CartPageProps) => 
           <h1 className="text-4xl font-semibold text-[#5e5252]">Корзина</h1>
           <button
             type="button"
-            className="rounded-xl bg-[#efe8d8] px-3 py-2 text-xs font-medium"
+            className={`${pressable} rounded-xl bg-[#efe8d8] px-3 py-2 text-xs font-medium`}
             onClick={() => activatePromoMock('MURU10')}
           >
             Активировать промокод
@@ -76,7 +77,7 @@ export const CartPage = ({ userId, onGoCatalog, onCheckout }: CartPageProps) => 
           <div className="mt-2 flex items-center gap-1">
             <button
               type="button"
-              className="h-10 w-10 rounded-xl bg-[#efe8d8] text-xl"
+              className={`${pressable} h-10 w-10 rounded-xl bg-[#efe8d8] text-xl`}
               onClick={() => updateQuantity(item.sku, item.quantity - 1)}
             >
               -
@@ -86,14 +87,14 @@ export const CartPage = ({ userId, onGoCatalog, onCheckout }: CartPageProps) => 
             </div>
             <button
               type="button"
-              className="h-10 w-10 rounded-xl bg-[#efe8d8] text-xl"
+              className={`${pressable} h-10 w-10 rounded-xl bg-[#efe8d8] text-xl`}
               onClick={() => updateQuantity(item.sku, item.quantity + 1)}
             >
               +
             </button>
             <button
               type="button"
-              className="ml-auto rounded-xl bg-[#efe8d8] px-3 py-2 text-xs"
+              className={`${pressable} ml-auto rounded-xl bg-[#efe8d8] px-3 py-2 text-xs`}
               onClick={() => removeItem(item.sku)}
             >
               Удалить
@@ -120,7 +121,7 @@ export const CartPage = ({ userId, onGoCatalog, onCheckout }: CartPageProps) => 
         <div className="mt-3 grid gap-2">
           <button
             type="button"
-            className="rounded-xl bg-[#efe8d8] px-4 py-2 text-sm font-medium"
+            className={`${pressableDisabled} rounded-xl bg-[#efe8d8] px-4 py-2 text-sm font-medium`}
             disabled={isLoading}
             onClick={() => persistDraft(userId)}
           >
@@ -128,7 +129,7 @@ export const CartPage = ({ userId, onGoCatalog, onCheckout }: CartPageProps) => 
           </button>
           <button
             type="button"
-            className="rounded-xl bg-[#b91c1c] px-4 py-4 text-base font-semibold text-[#fff5ef]"
+            className={`${pressableDisabled} rounded-xl bg-[#b91c1c] px-4 py-4 text-base font-semibold text-[#fff5ef]`}
             disabled={isLoading}
             onClick={async () => {
               await persistDraft(userId)

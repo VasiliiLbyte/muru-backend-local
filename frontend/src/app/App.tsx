@@ -188,6 +188,7 @@ const CatalogRoutes = ({
 
 const AppShell = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   const [activeTab, setActiveTab] = useState(DEFAULT_TAB)
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false)
   const [isAdminPageOpen, setIsAdminPageOpen] = useState(false)
@@ -269,6 +270,25 @@ const AppShell = () => {
       setFilters({ color: '', size: '', priceMax: '' })
     }
   }
+
+  const screenTransitionKey = useMemo(() => {
+    if (isAdminPageOpen && isAdmin) return 'admin'
+    if (activeTab === 'Каталог') {
+      if (selectedProduct) return `product-${selectedProduct.sku}`
+      return `catalog-${location.pathname}`
+    }
+    if (activeTab === 'Профиль') return 'profile'
+    if (activeTab === 'Избранное') return 'favorites'
+    if (activeTab === 'Корзина') return isCheckoutOpen ? 'checkout' : 'cart'
+    return `tab-${activeTab}`
+  }, [
+    isAdminPageOpen,
+    isAdmin,
+    activeTab,
+    selectedProduct,
+    location.pathname,
+    isCheckoutOpen,
+  ])
 
   const renderPage = () => {
     if (isAdminPageOpen && isAdmin) {
@@ -360,7 +380,11 @@ const AppShell = () => {
 
   return (
     <div className="mx-auto flex min-h-screen max-w-[560px] flex-col bg-muru-ivory">
-      <main className="flex-1 px-4 pb-28 pt-4">{pageContent}</main>
+      <main className="flex-1 px-4 pb-28 pt-4">
+        <div key={screenTransitionKey} className="muru-page-transition">
+          {pageContent}
+        </div>
+      </main>
       <BottomNavigation activeTab={activeTab} onSelectTab={handleSelectTab} cartItemCount={cartItemCount} />
     </div>
   )
