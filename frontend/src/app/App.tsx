@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
 
 import { AdminDashboard } from '../admin/AdminDashboard'
@@ -51,6 +51,7 @@ const CatalogRoutes = ({
   onProductsLoading,
   isProductsLoading,
 }: CatalogRoutesProps) => {
+  const requestSeqRef = useRef(0)
   const params = useParams<{ categorySlug?: string; subcategorySlug?: string }>()
   const categorySlugRaw = params.categorySlug ?? ''
   const categorySlugDecoded = decodeURIComponent(categorySlugRaw)
@@ -67,8 +68,11 @@ const CatalogRoutes = ({
   const subcategoryNameForQuery = subcategory?.name ?? (subcategorySlugRaw ? fallbackSubcategoryName : undefined)
 
   useEffect(() => {
+    const requestId = ++requestSeqRef.current
     const timeoutId = setTimeout(() => {
       onProductsLoading(true)
+      // Drop stale list immediately when route/filter changes.
+      onProductsChange([])
       fetchCatalogProducts({
         category: categoryNameForQuery,
         categorySlug: category?.slug ?? (categorySlugRaw || undefined),
@@ -79,12 +83,23 @@ const CatalogRoutes = ({
         size: filters.size || undefined,
         priceMax: filters.priceMax ? Number(filters.priceMax) : undefined,
       })
-        .then(onProductsChange)
-        .catch(() => onProductsChange([]))
-        .finally(() => onProductsLoading(false))
+        .then((items) => {
+          if (requestSeqRef.current !== requestId) return
+          onProductsChange(items)
+        })
+        .catch(() => {
+          if (requestSeqRef.current !== requestId) return
+          onProductsChange([])
+        })
+        .finally(() => {
+          if (requestSeqRef.current !== requestId) return
+          onProductsLoading(false)
+        })
     }, 250)
 
-    return () => clearTimeout(timeoutId)
+    return () => {
+      clearTimeout(timeoutId)
+    }
   }, [categoryNameForQuery, subcategoryNameForQuery, search, filters, onProductsChange, onProductsLoading])
 
   return (
