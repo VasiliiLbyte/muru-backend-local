@@ -1,16 +1,6 @@
+import { TOP_LEVEL_CATEGORIES } from '../constants/catalog-top-level'
 import { pool } from '../utils/db'
 import type { CatalogNode, CatalogProductDetail, CatalogProductListItem, Variant } from '../types/catalog'
-
-const TOP_LEVEL_CATEGORIES = [
-  'Флористика',
-  'Натуральный декор',
-  'Вазы и аксессуары',
-  'Текстиль',
-  'Кухня и столовая',
-  'Интерьер',
-  'Распродажа',
-  'Комплексные наборы',
-]
 
 const parseCategoryPath = (value: string) =>
   value

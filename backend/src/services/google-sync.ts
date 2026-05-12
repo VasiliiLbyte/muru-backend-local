@@ -1,6 +1,7 @@
 import { google } from 'googleapis'
 import { z } from 'zod'
 
+import { mapSheetSectionToTopLevel } from '../constants/catalog-top-level'
 import type { Product, SyncError, SyncResult, Variant } from '../types/catalog'
 import { pool } from '../utils/db'
 import { env } from '../utils/env'
@@ -300,7 +301,8 @@ const upsertProduct = async (product: Product) => {
   try {
     await client.query('BEGIN')
 
-    const primaryCategory = product.categoryNames[0] ?? 'Без категории'
+    const primaryRaw = product.categoryNames[0] ?? ''
+    const primaryCategory = mapSheetSectionToTopLevel(primaryRaw)
     const categorySlug = slugify(primaryCategory)
 
     const categoryResult = await client.query<{ id: number }>(

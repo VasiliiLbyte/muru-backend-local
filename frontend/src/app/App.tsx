@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { BrowserRouter, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
 
 import { AdminDashboard } from '../admin/AdminDashboard'
 import { CartProvider, useCart } from '../cart/CartContext'
@@ -52,6 +52,7 @@ const CatalogRoutes = ({
   isProductsLoading,
 }: CatalogRoutesProps) => {
   const requestSeqRef = useRef(0)
+  const location = useLocation()
   const params = useParams<{ categorySlug?: string; subcategorySlug?: string }>()
   const categorySlugRaw = params.categorySlug ?? ''
   const categorySlugDecoded = decodeURIComponent(categorySlugRaw)
@@ -100,7 +101,22 @@ const CatalogRoutes = ({
     return () => {
       clearTimeout(timeoutId)
     }
-  }, [categoryNameForQuery, subcategoryNameForQuery, search, filters, onProductsChange, onProductsLoading])
+  }, [
+    tree,
+    location.pathname,
+    categorySlugRaw,
+    subcategorySlugRaw,
+    category?.slug,
+    subcategory?.slug,
+    categoryNameForQuery,
+    subcategoryNameForQuery,
+    search,
+    filters.color,
+    filters.size,
+    filters.priceMax,
+    onProductsChange,
+    onProductsLoading,
+  ])
 
   return (
     <>
