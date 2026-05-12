@@ -1,25 +1,16 @@
+import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 
+import { sortCatalogNodes } from '../constants/catalog-category-order'
 import type { CatalogNode } from '../types/catalog'
 
 type CatalogHomePageProps = {
   tree: CatalogNode[]
 }
 
-const ORDERED_CATEGORIES = [
-  'Флористика',
-  'Натуральный декор',
-  'Вазы и аксессуары',
-  'Текстиль',
-  'Кухня и столовая',
-  'Интерьер',
-  'Распродажа',
-  'Комплексные наборы',
-]
-
 export const CatalogHomePage = ({ tree }: CatalogHomePageProps) => {
   const navigate = useNavigate()
-  const map = new Map(tree.map((item) => [item.name, item]))
+  const sorted = useMemo(() => sortCatalogNodes(tree), [tree])
 
   return (
     <section className="space-y-4">
@@ -30,30 +21,22 @@ export const CatalogHomePage = ({ tree }: CatalogHomePageProps) => {
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {ORDERED_CATEGORIES.map((name) => {
-          const category = map.get(name)
-          const link = category ? `/catalog/${encodeURIComponent(category.slug)}` : '/catalog'
-          return (
-            <button
-              key={name}
-              type="button"
-              className={`block rounded-2xl border border-muru-accent bg-[#fff9ed] p-3 ${
-                category ? 'hover:bg-[#f5efdf]' : 'opacity-60'
-              }`}
-              onClick={() => {
-                if (category) navigate(link)
-              }}
-              disabled={!category}
-            >
-              <div className="mb-3 aspect-[4/3] rounded-xl bg-[#efe8d8]"></div>
-              <h2 className="text-sm font-semibold text-muru-olive">{name}</h2>
-              <p className="mt-1 text-xs">
-                {category ? `${category.children.length} подкатегорий` : 'Скоро появится'}
-              </p>
-            </button>
-          )
-        })}
+        {sorted.map((category) => (
+          <button
+            key={category.slug}
+            type="button"
+            className="block rounded-2xl border border-muru-accent bg-[#fff9ed] p-3 hover:bg-[#f5efdf]"
+            onClick={() => navigate(`/catalog/${encodeURIComponent(category.slug)}`)}
+          >
+            <div className="mb-3 aspect-[4/3] rounded-xl bg-[#efe8d8]"></div>
+            <h2 className="text-sm font-semibold text-muru-olive">{category.name}</h2>
+            <p className="mt-1 text-xs">{category.children.length} подкатегорий</p>
+          </button>
+        ))}
       </div>
+      {sorted.length === 0 ? (
+        <p className="text-center text-sm text-[#6f6666]">Категории появятся после синхронизации каталога.</p>
+      ) : null}
     </section>
   )
 }

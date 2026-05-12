@@ -88,7 +88,16 @@ const buildCatalogTree = (categoryPaths: string[]) => {
 export const getCatalogTree = async (): Promise<CatalogNode[]> => {
   const result = await pool.query<{ name: string }>('SELECT name FROM categories')
   const categoryNames = result.rows.map((row) => row.name)
-  return buildCatalogTree(categoryNames)
+  const fullTree = buildCatalogTree(categoryNames)
+
+  const withProducts = await pool.query<{ slug: string }>(
+    `SELECT DISTINCT c.slug
+     FROM categories c
+     INNER JOIN products p ON p.category_id = c.id`,
+  )
+  const slugsWithProducts = new Set(withProducts.rows.map((row) => row.slug))
+
+  return fullTree.filter((node) => slugsWithProducts.has(node.slug))
 }
 
 export const getCatalogProducts = async (params: {

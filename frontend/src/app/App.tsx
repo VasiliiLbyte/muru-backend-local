@@ -54,10 +54,24 @@ const CatalogRoutes = ({
   const requestSeqRef = useRef(0)
   const location = useLocation()
   const params = useParams<{ categorySlug?: string; subcategorySlug?: string }>()
-  const categorySlugRaw = params.categorySlug ?? ''
-  const categorySlugDecoded = decodeURIComponent(categorySlugRaw)
-  const subcategorySlugRaw = params.subcategorySlug ?? ''
-  const subcategorySlugDecoded = decodeURIComponent(subcategorySlugRaw)
+
+  const safeDecode = (value: string) => {
+    if (!value) return ''
+    try {
+      return decodeURIComponent(value)
+    } catch {
+      return value
+    }
+  }
+
+  const pathMatch = location.pathname.replace(/\/$/, '').match(/\/catalog\/([^/]+)(?:\/([^/]+))?$/)
+  const categorySlugFromPath = pathMatch?.[1] ? safeDecode(pathMatch[1]) : ''
+  const subcategorySlugFromPath = pathMatch?.[2] ? safeDecode(pathMatch[2]) : ''
+
+  const categorySlugRaw = params.categorySlug ?? categorySlugFromPath
+  const categorySlugDecoded = safeDecode(categorySlugRaw)
+  const subcategorySlugRaw = params.subcategorySlug ?? subcategorySlugFromPath
+  const subcategorySlugDecoded = safeDecode(subcategorySlugRaw)
   const fallbackCategoryName = categorySlugDecoded.replace(/-/g, ' ')
   const fallbackSubcategoryName = subcategorySlugDecoded.replace(/-/g, ' ')
 
