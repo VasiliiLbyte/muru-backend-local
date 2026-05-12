@@ -380,7 +380,19 @@ const AppShell = () => {
       )
     }
     if (activeTab === 'Избранное') {
-      return <FavoritesPage items={favorites} isLoading={favoritesLoading} onGoCatalog={() => handleSelectTab('Каталог')} />
+      return (
+        <FavoritesPage
+          items={favorites}
+          userId={userId}
+          isLoading={favoritesLoading}
+          onGoCatalog={() => handleSelectTab('Каталог')}
+          onRemoveFavorite={
+            userId !== undefined
+              ? (item) => toggleFavorite(userId, item).catch(() => undefined)
+              : undefined
+          }
+        />
+      )
     }
     if (activeTab === 'Корзина') {
       if (isCheckoutOpen) {

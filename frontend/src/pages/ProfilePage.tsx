@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 
 import { fetchMyOrders, fetchMyProfile, saveMyProfile } from '../lib/api'
+import { ExitConfirmModal } from '../components/ExitConfirmModal'
 import { pressable, pressableDisabled } from '../lib/uiClasses'
 import type { OrderHistoryItem, ProfileData } from '../types/cart'
 
@@ -35,6 +36,7 @@ export const ProfilePage = ({
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [exitConfirmOpen, setExitConfirmOpen] = useState(false)
   const hasAuth = useMemo(() => Boolean(userId), [userId])
 
   useEffect(() => {
@@ -82,14 +84,21 @@ export const ProfilePage = ({
     }
   }
 
-  const handleLogout = () => {
-    sessionStorage.clear()
-    localStorage.removeItem('muru-profile-cache')
+  const handleLogoutRequest = () => {
     if (webAppClose) {
-      webAppClose()
+      setExitConfirmOpen(true)
       return
     }
+    sessionStorage.clear()
+    localStorage.removeItem('muru-profile-cache')
     window.location.reload()
+  }
+
+  const handleConfirmExitMiniApp = () => {
+    setExitConfirmOpen(false)
+    sessionStorage.clear()
+    localStorage.removeItem('muru-profile-cache')
+    webAppClose?.()
   }
 
   const baseName = profileData.fullName.trim()
@@ -113,7 +122,8 @@ export const ProfilePage = ({
   }
 
   return (
-    <section className="space-y-3 rounded-2xl border border-muru-accent bg-[#fff9ed] p-4">
+    <>
+      <section className="space-y-3 rounded-2xl border border-muru-accent bg-[#fff9ed] p-4">
       <h1 className="text-xl font-semibold text-muru-olive">Мой профиль</h1>
 
       <div className="rounded-2xl bg-[#f5ecdc] p-4 shadow-sm">
@@ -235,7 +245,7 @@ export const ProfilePage = ({
         <button
           type="button"
           className={`${pressable} rounded-xl bg-[#e3dccd] px-4 py-2 text-sm font-medium`}
-          onClick={handleLogout}
+          onClick={handleLogoutRequest}
         >
           Выйти
         </button>
@@ -252,6 +262,13 @@ export const ProfilePage = ({
 
       {successMessage ? <p className="text-sm text-green-700">{successMessage}</p> : null}
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
-    </section>
+      </section>
+      <ExitConfirmModal
+        isOpen={exitConfirmOpen}
+        message="Несохранённые изменения могут быть потеряны. Закрыть приложение?"
+        onCancel={() => setExitConfirmOpen(false)}
+        onConfirm={handleConfirmExitMiniApp}
+      />
+    </>
   )
 }

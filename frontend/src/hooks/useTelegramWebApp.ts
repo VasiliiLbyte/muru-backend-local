@@ -77,6 +77,7 @@ export const useTelegramWebApp = () => {
     webApp.expand()
     webApp.BackButton.hide()
     webApp.MainButton.hide()
+    webApp.enableClosingConfirmation?.()
 
     if (webApp.themeParams) {
       Object.entries(webApp.themeParams).forEach(([key, value]) => {

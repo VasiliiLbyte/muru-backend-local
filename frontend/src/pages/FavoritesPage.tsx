@@ -1,14 +1,16 @@
-import type { FavoriteItem } from '../types/favorite'
 import { SmartImage } from '../components/SmartImage'
 import { pressable } from '../lib/uiClasses'
+import type { FavoriteItem } from '../types/favorite'
 
 type FavoritesPageProps = {
   items: FavoriteItem[]
+  userId?: number
   onGoCatalog: () => void
+  onRemoveFavorite?: (item: FavoriteItem) => void | Promise<void>
   isLoading?: boolean
 }
 
-export const FavoritesPage = ({ items, onGoCatalog, isLoading = false }: FavoritesPageProps) => {
+export const FavoritesPage = ({ items, userId, onGoCatalog, onRemoveFavorite, isLoading = false }: FavoritesPageProps) => {
   if (isLoading) {
     return (
       <section className="space-y-3">
@@ -43,12 +45,30 @@ export const FavoritesPage = ({ items, onGoCatalog, isLoading = false }: Favorit
       <h1 className="text-3xl font-semibold text-[#5e5252]">Избранное</h1>
       <div className="grid gap-2">
         {items.map((item) => (
-          <article key={item.sku} className="flex items-center gap-3 rounded-xl border border-muru-accent bg-[#fff9ed] p-3">
-            <SmartImage src={item.imageUrl} alt={item.name} className="h-16 w-16 rounded-lg object-cover" />
-            <div className="flex-1">
-              <h2 className="text-sm font-semibold">{item.name}</h2>
+          <article
+            key={item.sku}
+            className="flex items-center gap-3 rounded-xl border border-muru-accent bg-[#fff9ed] p-3 pr-2"
+          >
+            <SmartImage src={item.imageUrl} alt={item.name} className="h-16 w-16 shrink-0 rounded-lg object-cover" />
+            <div className="min-w-0 flex-1">
+              <h2 className="text-sm font-semibold leading-snug">{item.name}</h2>
               <p className="text-sm">{item.price.toFixed(2)} ₽</p>
             </div>
+            {userId && onRemoveFavorite ? (
+              <button
+                type="button"
+                className={`${pressable} shrink-0 rounded-lg p-2 text-muru-text hover:bg-[#fde2e2]`}
+                aria-label={`Удалить «${item.name}» из избранного`}
+                onClick={() => void onRemoveFavorite(item)}
+              >
+                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+                  <path d="M3 6h18" strokeLinecap="round" />
+                  <path d="M8 6V4h8v2" strokeLinecap="round" />
+                  <path d="M19 6l-1 14H6L5 6" strokeLinejoin="round" />
+                  <path d="M10 11v6M14 11v6" strokeLinecap="round" />
+                </svg>
+              </button>
+            ) : null}
           </article>
         ))}
       </div>

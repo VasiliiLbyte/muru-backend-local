@@ -28,6 +28,9 @@ export type TelegramWebApp = {
     enable: () => void
     disable: () => void
   }
+  /** Показать системное подтверждение при закрытии Mini App (крестик в Telegram). */
+  enableClosingConfirmation?: () => void
+  disableClosingConfirmation?: () => void
   close?: () => void
 }
 
