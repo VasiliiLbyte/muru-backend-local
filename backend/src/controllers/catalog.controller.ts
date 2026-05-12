@@ -25,14 +25,43 @@ export const getCatalogTreeHandler = async (_req: Request, res: Response) => {
 
 export const getCatalogProductsHandler = async (req: Request, res: Response) => {
   try {
-    const products = await getCatalogProducts({
+    const filters = {
       category: req.query.category ? String(req.query.category) : undefined,
+      categorySlug: req.query.categorySlug ? String(req.query.categorySlug) : undefined,
       subcategory: req.query.subcategory ? String(req.query.subcategory) : undefined,
+      subcategorySlug: req.query.subcategorySlug ? String(req.query.subcategorySlug) : undefined,
       q: req.query.q ? String(req.query.q) : undefined,
       color: req.query.color ? String(req.query.color) : undefined,
       size: req.query.size ? String(req.query.size) : undefined,
       priceMax: req.query.priceMax ? Number(req.query.priceMax) : undefined,
-    })
+    }
+    const products = await getCatalogProducts(filters)
+    const debugEnabled = req.query.debug === '1'
+
+    if (debugEnabled) {
+      const effectiveCategorySlug = filters.subcategorySlug || filters.categorySlug || null
+      const effectiveCategoryName = filters.subcategory || filters.category || null
+      console.log(
+        '[catalog-debug] filters',
+        JSON.stringify({
+          ...filters,
+          effectiveCategorySlug,
+          effectiveCategoryName,
+          results: products.length,
+        }),
+      )
+      return res.json({
+        success: true,
+        data: products,
+        debug: {
+          filters,
+          effectiveCategorySlug,
+          effectiveCategoryName,
+          results: products.length,
+        },
+      })
+    }
+
     res.json({ success: true, data: products })
   } catch (error) {
     res.status(500).json({

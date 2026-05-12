@@ -71,7 +71,9 @@ const CatalogRoutes = ({
       onProductsLoading(true)
       fetchCatalogProducts({
         category: categoryNameForQuery,
+        categorySlug: category?.slug ?? (categorySlugRaw || undefined),
         subcategory: subcategoryNameForQuery,
+        subcategorySlug: subcategory?.slug ?? (subcategorySlugRaw || undefined),
         q: search || undefined,
         color: filters.color || undefined,
         size: filters.size || undefined,

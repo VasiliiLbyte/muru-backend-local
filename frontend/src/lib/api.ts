@@ -62,7 +62,9 @@ export const fetchCatalogTree = async (): Promise<CatalogNode[]> => {
 
 export const fetchCatalogProducts = async (params: {
   category?: string
+  categorySlug?: string
   subcategory?: string
+  subcategorySlug?: string
   q?: string
   color?: string
   size?: string

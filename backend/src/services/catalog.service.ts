@@ -103,22 +103,27 @@ export const getCatalogTree = async (): Promise<CatalogNode[]> => {
 
 export const getCatalogProducts = async (params: {
   category?: string
+  categorySlug?: string
   subcategory?: string
+  subcategorySlug?: string
   q?: string
   color?: string
   size?: string
   priceMax?: number
 }) => {
-  const { category, subcategory, q, color, size, priceMax } = params
+  const { category, categorySlug, subcategory, subcategorySlug, q, color, size, priceMax } = params
   const conditions: string[] = []
   const values: Array<string | number> = []
 
-  if (category) {
-    values.push(`%${category}%`)
-    conditions.push(`c.name ILIKE $${values.length}`)
-  }
-  if (subcategory) {
-    values.push(`%${subcategory}%`)
+  // Subcategory filter is more specific; apply only one category slug filter to avoid contradictory conditions.
+  const effectiveCategorySlug = subcategorySlug || categorySlug
+  const effectiveCategoryName = subcategory || category
+
+  if (effectiveCategorySlug) {
+    values.push(effectiveCategorySlug)
+    conditions.push(`c.slug = $${values.length}`)
+  } else if (effectiveCategoryName) {
+    values.push(`%${effectiveCategoryName}%`)
     conditions.push(`c.name ILIKE $${values.length}`)
   }
   if (q) {
