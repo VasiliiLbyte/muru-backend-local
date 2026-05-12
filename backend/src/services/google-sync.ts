@@ -73,7 +73,23 @@ const extractSkuAndOrder = (filename: string): { sku: string; order: number } | 
 }
 
 const buildPublicUrl = (fileId: string) =>
-  `https://drive.google.com/uc?export=view&id=${fileId}`
+  `https://drive.google.com/thumbnail?id=${fileId}&sz=w1600`
+
+const ensureFileIsPublic = async (drive: ReturnType<typeof google.drive>, fileId: string) => {
+  try {
+    await drive.permissions.create({
+      fileId,
+      requestBody: { role: 'reader', type: 'anyone' },
+      fields: 'id',
+    })
+  } catch (error) {
+    // Keep sync resilient: image link generation should not fully fail on permission edge-cases.
+    const message = error instanceof Error ? error.message : 'Unknown Drive permission error'
+    if (!message.toLowerCase().includes('already')) {
+      console.warn(`[sync] Unable to make Drive file public (${fileId}): ${message}`)
+    }
+  }
+}
 
 const createGoogleAuth = () =>
   new google.auth.JWT({
@@ -81,7 +97,7 @@ const createGoogleAuth = () =>
     key: env.googlePrivateKey,
     scopes: [
       'https://www.googleapis.com/auth/spreadsheets.readonly',
-      'https://www.googleapis.com/auth/drive.readonly',
+      'https://www.googleapis.com/auth/drive',
     ],
   })
 
@@ -185,6 +201,7 @@ const readDriveImagesBySku = async () => {
 
   for (const file of files) {
     if (!file.id || !file.name) continue
+    await ensureFileIsPublic(drive, file.id)
     const parsed = extractSkuAndOrder(file.name)
     if (!parsed) continue
 

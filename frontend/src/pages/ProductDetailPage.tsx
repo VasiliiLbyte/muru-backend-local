@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 
 import type { CatalogProductDetail } from '../types/catalog'
+import { SmartImage } from '../components/SmartImage'
 
 type ProductDetailPageProps = {
   product: CatalogProductDetail
@@ -30,7 +31,7 @@ export const ProductDetailPage = ({
   return (
     <section className="space-y-4">
       <div className="rounded-2xl border border-muru-accent bg-[#fff9ed] p-3">
-        <img
+        <SmartImage
           src={images[safeImageIndex]}
           alt={product.name}
           className="aspect-square w-full rounded-xl bg-[#efe8d8] object-cover"

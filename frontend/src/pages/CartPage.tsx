@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 
 import { useCart } from '../cart/CartContext'
+import { SmartImage } from '../components/SmartImage'
 
 type CartPageProps = {
   userId?: number
@@ -61,7 +62,7 @@ export const CartPage = ({ userId, onGoCatalog, onCheckout }: CartPageProps) => 
       {items.map((item) => (
         <article key={item.sku} className="rounded-2xl border border-muru-accent bg-[#fff9ed] p-3">
           <div className="flex gap-3">
-            <img
+            <SmartImage
               src={item.imageUrl ?? 'https://placehold.co/72x72?text=MURU'}
               alt={item.name}
               className="h-[72px] w-[72px] rounded-lg bg-[#f3ead7] object-cover"

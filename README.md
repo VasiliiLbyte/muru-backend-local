@@ -78,7 +78,7 @@ git clone https://github.com/your/repo.git /var/www/muru
 cd /var/www/muru
 cp .env.example .env
 # Заполни .env реальными значениями
-cd backend && npm ci && npm run build && cd ..
+cd backend && npm ci && NODE_OPTIONS=--max-old-space-size=2048 npm run build && npm ci --omit=dev && cd ..
 pm2 start ecosystem.config.js
 pm2 save
 pm2 startup
@@ -86,7 +86,7 @@ pm2 startup
 
 ### Деплой frontend
 ```bash
-cd frontend && npm ci && npm run build
+cd frontend && npm install && npm run build
 # dist/ загружать на Vercel или отдавать через nginx
 ```
 
@@ -95,6 +95,86 @@ cd frontend && npm ci && npm run build
 git pull origin main
 bash deploy.sh
 ```
+
+## Работа с Telegram-ботом и Mini App на VPS
+
+Ниже практический runbook для сервера (пример текущего пути: `/var/www/muru`).
+
+### 1) Подготовка `.env` на VPS
+
+В файле `.env` на сервере обязательно проверь:
+
+- `TELEGRAM_BOT_TOKEN` - токен бота из BotFather.
+- `TELEGRAM_MINI_APP_URL` - публичный HTTPS URL Mini App (например, `https://murushop.online`).
+- `VITE_API_BASE_URL` - публичный backend URL (если frontend ходит не на same-origin).
+- `VITE_ADMIN_IDS`, `ADMIN_TELEGRAM_IDS` - Telegram ID админов.
+- `ORDER_NOTIFY_TELEGRAM_IDS` - Telegram ID для уведомлений по заказам.
+- `DATABASE_URL`, `JWT_SECRET`, Google (`GOOGLE_*`) - обязательные backend-переменные.
+
+Если переменные менялись, перезапускать backend нужно с `--update-env`.
+
+### 2) Настройка бота в BotFather
+
+1. Открой `@BotFather`.
+2. Командой `/mybots` выбери нужного бота.
+3. `Bot Settings` -> `Menu Button` -> задай URL Mini App (`https://...`).
+4. Проверь, что URL публичный и с валидным SSL (Telegram требует HTTPS).
+
+### 3) Деплой на VPS (backend + frontend)
+
+```bash
+cd /var/www/muru
+git pull
+
+# Backend: полный install -> build -> production deps
+cd backend
+npm ci
+NODE_OPTIONS=--max-old-space-size=2048 npm run build
+npm ci --omit=dev
+
+# Frontend
+cd ../frontend
+npm install
+npm run build
+
+# PM2 запускать из корня проекта (где ecosystem.config.js)
+cd ..
+pm2 start ecosystem.config.js --update-env || pm2 reload ecosystem.config.js --update-env
+pm2 save
+```
+
+Примечание: для `frontend` используется `npm install`, так как в проекте может отсутствовать `frontend/package-lock.json`.  
+`npm ci` без lock-файла завершится ошибкой `EUSAGE`.
+
+### 4) Проверка после деплоя
+
+```bash
+pm2 status
+pm2 logs --lines 100
+curl -sS http://127.0.0.1:4000/api/health
+```
+
+Проверить вручную:
+
+- `https://murushop.online` открывается.
+- Mini App открывается из Telegram через кнопку бота.
+- Вкладка `Профиль` -> `Админ` видна только для ID из `VITE_ADMIN_IDS`.
+- Создание заказа отправляет уведомления на `ORDER_NOTIFY_TELEGRAM_IDS`.
+
+### 5) Частые проблемы на VPS
+
+- `sh: 1: tsc: not found` - выполнен `npm ci --omit=dev` до сборки.  
+  Решение: `npm ci` -> `npm run build` -> `npm ci --omit=dev`.
+- `npm ci` в `frontend` падает с `EUSAGE`.  
+  Решение: использовать `npm install` или добавить `frontend/package-lock.json` в репозиторий.
+- `FATAL ERROR: ... heap out of memory` на backend build.  
+  Решение: `NODE_OPTIONS=--max-old-space-size=2048 npm run build` (или 3072).
+- `[PM2][ERROR] File ecosystem.config.js not found`.  
+  Решение: запускать `pm2 ... ecosystem.config.js` из `/var/www/muru`.
+- `curl 127.0.0.1:4000` не отвечает.  
+  Решение: проверить `pm2 status`, `pm2 logs`, корректность `.env`.
+- Нет уведомлений в Telegram.  
+  Решение: проверить `TELEGRAM_BOT_TOKEN` и `ORDER_NOTIFY_TELEGRAM_IDS`.
 
 ## Admin Sync Endpoint
 

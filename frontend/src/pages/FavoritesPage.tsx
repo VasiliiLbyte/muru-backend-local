@@ -1,4 +1,5 @@
 import type { FavoriteItem } from '../types/favorite'
+import { SmartImage } from '../components/SmartImage'
 
 type FavoritesPageProps = {
   items: FavoriteItem[]
@@ -42,7 +43,7 @@ export const FavoritesPage = ({ items, onGoCatalog, isLoading = false }: Favorit
       <div className="grid gap-2">
         {items.map((item) => (
           <article key={item.sku} className="flex items-center gap-3 rounded-xl border border-muru-accent bg-[#fff9ed] p-3">
-            <img src={item.imageUrl} alt={item.name} className="h-16 w-16 rounded-lg object-cover" />
+            <SmartImage src={item.imageUrl} alt={item.name} className="h-16 w-16 rounded-lg object-cover" />
             <div className="flex-1">
               <h2 className="text-sm font-semibold">{item.name}</h2>
               <p className="text-sm">{item.price.toFixed(2)} ₽</p>

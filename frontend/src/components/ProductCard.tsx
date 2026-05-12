@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 
 import type { CatalogProduct } from '../types/catalog'
+import { SmartImage } from './SmartImage'
 
 type ProductCardProps = {
   product: CatalogProduct
@@ -24,7 +25,7 @@ export const ProductCard = ({ product, onOpenDetail, onAddToCart, onNotifyRestoc
         className="w-full text-left"
         onClick={() => onOpenDetail(product.sku)}
       >
-        <img
+        <SmartImage
           src={images[safeImageIndex]}
           alt={product.name}
           className="aspect-square w-full rounded-xl bg-[#efe8d8] object-cover"
