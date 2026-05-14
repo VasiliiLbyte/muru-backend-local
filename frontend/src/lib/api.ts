@@ -1,6 +1,7 @@
 import type { CatalogNode, CatalogProduct, CatalogProductDetail } from '../types/catalog'
 import type { CartItem, CheckoutForm, DraftOrder, OrderHistoryItem, ProfileData } from '../types/cart'
 import type { FavoriteItem } from '../types/favorite'
+import { getViteApiBaseUrl } from './api-base-url'
 import { getStoredToken } from './auth'
 
 export type SyncApiResult = {
@@ -32,21 +33,7 @@ export type SaveCategoryCoversApiResult = {
   validationErrors: string[]
 }
 
-/** Telegram WebKit rejects some requests if URL or headers are invalid; empty env uses ?? but not "". */
-const normalizeApiBaseUrl = (raw: unknown): string => {
-  const s = typeof raw === 'string' ? raw.trim() : ''
-  if (!s) return 'http://localhost:4000'
-  const noTrailingSlash = s.replace(/\/+$/, '')
-  const withScheme = /^https?:\/\//i.test(noTrailingSlash) ? noTrailingSlash : `https://${noTrailingSlash}`
-  try {
-    new URL(withScheme)
-    return withScheme
-  } catch {
-    return 'http://localhost:4000'
-  }
-}
-
-const API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL)
+const API_BASE_URL = getViteApiBaseUrl()
 
 const safeFetch = async (url: string, options?: RequestInit): Promise<Response> => {
   try {
@@ -71,8 +58,11 @@ const safeFetch = async (url: string, options?: RequestInit): Promise<Response> 
 }
 
 const getAuthHeaders = (): HeadersInit => {
-  const token = getStoredToken()
-  return token ? { Authorization: `Bearer ${token}` } : {}
+  const raw = getStoredToken()
+  if (!raw) return {}
+  const token = raw.replace(/\r|\n/g, '').trim()
+  if (!token) return {}
+  return { Authorization: `Bearer ${token}` }
 }
 
 export const triggerCatalogSync = async (telegramUserId: number): Promise<SyncApiResult> => {
@@ -93,16 +83,14 @@ export const triggerCatalogSync = async (telegramUserId: number): Promise<SyncAp
   return payload.data as SyncApiResult
 }
 
-/** GET + Content-Type: application/json breaks some WebKit builds (Telegram Mini App). */
+/** Admin catalog routes only check x-telegram-user-id; omit Authorization so a bad JWT cannot break WebKit fetch. */
 const adminTelegramHeadersGet = (telegramUserId: number): HeadersInit => ({
   'x-telegram-user-id': String(telegramUserId),
-  ...getAuthHeaders(),
 })
 
 const adminTelegramHeadersPost = (telegramUserId: number): HeadersInit => ({
   'Content-Type': 'application/json',
   'x-telegram-user-id': String(telegramUserId),
-  ...getAuthHeaders(),
 })
 
 export const fetchAdminCategories = async (telegramUserId: number): Promise<AdminCategoryRow[]> => {

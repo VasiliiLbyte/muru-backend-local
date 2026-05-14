@@ -1,4 +1,6 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000'
+import { getViteApiBaseUrl } from './api-base-url'
+
+const API_BASE_URL = getViteApiBaseUrl()
 const TOKEN_STORAGE_KEY = 'muru_auth_token'
 
 type TelegramAuthResponse = {
