@@ -1,9 +1,12 @@
 import { z } from 'zod'
 
+import { TOP_LEVEL_CATEGORIES } from '../constants/catalog-top-level'
 import type { AdminCategoryRow } from '../types/catalog'
 import { pool } from '../utils/db'
 
 import { validateCoverDriveFilename } from './category-cover-filename'
+
+const topLevelNames = [...TOP_LEVEL_CATEGORIES]
 
 export const listAdminCategories = async (): Promise<AdminCategoryRow[]> => {
   const result = await pool.query<{
@@ -15,7 +18,9 @@ export const listAdminCategories = async (): Promise<AdminCategoryRow[]> => {
   }>(
     `SELECT id, name, slug, cover_drive_filename, cover_image_url
      FROM categories
-     ORDER BY name ASC`,
+     WHERE name = ANY($1::text[])
+     ORDER BY array_position($1::text[], name::text)`,
+    [topLevelNames],
   )
   return result.rows.map((row) => ({
     id: row.id,

@@ -1,4 +1,5 @@
 import type { CategoryCoverSyncResult } from '../types/catalog'
+import { TOP_LEVEL_CATEGORIES } from '../constants/catalog-top-level'
 import { pool } from '../utils/db'
 
 import {
@@ -13,6 +14,8 @@ import {
   listMuruFolderImageFiles,
 } from './google-drive-muru-folder'
 
+const topLevelNames = [...TOP_LEVEL_CATEGORIES]
+
 export const syncCategoryCoversFromDrive = async (): Promise<CategoryCoverSyncResult> => {
   const [files, categoriesResult] = await Promise.all([
     listMuruFolderImageFiles(),
@@ -20,7 +23,12 @@ export const syncCategoryCoversFromDrive = async (): Promise<CategoryCoverSyncRe
       id: number
       slug: string
       cover_drive_filename: string | null
-    }>(`SELECT id, slug, cover_drive_filename FROM categories WHERE cover_drive_filename IS NOT NULL AND TRIM(cover_drive_filename) <> ''`),
+    }>(
+      `SELECT id, slug, cover_drive_filename FROM categories
+       WHERE cover_drive_filename IS NOT NULL AND TRIM(cover_drive_filename) <> ''
+         AND name = ANY($1::text[])`,
+      [topLevelNames],
+    ),
   ])
 
   const { map: nameToId, warnings: duplicateWarnings } = buildDriveNameToIdMap(files)
