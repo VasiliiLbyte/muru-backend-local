@@ -1,6 +1,7 @@
 /**
- * Builds product image URL list for sync. When placeholderUrl is set, always returns exactly two URLs
- * (Drive placeholder fills missing slots). When null, returns product URLs only (legacy upsert fallback).
+ * Builds `image_urls` for sync. Drive placeholder is used only when the product has **no** SKU-matched
+ * images in Drive — not as a synthetic second slide when one real photo exists (avoids double dots in UI).
+ * One URL in the array is enough: `upsertProduct` duplicates into `image_url_2` when needed.
  */
 export function buildTwoSlotImageUrls(
   productImageUrls: string[],
@@ -9,7 +10,11 @@ export function buildTwoSlotImageUrls(
   if (!placeholderUrl) {
     return productImageUrls
   }
-  const first = productImageUrls[0] ?? placeholderUrl
-  const second = productImageUrls[1] ?? placeholderUrl
-  return [first, second]
+  if (productImageUrls.length >= 2) {
+    return [productImageUrls[0], productImageUrls[1]]
+  }
+  if (productImageUrls.length === 1) {
+    return [productImageUrls[0]]
+  }
+  return [placeholderUrl]
 }

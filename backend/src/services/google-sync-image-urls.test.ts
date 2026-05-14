@@ -11,12 +11,12 @@ describe('buildTwoSlotImageUrls', () => {
     expect(buildTwoSlotImageUrls(['a', 'b'], null)).toEqual(['a', 'b'])
   })
 
-  it('uses placeholder for both slots when no product images', () => {
-    expect(buildTwoSlotImageUrls([], ph)).toEqual([ph, ph])
+  it('uses a single placeholder URL when no product images (avoid duplicate carousel slides)', () => {
+    expect(buildTwoSlotImageUrls([], ph)).toEqual([ph])
   })
 
-  it('uses placeholder for second slot when one product image', () => {
-    expect(buildTwoSlotImageUrls(['https://p/1.webp'], ph)).toEqual(['https://p/1.webp', ph])
+  it('keeps only the real image when one product file exists (no synthetic second placeholder)', () => {
+    expect(buildTwoSlotImageUrls(['https://p/1.webp'], ph)).toEqual(['https://p/1.webp'])
   })
 
   it('uses first two product URLs when two or more exist', () => {
