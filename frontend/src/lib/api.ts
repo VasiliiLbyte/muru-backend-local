@@ -32,7 +32,21 @@ export type SaveCategoryCoversApiResult = {
   validationErrors: string[]
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000'
+/** Telegram WebKit rejects some requests if URL or headers are invalid; empty env uses ?? but not "". */
+const normalizeApiBaseUrl = (raw: unknown): string => {
+  const s = typeof raw === 'string' ? raw.trim() : ''
+  if (!s) return 'http://localhost:4000'
+  const noTrailingSlash = s.replace(/\/+$/, '')
+  const withScheme = /^https?:\/\//i.test(noTrailingSlash) ? noTrailingSlash : `https://${noTrailingSlash}`
+  try {
+    new URL(withScheme)
+    return withScheme
+  } catch {
+    return 'http://localhost:4000'
+  }
+}
+
+const API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL)
 
 const safeFetch = async (url: string, options?: RequestInit): Promise<Response> => {
   try {
@@ -44,6 +58,13 @@ const safeFetch = async (url: string, options?: RequestInit): Promise<Response> 
   } catch (error) {
     if (error instanceof TypeError && error.message.includes('fetch')) {
       throw new Error('Нет соединения с сервером. Проверьте интернет.', { cause: error })
+    }
+    const msg = error instanceof Error ? error.message : String(error)
+    if (msg.includes('expected pattern') || msg.includes('Invalid URL')) {
+      throw new Error(
+        'Некорректный адрес API. Укажите в сборке VITE_API_BASE_URL полный URL (https://...), без пробелов и лишних символов.',
+        { cause: error },
+      )
     }
     throw error
   }
@@ -72,7 +93,13 @@ export const triggerCatalogSync = async (telegramUserId: number): Promise<SyncAp
   return payload.data as SyncApiResult
 }
 
-const adminTelegramHeaders = (telegramUserId: number): HeadersInit => ({
+/** GET + Content-Type: application/json breaks some WebKit builds (Telegram Mini App). */
+const adminTelegramHeadersGet = (telegramUserId: number): HeadersInit => ({
+  'x-telegram-user-id': String(telegramUserId),
+  ...getAuthHeaders(),
+})
+
+const adminTelegramHeadersPost = (telegramUserId: number): HeadersInit => ({
   'Content-Type': 'application/json',
   'x-telegram-user-id': String(telegramUserId),
   ...getAuthHeaders(),
@@ -80,7 +107,7 @@ const adminTelegramHeaders = (telegramUserId: number): HeadersInit => ({
 
 export const fetchAdminCategories = async (telegramUserId: number): Promise<AdminCategoryRow[]> => {
   const response = await safeFetch(`${API_BASE_URL}/api/admin/categories`, {
-    headers: adminTelegramHeaders(telegramUserId),
+    headers: adminTelegramHeadersGet(telegramUserId),
   })
   const payload = await response.json()
   if (!response.ok || !payload.success) {
@@ -95,7 +122,7 @@ export const saveAdminCategoryCovers = async (
 ): Promise<SaveCategoryCoversApiResult> => {
   const response = await safeFetch(`${API_BASE_URL}/api/admin/categories/covers`, {
     method: 'PUT',
-    headers: adminTelegramHeaders(telegramUserId),
+    headers: adminTelegramHeadersPost(telegramUserId),
     body: JSON.stringify({ items }),
   })
   const payload = await response.json()
@@ -108,7 +135,7 @@ export const saveAdminCategoryCovers = async (
 export const triggerCategoryCoverSync = async (telegramUserId: number): Promise<CategoryCoverSyncApiResult> => {
   const response = await safeFetch(`${API_BASE_URL}/api/admin/sync/category-covers`, {
     method: 'POST',
-    headers: adminTelegramHeaders(telegramUserId),
+    headers: adminTelegramHeadersPost(telegramUserId),
     body: JSON.stringify({ telegramUserId }),
   })
   const payload = await response.json()
