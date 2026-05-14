@@ -44,6 +44,14 @@ psql "$DATABASE_URL" -f backend/src/db/schema.sql
 
 Повторный запуск этого файла безопасно добавит недостающие объекты (в т.ч. колонки обложек категорий `cover_drive_filename` / `cover_image_url`, если их ещё нет).
 
+Если после деплоя в админке ошибка `column "cover_drive_filename" does not exist`, примените только миграцию колонок к **той же** базе, что в `DATABASE_URL` у backend:
+
+```bash
+psql "$DATABASE_URL" -f backend/src/db/migrations/001_category_cover_columns.sql
+```
+
+Проверка: `psql "$DATABASE_URL" -c "\d categories"` — в списке колонок должны быть `cover_drive_filename` и `cover_image_url`.
+
 ## Run Frontend
 
 ```bash
