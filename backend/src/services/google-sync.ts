@@ -6,6 +6,8 @@ import type { Product, SyncError, SyncResult, Variant } from '../types/catalog'
 import { pool } from '../utils/db'
 import { env } from '../utils/env'
 
+import { buildTwoSlotImageUrls } from './google-sync-image-urls'
+
 const rowSchema = z.object({
   sku: z.string().min(1),
   name: z.string().min(1),
@@ -19,6 +21,8 @@ const rowSchema = z.object({
 
 type DriveImageRef = { order: number; fileId: string }
 const DEFAULT_IMAGE_URL = 'https://placehold.co/1200x1200?text=MURU'
+/** Shared catalog placeholder in Drive (same folder as MUxxxx-N.webp); not keyed by SKU */
+const PLACEHOLDER_DRIVE_FILENAME = 'muru_placeholder_600.webp'
 
 const slugify = (value: string) =>
   (value
@@ -187,7 +191,10 @@ const readSheetRows = async () => {
   })
 }
 
-const readDriveImagesBySku = async () => {
+const readDriveImagesBySku = async (): Promise<{
+  bySku: Map<string, DriveImageRef[]>
+  placeholderFileId: string | null
+}> => {
   const auth = createGoogleAuth()
   const drive = google.drive({ version: 'v3', auth })
 
@@ -199,10 +206,15 @@ const readDriveImagesBySku = async () => {
 
   const files = result.data.files ?? []
   const map = new Map<string, DriveImageRef[]>()
+  let placeholderFileId: string | null = null
 
   for (const file of files) {
     if (!file.id || !file.name) continue
     await ensureFileIsPublic(drive, file.id)
+    if (file.name.toLowerCase() === PLACEHOLDER_DRIVE_FILENAME) {
+      placeholderFileId = file.id
+      continue
+    }
     const parsed = extractSkuAndOrder(file.name)
     if (!parsed) continue
 
@@ -211,12 +223,13 @@ const readDriveImagesBySku = async () => {
     map.set(parsed.sku, current)
   }
 
-  return map
+  return { bySku: map, placeholderFileId }
 }
 
 const normalizeProduct = (
   source: Record<string, string>,
   imageRefs: DriveImageRef[] | undefined,
+  placeholderThumbnailUrl: string | null,
 ): Product | null => {
   const skuValue =
     source.sku ??
@@ -280,6 +293,8 @@ const normalizeProduct = (
     .filter(Boolean)
 
   const orderedRefs = (imageRefs ?? []).sort((a, b) => a.order - b.order)
+  const productUrls = orderedRefs.map((ref) => buildPublicUrl(ref.fileId))
+  const imageUrls = buildTwoSlotImageUrls(productUrls, placeholderThumbnailUrl)
 
   return {
     sku,
@@ -290,7 +305,7 @@ const normalizeProduct = (
     description: parsed.data.description,
     specs: finalSpecs,
     variants: parseVariants(parsed.data.variants),
-    imageUrls: orderedRefs.map((ref) => buildPublicUrl(ref.fileId)),
+    imageUrls,
     color: source['цвет']?.trim() || undefined,
     size: source['размер']?.trim() || undefined,
   }
@@ -371,7 +386,19 @@ const upsertProduct = async (product: Product) => {
 }
 
 export const syncCatalogFromGoogle = async (): Promise<SyncResult> => {
-  const [rows, driveImageMap] = await Promise.all([readSheetRows(), readDriveImagesBySku()])
+  const [rows, driveImages] = await Promise.all([readSheetRows(), readDriveImagesBySku()])
+  const { bySku: driveImageMap, placeholderFileId } = driveImages
+  const placeholderThumbnailUrl = placeholderFileId ? buildPublicUrl(placeholderFileId) : null
+
+  const warnings: string[] = []
+  if (!placeholderFileId) {
+    const msg = `Drive folder has no "${PLACEHOLDER_DRIVE_FILENAME}" placeholder; missing product images will use the default remote placeholder.`
+    warnings.push(msg)
+    console.warn(`[sync] ${msg}`)
+  } else {
+    console.log('[sync] Drive catalog placeholder resolved for missing product images')
+  }
+
   console.log(`[sync] Drive images found: ${driveImageMap.size} SKUs with images`)
   if (driveImageMap.size > 0) {
     const sample = [...driveImageMap.entries()].slice(0, 3)
@@ -404,7 +431,7 @@ export const syncCatalogFromGoogle = async (): Promise<SyncResult> => {
       continue
     }
 
-    const product = normalizeProduct(row, driveImageMap.get(sku))
+    const product = normalizeProduct(row, driveImageMap.get(sku), placeholderThumbnailUrl)
     if (!product) {
       skippedProducts += 1
       errors.push({ sku, reason: 'Invalid row data' })
@@ -427,5 +454,6 @@ export const syncCatalogFromGoogle = async (): Promise<SyncResult> => {
     skippedProducts,
     skippedByRule,
     errors,
+    ...(warnings.length > 0 ? { warnings } : {}),
   }
 }

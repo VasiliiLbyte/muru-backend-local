@@ -34,6 +34,8 @@ export type SyncResult = {
   skippedProducts: number
   skippedByRule: number
   errors: SyncError[]
+  /** Non-fatal issues, e.g. missing Drive placeholder file */
+  warnings?: string[]
 }
 
 export type CatalogNode = {

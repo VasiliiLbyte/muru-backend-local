@@ -158,6 +158,13 @@ export const AdminPage = ({ userId, onBack }: AdminPageProps) => {
               ))}
             </ul>
           ) : null}
+          {lastResult.warnings && lastResult.warnings.length > 0 ? (
+            <ul className="mt-2 list-disc pl-5 text-amber-900">
+              {lastResult.warnings.map((w) => (
+                <li key={w}>{w}</li>
+              ))}
+            </ul>
+          ) : null}
         </div>
       ) : null}
 
