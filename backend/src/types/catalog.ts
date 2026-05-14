@@ -42,6 +42,29 @@ export type CatalogNode = {
   name: string
   slug: string
   children: CatalogNode[]
+  /** Public thumbnail URL after category cover sync; merged by slug */
+  coverImageUrl?: string | null
+}
+
+export type AdminCategoryRow = {
+  id: number
+  name: string
+  slug: string
+  coverDriveFilename: string | null
+  coverImageUrl: string | null
+}
+
+export type CategoryCoverSyncError = {
+  categoryId: number
+  slug: string
+  reason: string
+}
+
+export type CategoryCoverSyncResult = {
+  updated: number
+  skipped: number
+  errors: CategoryCoverSyncError[]
+  warnings?: string[]
 }
 
 export type CatalogProductListItem = {

@@ -1,5 +1,10 @@
 import { Router } from 'express'
 
+import {
+  getAdminCategoriesHandler,
+  postAdminCategoryCoverSyncHandler,
+  putAdminCategoryCoversHandler,
+} from '../controllers/admin-categories.controller'
 import { syncCatalogFromGoogle } from '../services/google-sync'
 import { env } from '../utils/env'
 
@@ -13,6 +18,10 @@ const parseTelegramUserId = (
   const parsed = Number(raw)
   return Number.isInteger(parsed) ? parsed : null
 }
+
+adminRouter.get('/categories', getAdminCategoriesHandler)
+adminRouter.put('/categories/covers', putAdminCategoryCoversHandler)
+adminRouter.post('/sync/category-covers', postAdminCategoryCoverSyncHandler)
 
 adminRouter.post('/sync', async (req, res) => {
   const telegramUserId = parseTelegramUserId(req.header('x-telegram-user-id'), req.body?.telegramUserId)

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { sortCatalogNodes } from '../constants/catalog-category-order'
 import { pressable } from '../lib/uiClasses'
 import type { CatalogNode } from '../types/catalog'
+import { SmartImage } from '../components/SmartImage'
 
 type CatalogHomePageProps = {
   tree: CatalogNode[]
@@ -29,7 +30,15 @@ export const CatalogHomePage = ({ tree }: CatalogHomePageProps) => {
             className={`${pressable} block rounded-2xl border border-muru-accent bg-[#fff9ed] p-3 hover:bg-[#f5efdf]`}
             onClick={() => navigate(`/catalog/${encodeURIComponent(category.slug)}`)}
           >
-            <div className="mb-3 aspect-[4/3] rounded-xl bg-[#efe8d8]"></div>
+            <div className="mb-3 aspect-[4/3] overflow-hidden rounded-xl bg-[#efe8d8]">
+              {category.coverImageUrl ? (
+                <SmartImage
+                  src={category.coverImageUrl}
+                  alt={category.name}
+                  className="h-full w-full object-cover"
+                />
+              ) : null}
+            </div>
             <h2 className="text-sm font-semibold text-muru-olive">{category.name}</h2>
             <p className="mt-1 text-xs">{category.children.length} подкатегорий</p>
           </button>

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 
+import { AdminCategoriesSection } from './AdminCategoriesSection'
 import { triggerCatalogSync, type SyncApiResult } from '../lib/api'
 import { pressable, pressableDisabled } from '../lib/uiClasses'
 
@@ -24,6 +25,7 @@ const mockOrders = [
 ]
 
 export const AdminPage = ({ userId, onBack }: AdminPageProps) => {
+  const [adminSection, setAdminSection] = useState<'main' | 'categories'>('main')
   const [isLoading, setIsLoading] = useState(false)
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle')
   const [lastResult, setLastResult] = useState<SyncApiResult | null>(null)
@@ -81,6 +83,21 @@ export const AdminPage = ({ userId, onBack }: AdminPageProps) => {
     }
   }
 
+  if (adminSection === 'categories' && userId) {
+    return <AdminCategoriesSection userId={userId} onBack={() => setAdminSection('main')} />
+  }
+
+  if (adminSection === 'categories' && !userId) {
+    return (
+      <section className="rounded-2xl border border-muru-accent bg-[#fff9ed] p-4">
+        <p className="text-sm text-red-700">Не удалось определить Telegram user ID.</p>
+        <button type="button" className={`${pressable} mt-2 rounded-lg bg-[#efe8d8] px-3 py-2 text-sm`} onClick={() => setAdminSection('main')}>
+          Назад
+        </button>
+      </section>
+    )
+  }
+
   return (
     <section className="rounded-2xl border border-muru-accent bg-[#fff9ed] p-4">
       <h1 className="text-xl font-semibold text-muru-olive">Админ-панель</h1>
@@ -106,6 +123,13 @@ export const AdminPage = ({ userId, onBack }: AdminPageProps) => {
       </div>
 
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        <button
+          type="button"
+          className={`${pressable} rounded-xl bg-[#efe8d8] px-4 py-3 text-sm font-medium sm:col-span-2`}
+          onClick={() => setAdminSection('categories')}
+        >
+          Категории — обложки из Drive
+        </button>
         <button
           type="button"
           className={`${pressableDisabled} rounded-xl bg-muru-olive px-4 py-4 text-base font-semibold text-muru-ivory`}

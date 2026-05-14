@@ -2,6 +2,7 @@ export type CatalogNode = {
   name: string
   slug: string
   children: CatalogNode[]
+  coverImageUrl?: string | null
 }
 
 export type CatalogProduct = {

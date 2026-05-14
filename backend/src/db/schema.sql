@@ -4,6 +4,12 @@ CREATE TABLE IF NOT EXISTS categories (
   slug TEXT NOT NULL UNIQUE
 );
 
+-- Category cover from Drive (admin): filename in MURU_Images folder; URL after POST .../sync/category-covers
+-- Apply on existing DB: ALTER TABLE categories ADD COLUMN IF NOT EXISTS cover_drive_filename TEXT;
+-- ALTER TABLE categories ADD COLUMN IF NOT EXISTS cover_image_url TEXT;
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS cover_drive_filename TEXT;
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS cover_image_url TEXT;
+
 CREATE TABLE IF NOT EXISTS products (
   id SERIAL PRIMARY KEY,
   sku TEXT NOT NULL UNIQUE,

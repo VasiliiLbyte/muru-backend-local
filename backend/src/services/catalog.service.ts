@@ -85,6 +85,14 @@ const buildCatalogTree = (categoryPaths: string[]) => {
   )
 }
 
+const mergeCoverUrlsIntoTree = (nodes: CatalogNode[], coversBySlug: Map<string, string>) => {
+  for (const node of nodes) {
+    const url = coversBySlug.get(node.slug)
+    if (url) node.coverImageUrl = url
+    mergeCoverUrlsIntoTree(node.children, coversBySlug)
+  }
+}
+
 export const getCatalogTree = async (): Promise<CatalogNode[]> => {
   const result = await pool.query<{ name: string }>('SELECT name FROM categories')
   const categoryNames = result.rows.map((row) => row.name)
@@ -97,7 +105,16 @@ export const getCatalogTree = async (): Promise<CatalogNode[]> => {
   )
   const slugsWithProducts = new Set(withProducts.rows.map((row) => row.slug))
 
-  return fullTree.filter((node) => slugsWithProducts.has(node.slug))
+  const filtered = fullTree.filter((node) => slugsWithProducts.has(node.slug))
+
+  const covers = await pool.query<{ slug: string; cover_image_url: string }>(
+    `SELECT slug, cover_image_url FROM categories
+     WHERE cover_image_url IS NOT NULL AND trim(cover_image_url) <> ''`,
+  )
+  const coverMap = new Map(covers.rows.map((row) => [row.slug, row.cover_image_url]))
+  mergeCoverUrlsIntoTree(filtered, coverMap)
+
+  return filtered
 }
 
 export const getCatalogProducts = async (params: {

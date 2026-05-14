@@ -42,6 +42,8 @@ Run SQL schema before first sync:
 psql "$DATABASE_URL" -f backend/src/db/schema.sql
 ```
 
+Повторный запуск этого файла безопасно добавит недостающие объекты (в т.ч. колонки обложек категорий `cover_drive_filename` / `cover_image_url`, если их ещё нет).
+
 ## Run Frontend
 
 ```bash

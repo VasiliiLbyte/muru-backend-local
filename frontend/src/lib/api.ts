@@ -12,6 +12,26 @@ export type SyncApiResult = {
   warnings?: string[]
 }
 
+export type AdminCategoryRow = {
+  id: number
+  name: string
+  slug: string
+  coverDriveFilename: string | null
+  coverImageUrl: string | null
+}
+
+export type CategoryCoverSyncApiResult = {
+  updated: number
+  skipped: number
+  errors: Array<{ categoryId: number; slug: string; reason: string }>
+  warnings?: string[]
+}
+
+export type SaveCategoryCoversApiResult = {
+  saved: number
+  validationErrors: string[]
+}
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000'
 
 const safeFetch = async (url: string, options?: RequestInit): Promise<Response> => {
@@ -50,6 +70,52 @@ export const triggerCatalogSync = async (telegramUserId: number): Promise<SyncAp
   }
 
   return payload.data as SyncApiResult
+}
+
+const adminTelegramHeaders = (telegramUserId: number): HeadersInit => ({
+  'Content-Type': 'application/json',
+  'x-telegram-user-id': String(telegramUserId),
+  ...getAuthHeaders(),
+})
+
+export const fetchAdminCategories = async (telegramUserId: number): Promise<AdminCategoryRow[]> => {
+  const response = await safeFetch(`${API_BASE_URL}/api/admin/categories`, {
+    headers: adminTelegramHeaders(telegramUserId),
+  })
+  const payload = await response.json()
+  if (!response.ok || !payload.success) {
+    throw new Error(payload.error ?? 'Failed to load admin categories')
+  }
+  return payload.data as AdminCategoryRow[]
+}
+
+export const saveAdminCategoryCovers = async (
+  telegramUserId: number,
+  items: Array<{ id: number; coverDriveFilename: string | null }>,
+): Promise<SaveCategoryCoversApiResult> => {
+  const response = await safeFetch(`${API_BASE_URL}/api/admin/categories/covers`, {
+    method: 'PUT',
+    headers: adminTelegramHeaders(telegramUserId),
+    body: JSON.stringify({ items }),
+  })
+  const payload = await response.json()
+  if (!response.ok || !payload.success) {
+    throw new Error(payload.error ?? 'Failed to save category covers')
+  }
+  return payload.data as SaveCategoryCoversApiResult
+}
+
+export const triggerCategoryCoverSync = async (telegramUserId: number): Promise<CategoryCoverSyncApiResult> => {
+  const response = await safeFetch(`${API_BASE_URL}/api/admin/sync/category-covers`, {
+    method: 'POST',
+    headers: adminTelegramHeaders(telegramUserId),
+    body: JSON.stringify({ telegramUserId }),
+  })
+  const payload = await response.json()
+  if (!response.ok || !payload.success) {
+    throw new Error(payload.error ?? 'Category cover sync failed')
+  }
+  return payload.data as CategoryCoverSyncApiResult
 }
 
 export const fetchCatalogTree = async (): Promise<CatalogNode[]> => {
