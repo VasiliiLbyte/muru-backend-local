@@ -6,6 +6,15 @@ import type { Product, SyncError, SyncResult, Variant } from '../types/catalog'
 import { pool } from '../utils/db'
 import { env } from '../utils/env'
 
+import {
+  findHeaderRowIndex,
+  isSkuHeader,
+  normalizeHeaderKey,
+  resolvePrimaryCatalogSection,
+  resolveSheetPrice,
+  rowToRecord,
+  SHEET_VALUE_RANGE,
+} from './google-sheet-headers'
 import { buildTwoSlotImageUrls } from './google-sync-image-urls'
 
 const rowSchema = z.object({
@@ -106,39 +115,6 @@ const createGoogleAuth = () =>
     ],
   })
 
-const normalizeHeaderKey = (value: string) =>
-  value
-    .replace(/^\uFEFF/, '')
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, ' ')
-
-const SKU_HEADER_ALIASES = [
-  'sku',
-  'артикул',
-  'артикул товара',
-  'артикул товара для сайта',
-  'sku/артикул',
-  'артикул/sku',
-  'код товара',
-]
-
-const SHEET_SCAN_LIMIT = 10
-
-const isSkuHeader = (key: string) =>
-  SKU_HEADER_ALIASES.includes(key) || key.includes('артикул') || key.includes('sku')
-
-const findHeaderRowIndex = (rows: string[][]): number => {
-  const scanLimit = Math.min(rows.length, SHEET_SCAN_LIMIT)
-  for (let i = 0; i < scanLimit; i += 1) {
-    const normalizedRow = rows[i].map((cell) => normalizeHeaderKey(String(cell ?? '')))
-    if (normalizedRow.some((key) => isSkuHeader(key))) {
-      return i
-    }
-  }
-  return 0
-}
-
 const detectSheetWithHeaders = async (
   sheetsApi: ReturnType<typeof google.sheets>,
 ): Promise<{ title: string; rows: string[][]; headerRowIndex: number } | null> => {
@@ -157,7 +133,7 @@ const detectSheetWithHeaders = async (
   for (const title of orderedTitles) {
     const response = await sheetsApi.spreadsheets.values.get({
       spreadsheetId: env.googleSheetId,
-      range: `${title}!A1:Z`,
+      range: `${title}!${SHEET_VALUE_RANGE}`,
     })
     const rows = response.data.values ?? []
     if (rows.length < 2) continue
@@ -182,13 +158,7 @@ const readSheetRows = async () => {
   const header = rows[headerRowIndex].map((cell) => normalizeHeaderKey(String(cell)))
   console.log('[sync] Sheet selected:', title)
   console.log('[sync] Sheet headers found:', header.join(', '))
-  return rows.slice(headerRowIndex + 1).map((row) => {
-    const record: Record<string, string> = {}
-    header.forEach((key, index) => {
-      record[key] = String(row[index] ?? '').trim()
-    })
-    return record
-  })
+  return rows.slice(headerRowIndex + 1).map((row) => rowToRecord(header, row.map((cell) => String(cell ?? ''))))
 }
 
 const readDriveImagesBySku = async (): Promise<{
@@ -240,15 +210,13 @@ const normalizeProduct = (
     source['артикул/sku'] ??
     source['код товара'] ??
     ''
-  // Temporarily map catalog category from first-level section only for stable top-level grouping in UI.
-  const primarySection =
-    source['раздел каталога 1-й уровень'] ?? source.section ?? source['раздел'] ?? source.categories ?? source['категории'] ?? ''
+  const primarySection = resolvePrimaryCatalogSection(source)
   const normalizedCategories = primarySection.trim()
   const parsed = rowSchema.safeParse({
     sku: skuValue,
     name: source.name ?? source['название'] ?? source['наименование товара'] ?? '',
     categories: normalizedCategories,
-    price: source.price ?? source['цена'] ?? source['розничная цена'],
+    price: resolveSheetPrice(source),
     stock: source.stock ?? source['наличие'] ?? source['фактический остаток'],
     description:
       source.description ??

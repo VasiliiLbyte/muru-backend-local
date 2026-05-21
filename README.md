@@ -25,14 +25,15 @@ Copy `.env.example` to `.env` and fill values:
 - `ADMIN_TELEGRAM_IDS` - comma-separated Telegram user IDs allowed to run `/api/admin/sync`.
 - `DATABASE_URL` - PostgreSQL connection string.
 - `GOOGLE_SERVICE_ACCOUNT_EMAIL` and `GOOGLE_PRIVATE_KEY` - service account credentials.
-- `GOOGLE_SHEET_ID` - Google Sheet ID (`13R05JyBIJsMl0fE7qQRxG1nVcKTU3XFg` by default).
+- `GOOGLE_SHEET_ID` - Google Sheet ID (`13oevOsZad_qZ6K8LvCy0Xa-MnALX1dBChS9jMajvaWo` — [MURU реестр заполнения товаров актуальная](https://docs.google.com/spreadsheets/d/13oevOsZad_qZ6K8LvCy0Xa-MnALX1dBChS9jMajvaWo/edit)).
 - `GOOGLE_DRIVE_FOLDER_ID` - folder ID for `MURU_Images`.
 
 ## Google Access Setup
 
 1. Create a Google Cloud service account and enable **Google Sheets API** and **Google Drive API**.
-2. Share the target Google Sheet and Drive folder with `GOOGLE_SERVICE_ACCOUNT_EMAIL`.
+2. Share the target Google Sheet and Drive folder with `GOOGLE_SERVICE_ACCOUNT_EMAIL` (Sheet needs **Editor** if orders should decrease stock in the spreadsheet).
 3. Put credentials into `.env`.
+4. After switching to a new spreadsheet, set `GOOGLE_SHEET_ID` in `.env` on the server and run `pm2 reload ecosystem.config.js --update-env`.
 
 ## Database Schema
 

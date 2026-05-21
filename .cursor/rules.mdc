@@ -5,7 +5,7 @@
 - Проект: Telegram Mini App для магазина предметов интерьера **MURU Home Design**.
 - Цель: Полностью дублировать функционал будущего сайта внутри Telegram-бота.
 - Стиль UI/UX: Полностью повторяет структуру и поведение мини-приложения **POBY** (сетка категорий, карточки, навигация, оформление заказа, доставка), но в фирменном стиле брендбука MURU.
-- Основной источник данных: Google Таблица[](https://docs.google.com/spreadsheets/d/13R05JyBIJsMl0fE7qQRxG1nVcKTU3XFg).
+- Основной источник данных: Google Таблица[](https://docs.google.com/spreadsheets/d/13oevOsZad_qZ6K8LvCy0Xa-MnALX1dBChS9jMajvaWo/edit).
 - Изображения: Google Drive папка «MURU_Images». Файлы строго именуются `MUxxxx-1.webp` и `MUxxxx-2.webp`.
 - Оплата на старте: **отключена**. Заказы сохраняются в Google Таблицу как черновики + уведомления в Telegram и на почту Muru_online@mail.ru.
 - Товары без остатка: показывать с меткой «Под заказ» + кнопка «Сообщить о поступлении».

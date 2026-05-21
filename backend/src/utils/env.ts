@@ -35,7 +35,7 @@ const envSchema = z.object({
   SMTP_PASS: z.string().optional(),
   GOOGLE_SERVICE_ACCOUNT_EMAIL: z.string().email('GOOGLE_SERVICE_ACCOUNT_EMAIL must be valid'),
   GOOGLE_PRIVATE_KEY: z.string().min(1, 'GOOGLE_PRIVATE_KEY is required'),
-  GOOGLE_SHEET_ID: z.string().default('13R05JyBIJsMl0fE7qQRxG1nVcKTU3XFg'),
+  GOOGLE_SHEET_ID: z.string().default('13oevOsZad_qZ6K8LvCy0Xa-MnALX1dBChS9jMajvaWo'),
   GOOGLE_DRIVE_FOLDER_ID: z.string().min(1, 'GOOGLE_DRIVE_FOLDER_ID is required'),
 })
 

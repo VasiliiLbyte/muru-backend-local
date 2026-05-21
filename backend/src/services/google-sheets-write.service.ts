@@ -1,5 +1,13 @@
 import { google } from 'googleapis'
 
+import {
+  columnIndexToA1,
+  findHeaderRowIndex,
+  isSkuHeader,
+  isStockHeader,
+  normalizeHeaderKey,
+  SHEET_VALUE_RANGE,
+} from './google-sheet-headers'
 import { env } from '../utils/env'
 
 const createAuth = () =>
@@ -11,16 +19,9 @@ const createAuth = () =>
 
 type StockUpdate = { sku: string; quantity: number }
 
-const normalizeHeaderKey = (value: string) =>
-  value
-    .replace(/^\uFEFF/, '')
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, ' ')
-
 const detectWritableSheet = async (
   sheetsApi: ReturnType<typeof google.sheets>,
-): Promise<{ title: string; rows: string[][] } | null> => {
+): Promise<{ title: string; rows: string[][]; headerRowIndex: number } | null> => {
   const metadata = await sheetsApi.spreadsheets.get({
     spreadsheetId: env.googleSheetId,
     fields: 'sheets(properties(title))',
@@ -34,15 +35,16 @@ const detectWritableSheet = async (
   for (const title of orderedTitles) {
     const response = await sheetsApi.spreadsheets.values.get({
       spreadsheetId: env.googleSheetId,
-      range: `${title}!A1:Z`,
+      range: `${title}!${SHEET_VALUE_RANGE}`,
     })
     const rows = response.data.values ?? []
     if (rows.length < 2) continue
 
-    const header = rows[0].map((cell) => normalizeHeaderKey(String(cell ?? '')))
-    const hasSku = header.some((h) => h === 'sku' || h.includes('артикул'))
-    const hasStock = header.some((h) => h === 'stock' || h === 'наличие')
-    if (hasSku && hasStock) return { title, rows }
+    const headerRowIndex = findHeaderRowIndex(rows)
+    const header = rows[headerRowIndex].map((cell) => normalizeHeaderKey(String(cell ?? '')))
+    const hasSku = header.some((h) => isSkuHeader(h))
+    const hasStock = header.some((h) => isStockHeader(h))
+    if (hasSku && hasStock) return { title, rows, headerRowIndex }
   }
 
   return null
@@ -57,14 +59,10 @@ export const decreaseStockInSheets = async (updates: StockUpdate[]): Promise<voi
   const detected = await detectWritableSheet(sheets)
   if (!detected) return
 
-  const { title, rows } = detected
-  const header = rows[0].map((cell: string) => normalizeHeaderKey(String(cell ?? '')))
-  const skuColIndex = header.findIndex(
-    (h: string) => h === 'sku' || h === 'артикул' || h === 'артикул товара' || h === 'артикул товара для сайта',
-  )
-  const stockColIndex = header.findIndex(
-    (h: string) => h === 'stock' || h === 'наличие' || h === 'фактический остаток',
-  )
+  const { title, rows, headerRowIndex } = detected
+  const header = rows[headerRowIndex].map((cell: string) => normalizeHeaderKey(String(cell ?? '')))
+  const skuColIndex = header.findIndex((h: string) => isSkuHeader(h))
+  const stockColIndex = header.findIndex((h: string) => isStockHeader(h))
 
   if (skuColIndex === -1 || stockColIndex === -1) {
     console.error('[sheets-write] SKU or stock column not found in sheet')
@@ -76,7 +74,7 @@ export const decreaseStockInSheets = async (updates: StockUpdate[]): Promise<voi
   for (const update of updates) {
     const sku = update.sku.toUpperCase()
     const rowIndex = rows.findIndex((row: string[], idx: number) => {
-      if (idx === 0) return false
+      if (idx <= headerRowIndex) return false
       return String(row[skuColIndex] ?? '')
         .trim()
         .toUpperCase() === sku
@@ -91,7 +89,7 @@ export const decreaseStockInSheets = async (updates: StockUpdate[]): Promise<voi
     const newStock = Math.max(0, currentStock - update.quantity)
 
     const sheetRowNumber = rowIndex + 1
-    const colLetter = String.fromCharCode(65 + stockColIndex)
+    const colLetter = columnIndexToA1(stockColIndex)
     batchData.push({
       range: `${title}!${colLetter}${sheetRowNumber}`,
       values: [[newStock]],
