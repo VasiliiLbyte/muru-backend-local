@@ -2,6 +2,8 @@ import { google } from 'googleapis'
 
 import { env } from '../utils/env'
 
+import { listAllImageFilesInTree } from './google-drive-tree'
+
 export const buildDriveThumbnailUrl = (fileId: string) =>
   `https://drive.google.com/thumbnail?id=${fileId}&sz=w1600`
 
@@ -32,19 +34,8 @@ export const ensureDriveFileIsPublic = async (
   }
 }
 
-const IMAGE_MIME_QUERY =
-  "(mimeType='image/webp' or mimeType='image/jpeg' or mimeType='image/png')"
-
-/** Lists image files in configured MURU Drive folder (names + ids only). Does not change permissions. */
+/** Lists image files under configured Drive root (recursive). For category cover filename lookup. */
 export const listMuruFolderImageFiles = async (): Promise<Array<{ id: string; name: string }>> => {
-  const drive = await createMuruDriveClient()
-  const result = await drive.files.list({
-    q: `'${env.googleDriveFolderId}' in parents and trashed=false and ${IMAGE_MIME_QUERY}`,
-    fields: 'files(id,name)',
-    pageSize: 1000,
-  })
-  const files = result.data.files ?? []
-  return files
-    .filter((f): f is { id: string; name: string } => Boolean(f.id && f.name))
-    .map((f) => ({ id: f.id!, name: f.name! }))
+  const drive = createMuruDriveClient()
+  return listAllImageFilesInTree(drive, env.googleDriveFolderId)
 }

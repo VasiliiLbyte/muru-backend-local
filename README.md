@@ -26,12 +26,12 @@ Copy `.env.example` to `.env` and fill values:
 - `DATABASE_URL` - PostgreSQL connection string.
 - `GOOGLE_SERVICE_ACCOUNT_EMAIL` and `GOOGLE_PRIVATE_KEY` - service account credentials.
 - `GOOGLE_SHEET_ID` - Google Sheet ID (`13oevOsZad_qZ6K8LvCy0Xa-MnALX1dBChS9jMajvaWo` — [MURU реестр заполнения товаров актуальная](https://docs.google.com/spreadsheets/d/13oevOsZad_qZ6K8LvCy0Xa-MnALX1dBChS9jMajvaWo/edit)).
-- `GOOGLE_DRIVE_FOLDER_ID` - folder ID for `MURU_Images`.
+- `GOOGLE_DRIVE_FOLDER_ID` - root Drive folder for product photos ([пример структуры](https://drive.google.com/drive/u/0/folders/1okABaQzSC-f9H6epKfhMH8sIImE2gLcQ)): разделы → … → **Обрезанные** (`MUxxxx_1_O.*` — главное фото) и **Доп фото** (`MUxxxx_2_O.*`, `MUxxxx_3_O.*`). В каталог попадают слоты **1** и **2**; legacy `MUxxxx-1.webp` в любой папке тоже поддерживается.
 
 ## Google Access Setup
 
 1. Create a Google Cloud service account and enable **Google Sheets API** and **Google Drive API**.
-2. Share the target Google Sheet and Drive folder with `GOOGLE_SERVICE_ACCOUNT_EMAIL` (Sheet needs **Editor** if orders should decrease stock in the spreadsheet).
+2. Share the target Google Sheet and Drive **root photo folder** with `GOOGLE_SERVICE_ACCOUNT_EMAIL` (**Editor** on both — для синка, публичных ссылок на фото и списания остатка в таблице).
 3. Put credentials into `.env`.
 4. After switching to a new spreadsheet, set `GOOGLE_SHEET_ID` in `.env` on the server and run `pm2 reload ecosystem.config.js --update-env`.
 

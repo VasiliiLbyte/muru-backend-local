@@ -15,6 +15,12 @@ import {
   rowToRecord,
   SHEET_VALUE_RANGE,
 } from './google-sheet-headers'
+import { buildDriveThumbnailUrl } from './google-drive-muru-folder'
+import {
+  PLACEHOLDER_DRIVE_FILENAME,
+  scanProductImagesFromDriveTree,
+  type DriveImageRef,
+} from './google-drive-product-images'
 import { buildTwoSlotImageUrls } from './google-sync-image-urls'
 
 const rowSchema = z.object({
@@ -28,10 +34,7 @@ const rowSchema = z.object({
   variants: z.string().default(''),
 })
 
-type DriveImageRef = { order: number; fileId: string }
 const DEFAULT_IMAGE_URL = 'https://placehold.co/1200x1200?text=MURU'
-/** Shared catalog placeholder in Drive (same folder as MUxxxx-N.webp); not keyed by SKU */
-const PLACEHOLDER_DRIVE_FILENAME = 'muru_placeholder_600.webp'
 
 const slugify = (value: string) =>
   (value
@@ -70,39 +73,6 @@ const parseVariants = (raw: string): Variant[] => {
         size: sizePart || undefined,
       }
     })
-}
-
-const extractSkuAndOrder = (filename: string): { sku: string; order: number } | null => {
-  // Формат с порядковым номером: MU0001-1.webp
-  const matchWithOrder = filename.match(/^(MU\d{4})-(\d+)\.\w+$/i)
-  if (matchWithOrder) {
-    return { sku: matchWithOrder[1].toUpperCase(), order: Number(matchWithOrder[2]) }
-  }
-  // Формат без порядкового номера: MU0001.webp → order = 1
-  const matchSimple = filename.match(/^(MU\d{4})\.\w+$/i)
-  if (matchSimple) {
-    return { sku: matchSimple[1].toUpperCase(), order: 1 }
-  }
-  return null
-}
-
-const buildPublicUrl = (fileId: string) =>
-  `https://drive.google.com/thumbnail?id=${fileId}&sz=w1600`
-
-const ensureFileIsPublic = async (drive: ReturnType<typeof google.drive>, fileId: string) => {
-  try {
-    await drive.permissions.create({
-      fileId,
-      requestBody: { role: 'reader', type: 'anyone' },
-      fields: 'id',
-    })
-  } catch (error) {
-    // Keep sync resilient: image link generation should not fully fail on permission edge-cases.
-    const message = error instanceof Error ? error.message : 'Unknown Drive permission error'
-    if (!message.toLowerCase().includes('already')) {
-      console.warn(`[sync] Unable to make Drive file public (${fileId}): ${message}`)
-    }
-  }
 }
 
 const createGoogleAuth = () =>
@@ -159,41 +129,6 @@ const readSheetRows = async () => {
   console.log('[sync] Sheet selected:', title)
   console.log('[sync] Sheet headers found:', header.join(', '))
   return rows.slice(headerRowIndex + 1).map((row) => rowToRecord(header, row.map((cell) => String(cell ?? ''))))
-}
-
-const readDriveImagesBySku = async (): Promise<{
-  bySku: Map<string, DriveImageRef[]>
-  placeholderFileId: string | null
-}> => {
-  const auth = createGoogleAuth()
-  const drive = google.drive({ version: 'v3', auth })
-
-  const result = await drive.files.list({
-    q: `'${env.googleDriveFolderId}' in parents and trashed=false and (mimeType='image/webp' or mimeType='image/jpeg' or mimeType='image/png')`,
-    fields: 'files(id,name)',
-    pageSize: 1000,
-  })
-
-  const files = result.data.files ?? []
-  const map = new Map<string, DriveImageRef[]>()
-  let placeholderFileId: string | null = null
-
-  for (const file of files) {
-    if (!file.id || !file.name) continue
-    await ensureFileIsPublic(drive, file.id)
-    if (file.name.toLowerCase() === PLACEHOLDER_DRIVE_FILENAME) {
-      placeholderFileId = file.id
-      continue
-    }
-    const parsed = extractSkuAndOrder(file.name)
-    if (!parsed) continue
-
-    const current = map.get(parsed.sku) ?? []
-    current.push({ order: parsed.order, fileId: file.id })
-    map.set(parsed.sku, current)
-  }
-
-  return { bySku: map, placeholderFileId }
 }
 
 const normalizeProduct = (
@@ -260,8 +195,10 @@ const normalizeProduct = (
     .map((item) => item.trim())
     .filter(Boolean)
 
-  const orderedRefs = (imageRefs ?? []).sort((a, b) => a.order - b.order)
-  const productUrls = orderedRefs.map((ref) => buildPublicUrl(ref.fileId))
+  const orderedRefs = (imageRefs ?? [])
+    .filter((ref) => ref.order === 1 || ref.order === 2)
+    .sort((a, b) => a.order - b.order)
+  const productUrls = orderedRefs.map((ref) => buildDriveThumbnailUrl(ref.fileId))
   const imageUrls = buildTwoSlotImageUrls(productUrls, placeholderThumbnailUrl)
 
   return {
@@ -354,11 +291,12 @@ const upsertProduct = async (product: Product) => {
 }
 
 export const syncCatalogFromGoogle = async (): Promise<SyncResult> => {
-  const [rows, driveImages] = await Promise.all([readSheetRows(), readDriveImagesBySku()])
-  const { bySku: driveImageMap, placeholderFileId } = driveImages
-  const placeholderThumbnailUrl = placeholderFileId ? buildPublicUrl(placeholderFileId) : null
+  const [rows, driveScan] = await Promise.all([readSheetRows(), scanProductImagesFromDriveTree()])
+  const driveImageMap = driveScan.bySku
+  const placeholderFileId = driveScan.placeholderFileId
+  const placeholderThumbnailUrl = placeholderFileId ? buildDriveThumbnailUrl(placeholderFileId) : null
 
-  const warnings: string[] = []
+  const warnings: string[] = [...driveScan.warnings]
   if (!placeholderFileId) {
     const msg = `Drive folder has no "${PLACEHOLDER_DRIVE_FILENAME}" placeholder; missing product images will use the default remote placeholder.`
     warnings.push(msg)
