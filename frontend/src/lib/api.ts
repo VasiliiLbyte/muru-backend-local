@@ -211,6 +211,18 @@ const adminTelegramHeadersGet = (telegramUserId: number): HeadersInit => ({
   'x-telegram-user-id': String(telegramUserId),
 })
 
+/** Admin flag from backend ADMIN_TELEGRAM_IDS (not baked VITE_ADMIN_IDS). */
+export const fetchAdminAccess = async (telegramUserId: number): Promise<boolean> => {
+  const response = await safeFetch(`${API_BASE_URL}/api/admin/me`, {
+    headers: adminTelegramHeadersGet(telegramUserId),
+  })
+  const payload = await response.json()
+  if (!response.ok || !payload.success) {
+    return false
+  }
+  return Boolean((payload.data as { isAdmin?: boolean } | null)?.isAdmin)
+}
+
 const adminTelegramHeadersPost = (telegramUserId: number): HeadersInit => ({
   'Content-Type': 'application/json',
   'x-telegram-user-id': String(telegramUserId),

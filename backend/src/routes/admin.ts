@@ -33,6 +33,14 @@ const isAdminRequest = (req: { header: (name: string) => string | undefined; bod
   return Boolean(telegramUserId && env.adminTelegramIds.includes(telegramUserId))
 }
 
+adminRouter.get('/me', (req, res) => {
+  return res.json({
+    success: true,
+    data: { isAdmin: isAdminRequest(req) },
+    error: null,
+  })
+})
+
 adminRouter.get('/categories', getAdminCategoriesHandler)
 adminRouter.put('/categories/covers', putAdminCategoryCoversHandler)
 adminRouter.get('/sync/category-covers/status', (req, res) => {

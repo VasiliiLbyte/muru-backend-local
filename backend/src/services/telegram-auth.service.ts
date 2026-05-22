@@ -64,7 +64,8 @@ export const validateTelegramInitData = (
  */
 export const getDevFallbackUser = (devUserId?: string): TelegramUser | null => {
   if (process.env.NODE_ENV === 'production') return null
-  const id = Number(devUserId)
+  const firstId = (devUserId ?? '').split(',')[0]?.trim()
+  const id = Number(firstId)
   if (!Number.isInteger(id) || id <= 0) return null
   return { id, first_name: 'Dev', username: 'dev_user' }
 }

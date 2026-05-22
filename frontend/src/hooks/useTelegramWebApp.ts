@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import '@tma.js/sdk'
 
-import { authenticateWithTelegram, clearToken, getStoredToken } from '../lib/auth'
+import { authenticateWithTelegram, clearToken } from '../lib/auth'
+import { fetchAdminAccess } from '../lib/api'
 import type { TelegramWebApp } from '../types/telegram'
 
 const parseAdminIds = (rawValue?: string): number[] => {
@@ -69,6 +70,12 @@ const isNonProduction = (): boolean =>
 export const useTelegramWebApp = () => {
   const webApp: TelegramWebApp | undefined = useMemo(() => window.Telegram?.WebApp, [])
   const [authUserId, setAuthUserId] = useState<number | undefined>(undefined)
+  const [isAdmin, setIsAdmin] = useState(false)
+
+  const viteAdminIds = useMemo(
+    () => parseAdminIds(import.meta.env.VITE_ADMIN_IDS),
+    [],
+  )
 
   useEffect(() => {
     if (!webApp) return
@@ -88,27 +95,24 @@ export const useTelegramWebApp = () => {
 
   useEffect(() => {
     const runAuth = async () => {
-      // Если токен уже есть — не делаем новый запрос авторизации
-      const existingToken = getStoredToken()
-      if (existingToken) {
-        // Берём userId из initDataUnsafe без нового запроса
-        const unsafeId = webApp?.initDataUnsafe?.user?.id
-        if (Number.isInteger(unsafeId)) {
-          setAuthUserId(unsafeId)
-          return
-        }
-      }
-
       const initData = webApp?.initData || parseInitDataFromLaunchParams()
       const effectiveInitData = initData || (isNonProduction() ? 'dev_fallback' : '')
-      if (!effectiveInitData) return
+      if (!effectiveInitData) {
+        const unsafeId = webApp?.initDataUnsafe?.user?.id
+        if (Number.isInteger(unsafeId)) setAuthUserId(unsafeId)
+        return
+      }
 
       try {
         const authResult = await authenticateWithTelegram(effectiveInitData)
         setAuthUserId(authResult.user.telegramId)
       } catch {
         clearToken()
-        setAuthUserId(undefined)
+        const fallbackId =
+          webApp?.initDataUnsafe?.user?.id ??
+          parseUserIdFromInitData(initData) ??
+          parseUserIdFromLaunchParams()
+        setAuthUserId(Number.isInteger(fallbackId) ? fallbackId : undefined)
       }
     }
 
@@ -123,14 +127,31 @@ export const useTelegramWebApp = () => {
     if (Number.isInteger(initDataUserId)) return initDataUserId
     return parseUserIdFromLaunchParams()
   }, [authUserId, webApp])
-  const adminIds = useMemo(
-    () => parseAdminIds(import.meta.env.VITE_ADMIN_IDS),
-    [],
-  )
+
+  useEffect(() => {
+    if (!Number.isInteger(userId)) {
+      setIsAdmin(false)
+      return
+    }
+
+    let cancelled = false
+
+    void fetchAdminAccess(userId!)
+      .then((fromApi) => {
+        if (!cancelled) setIsAdmin(fromApi)
+      })
+      .catch(() => {
+        if (!cancelled) setIsAdmin(viteAdminIds.includes(userId!))
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [userId, viteAdminIds])
 
   return {
     webApp,
     userId,
-    isAdmin: userId !== undefined && adminIds.includes(userId),
+    isAdmin,
   }
 }
