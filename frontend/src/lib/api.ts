@@ -13,6 +13,22 @@ export type SyncApiResult = {
   warnings?: string[]
 }
 
+export type CatalogSyncJobState = {
+  status: 'idle' | 'running' | 'success' | 'error'
+  startedAt: string | null
+  finishedAt: string | null
+  result: SyncApiResult | null
+  error: string | null
+}
+
+const SYNC_POLL_INTERVAL_MS = 4000
+const SYNC_POLL_TIMEOUT_MS = 10 * 60 * 1000
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
+
+const syncGatewayUnavailableMessage =
+  'Ответ сервера не получен вовремя. Синхронизация может ещё выполняться — подождите 2–3 мин и нажмите «Обновить» или проверьте pm2 logs.'
+
 export type AdminCategoryRow = {
   id: number
   name: string
@@ -65,17 +81,69 @@ const getAuthHeaders = (): HeadersInit => {
   return { Authorization: `Bearer ${token}` }
 }
 
-export const triggerCatalogSync = async (telegramUserId: number): Promise<SyncApiResult> => {
-  const response = await safeFetch(`${API_BASE_URL}/api/admin/sync`, {
-    method: 'POST',
+export const fetchCatalogSyncStatus = async (telegramUserId: number): Promise<CatalogSyncJobState> => {
+  const response = await safeFetch(`${API_BASE_URL}/api/admin/sync/status`, {
     headers: {
-      'Content-Type': 'application/json',
       'x-telegram-user-id': String(telegramUserId),
     },
-    body: JSON.stringify({ telegramUserId }),
   })
 
   const payload = await response.json()
+  if (!response.ok || !payload.success) {
+    throw new Error(payload.error ?? 'Failed to fetch sync status')
+  }
+
+  return payload.data as CatalogSyncJobState
+}
+
+const pollCatalogSyncUntilDone = async (telegramUserId: number): Promise<SyncApiResult> => {
+  const deadline = Date.now() + SYNC_POLL_TIMEOUT_MS
+
+  while (Date.now() < deadline) {
+    await sleep(SYNC_POLL_INTERVAL_MS)
+    const job = await fetchCatalogSyncStatus(telegramUserId)
+
+    if (job.status === 'success' && job.result) {
+      return job.result
+    }
+    if (job.status === 'error') {
+      throw new Error(job.error ?? 'Sync failed')
+    }
+  }
+
+  throw new Error(
+    'Синхронизация занимает больше ожидаемого времени. Проверьте pm2 logs и повторите позже.',
+  )
+}
+
+export const triggerCatalogSync = async (telegramUserId: number): Promise<SyncApiResult> => {
+  let response: Response
+  try {
+    response = await safeFetch(`${API_BASE_URL}/api/admin/sync`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-telegram-user-id': String(telegramUserId),
+      },
+      body: JSON.stringify({ telegramUserId }),
+    })
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('Сервер временно недоступен')) {
+      throw new Error(syncGatewayUnavailableMessage, { cause: error })
+    }
+    throw error
+  }
+
+  const payload = await response.json().catch(() => ({}))
+
+  if (response.status === 202 && payload.success) {
+    return pollCatalogSyncUntilDone(telegramUserId)
+  }
+
+  if (response.status === 409) {
+    return pollCatalogSyncUntilDone(telegramUserId)
+  }
+
   if (!response.ok || !payload.success) {
     throw new Error(payload.error ?? 'Sync request failed')
   }

@@ -210,11 +210,13 @@ curl --max-time 600 -X POST http://127.0.0.1:4000/api/admin/sync \
 
 ## Admin Sync Endpoint
 
-- Endpoint: `POST /api/admin/sync`
-- Auth input: header `x-telegram-user-id` (or body `telegramUserId`) must be present in `ADMIN_TELEGRAM_IDS`.
+- `POST /api/admin/sync` — запускает синк в фоне, ответ **202** `{ accepted: true }` (не ждёт 3–5 мин).
+- `GET /api/admin/sync/status` — статус job: `idle` | `running` | `success` | `error` и `result` после успеха.
+- Auth: header `x-telegram-user-id` (или body `telegramUserId`) в `ADMIN_TELEGRAM_IDS`.
 - Sync behavior:
   - reads products from Google Sheets,
   - recursively scans Drive tree (`MUxxxx_1_O` / `_2_O` / `_3_O` in **Главное фото** / **Доп фото**, legacy `MUxxxx-N.webp`),
+  - сохраняет до **3** URL в `image_urls` (карусель: главное + 2 доп.),
   - publishes matched files and upserts products/categories/variants into PostgreSQL.
 
 ## Как запустить админку

@@ -109,7 +109,7 @@ export const AdminPage = ({ userId, onBack }: AdminPageProps) => {
           {syncStatus === 'idle'
             ? 'Ожидание запуска'
             : syncStatus === 'in-progress'
-              ? 'Выполняется...'
+              ? 'Выполняется на сервере (2–5 мин)...'
               : syncStatus === 'success'
                 ? 'Успешно'
                 : 'Ошибка'}

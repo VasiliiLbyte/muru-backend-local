@@ -9,6 +9,7 @@ describe('buildTwoSlotImageUrls', () => {
     expect(buildTwoSlotImageUrls([], null)).toEqual([])
     expect(buildTwoSlotImageUrls(['a'], null)).toEqual(['a'])
     expect(buildTwoSlotImageUrls(['a', 'b'], null)).toEqual(['a', 'b'])
+    expect(buildTwoSlotImageUrls(['a', 'b', 'c'], null)).toEqual(['a', 'b', 'c'])
   })
 
   it('uses a single placeholder URL when no product images (avoid duplicate carousel slides)', () => {
@@ -19,14 +20,18 @@ describe('buildTwoSlotImageUrls', () => {
     expect(buildTwoSlotImageUrls(['https://p/1.webp'], ph)).toEqual(['https://p/1.webp'])
   })
 
-  it('uses first two product URLs when two or more exist', () => {
+  it('uses first two product URLs when two exist', () => {
     expect(buildTwoSlotImageUrls(['https://p/1.webp', 'https://p/2.webp'], ph)).toEqual([
       'https://p/1.webp',
       'https://p/2.webp',
     ])
+  })
+
+  it('uses all three product URLs when three exist', () => {
     expect(buildTwoSlotImageUrls(['https://p/1.webp', 'https://p/2.webp', 'https://p/3.webp'], ph)).toEqual([
       'https://p/1.webp',
       'https://p/2.webp',
+      'https://p/3.webp',
     ])
   })
 })

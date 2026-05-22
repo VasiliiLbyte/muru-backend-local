@@ -13,7 +13,7 @@ alwaysApply: true
 
 ## Data Integrity
 
-- Catalog sync must preserve MURU constraints: file naming `MUxxxx-N.webp`, exactly 2 images per product.
+- Catalog sync must preserve MURU constraints: file naming `MUxxxx-N.webp` (legacy) or `MUxxxx_N_O` (cropped); up to 3 carousel images per product (main `_1_O` + up to two `_2_O`/`_3_O`).
 - Products with zero stock remain visible with "Под заказ" behavior.
 - Payment remains disabled until explicit product approval.
 - Any schema or mapping change requires backward-compatibility notes in implementation report.

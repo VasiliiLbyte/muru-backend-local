@@ -196,7 +196,7 @@ const normalizeProduct = (
     .filter(Boolean)
 
   const orderedRefs = (imageRefs ?? [])
-    .filter((ref) => ref.order === 1 || ref.order === 2)
+    .filter((ref) => ref.order >= 1 && ref.order <= 3)
     .sort((a, b) => a.order - b.order)
   const productUrls = orderedRefs.map((ref) => buildDriveThumbnailUrl(ref.fileId))
   const imageUrls = buildTwoSlotImageUrls(productUrls, placeholderThumbnailUrl)

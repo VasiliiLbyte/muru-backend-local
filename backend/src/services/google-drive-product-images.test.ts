@@ -5,9 +5,9 @@ import { buildTwoSlotImageUrls } from './google-sync-image-urls'
 describe('product image slots from Drive orders', () => {
   const ph = 'https://drive.example/placeholder'
 
-  it('uses orders 1 and 2 when 1, 2, 3 exist', () => {
+  it('uses orders 1, 2 and 3 when all three exist', () => {
     const urls = ['https://p/1.png', 'https://p/2.png', 'https://p/3.png']
-    expect(buildTwoSlotImageUrls(urls, ph)).toEqual(['https://p/1.png', 'https://p/2.png'])
+    expect(buildTwoSlotImageUrls(urls, ph)).toEqual(['https://p/1.png', 'https://p/2.png', 'https://p/3.png'])
   })
 
   it('single main URL when only slot 1 is passed from sync layer', () => {

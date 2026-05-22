@@ -14,6 +14,6 @@ alwaysApply: true
 ## Sync Contract
 
 - `/api/admin/sync` reads Sheets, scans Drive folder, maps by file name, generates public links.
-- Persist exactly two image URLs per product where data is valid.
+- Persist up to three image URLs per product in `image_urls` (orders 1–3 from Drive); `image_url_1`/`image_url_2` remain the first two for backward compatibility.
 - If mapping is partial or ambiguous, write structured sync logs and keep system consistent.
 - Admin-only endpoints must reject unauthorized Telegram IDs by default.
