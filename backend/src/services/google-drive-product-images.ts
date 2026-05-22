@@ -14,7 +14,13 @@ export type DriveImageRef = { order: number; fileId: string }
 
 export const PLACEHOLDER_DRIVE_FILENAME = 'muru_placeholder_600.webp'
 
-const PUBLISH_CONCURRENCY = 8
+const PUBLISH_CONCURRENCY = 12
+
+export type DriveScanProgressCallback = (update: {
+  message: string
+  foldersScanned?: number
+  imagesSeen?: number
+}) => void
 
 export type ProductDriveScanResult = {
   bySku: Map<string, DriveImageRef[]>
@@ -61,13 +67,17 @@ const publishDriveFilesBatch = async (drive: drive_v3.Drive, fileIds: string[]) 
   }
 }
 
-export const scanProductImagesFromDriveTree = async (): Promise<ProductDriveScanResult> => {
+export const scanProductImagesFromDriveTree = async (
+  onProgress?: DriveScanProgressCallback,
+): Promise<ProductDriveScanResult> => {
   const drive = createMuruDriveClient()
   const bySku = new Map<string, DriveImageRef[]>()
   const warnings: string[] = []
   let placeholderFileId: string | null = null
   let imagesMatched = 0
   const indexEntries: Array<{ id: string; name: string }> = []
+
+  onProgress?.({ message: 'Сканируем папки Google Drive…' })
 
   const { foldersScanned, imagesSeen } = await walkDriveImageFiles(
     drive,
@@ -95,10 +105,20 @@ export const scanProductImagesFromDriveTree = async (): Promise<ProductDriveScan
         `${hit.parentFolderName || 'root'}/${hit.fileName}`,
       )
     },
+    {
+      onWalkProgress: (stats) => {
+        onProgress?.({
+          message: `Сканируем Drive: папок ${stats.foldersScanned}, файлов ${stats.imagesSeen}`,
+          foldersScanned: stats.foldersScanned,
+          imagesSeen: stats.imagesSeen,
+        })
+      },
+    },
   )
 
   const fileIdsToPublish = collectFileIdsToPublish(bySku, placeholderFileId)
   if (fileIdsToPublish.length > 0) {
+    onProgress?.({ message: `Публикуем доступ к ${fileIdsToPublish.length} файлам в Drive…` })
     console.log(`[sync] Drive publish: ${fileIdsToPublish.length} files`)
     await publishDriveFilesBatch(drive, fileIdsToPublish)
   }

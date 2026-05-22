@@ -1,8 +1,9 @@
+import type { PoolClient } from 'pg'
 import { google } from 'googleapis'
 import { z } from 'zod'
 
 import { mapSheetSectionToTopLevel } from '../constants/catalog-top-level'
-import type { Product, SyncError, SyncResult, Variant } from '../types/catalog'
+import type { CatalogSyncProgress, Product, SyncError, SyncResult, Variant } from '../types/catalog'
 import { pool } from '../utils/db'
 import { env } from '../utils/env'
 
@@ -21,6 +22,12 @@ import {
   scanProductImagesFromDriveTree,
   type DriveImageRef,
 } from './google-drive-product-images'
+import {
+  summarizeSyncErrors,
+  SYNC_REASON_INVALID_ROW,
+  SYNC_REASON_MISSING_SKU,
+  syncDbErrorReason,
+} from './google-sync-errors'
 import { buildTwoSlotImageUrls } from './google-sync-image-urls'
 
 const rowSchema = z.object({
@@ -35,6 +42,8 @@ const rowSchema = z.object({
 })
 
 const DEFAULT_IMAGE_URL = 'https://placehold.co/1200x1200?text=MURU'
+const DB_CHUNK_SIZE = 40
+const DB_PROGRESS_EVERY = 10
 
 const slugify = (value: string) =>
   (value
@@ -97,7 +106,6 @@ const detectSheetWithHeaders = async (
       ?.map((sheet) => sheet.properties?.title)
       .filter((title): title is string => Boolean(title)) ?? []
 
-  // Prefer explicit sheet first if it exists, then scan all others.
   const orderedTitles = ['Лист1', ...titles.filter((title) => title !== 'Лист1')]
 
   for (const title of orderedTitles) {
@@ -118,17 +126,22 @@ const detectSheetWithHeaders = async (
   return null
 }
 
-const readSheetRows = async () => {
+type SheetReadResult = { title: string; rows: Record<string, string>[] }
+
+const readSheetWithMeta = async (): Promise<SheetReadResult> => {
   const auth = createGoogleAuth()
   const sheets = google.sheets({ version: 'v4', auth })
   const detected = await detectSheetWithHeaders(sheets)
-  if (!detected) return []
+  if (!detected) return { title: '', rows: [] }
 
   const { title, rows, headerRowIndex } = detected
-  const header = rows[headerRowIndex].map((cell) => normalizeHeaderKey(String(cell)))
+  const header = rows[headerRowIndex].map((cell) => normalizeHeaderKey(String(cell ?? '')))
   console.log('[sync] Sheet selected:', title)
   console.log('[sync] Sheet headers found:', header.join(', '))
-  return rows.slice(headerRowIndex + 1).map((row) => rowToRecord(header, row.map((cell) => String(cell ?? ''))))
+  const dataRows = rows
+    .slice(headerRowIndex + 1)
+    .map((row) => rowToRecord(header, row.map((cell) => String(cell ?? ''))))
+  return { title, rows: dataRows }
 }
 
 const normalizeProduct = (
@@ -164,7 +177,6 @@ const normalizeProduct = (
 
   if (!parsed.success) return null
 
-  // Собираем specs из отдельных колонок таблицы
   const specsFromColumns: Record<string, string> = {}
   const specMapping: Record<string, string> = {
     бренд: 'Бренд',
@@ -185,7 +197,6 @@ const normalizeProduct = (
     if (val) specsFromColumns[displayName] = val
   }
 
-  // Если была колонка "характеристики" в формате key:value — мержим
   const existingSpecs = parseSpecs(source.specs ?? source['характеристики'] ?? '')
   const finalSpecs = { ...specsFromColumns, ...existingSpecs }
 
@@ -216,71 +227,88 @@ const normalizeProduct = (
   }
 }
 
-const upsertProduct = async (product: Product) => {
+const ensureCategoryId = async (
+  client: PoolClient,
+  cache: Map<string, number>,
+  categoryName: string,
+): Promise<number> => {
+  const cached = cache.get(categoryName)
+  if (cached !== undefined) return cached
+
+  const categorySlug = slugify(categoryName)
+  const categoryResult = await client.query<{ id: number }>(
+    `INSERT INTO categories (name, slug)
+     VALUES ($1, $2)
+     ON CONFLICT (name)
+     DO UPDATE SET slug = EXCLUDED.slug
+     RETURNING id`,
+    [categoryName, categorySlug],
+  )
+  const id = categoryResult.rows[0].id
+  cache.set(categoryName, id)
+  return id
+}
+
+const upsertProductWithClient = async (
+  client: PoolClient,
+  product: Product,
+  categoryId: number,
+): Promise<void> => {
+  const imageUrl1 = product.imageUrls[0] ?? DEFAULT_IMAGE_URL
+  const imageUrl2 = product.imageUrls[1] ?? imageUrl1
+  const productResult = await client.query<{ id: number }>(
+    `INSERT INTO products (sku, name, description, price, in_stock, specs, image_url_1, image_url_2, image_urls, category_id, color, size, updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9::jsonb,$10,$11,$12,NOW())
+     ON CONFLICT (sku)
+     DO UPDATE SET
+       name = EXCLUDED.name,
+       description = EXCLUDED.description,
+       price = EXCLUDED.price,
+       in_stock = EXCLUDED.in_stock,
+       specs = EXCLUDED.specs,
+       image_url_1 = EXCLUDED.image_url_1,
+       image_url_2 = EXCLUDED.image_url_2,
+       image_urls = EXCLUDED.image_urls,
+       category_id = EXCLUDED.category_id,
+       color = EXCLUDED.color,
+       size = EXCLUDED.size,
+       updated_at = NOW()
+     RETURNING id`,
+    [
+      product.sku,
+      product.name,
+      product.description,
+      product.price,
+      product.inStock,
+      JSON.stringify(product.specs),
+      imageUrl1,
+      imageUrl2,
+      JSON.stringify(product.imageUrls),
+      categoryId,
+      product.color ?? null,
+      product.size ?? null,
+    ],
+  )
+
+  const productId = productResult.rows[0].id
+  await client.query('DELETE FROM variants WHERE product_id = $1', [productId])
+
+  for (const variant of product.variants) {
+    await client.query(`INSERT INTO variants (product_id, color, size) VALUES ($1, $2, $3)`, [
+      productId,
+      variant.color ?? null,
+      variant.size ?? null,
+    ])
+  }
+}
+
+const upsertOneProductIsolated = async (product: Product): Promise<void> => {
   const client = await pool.connect()
   try {
     await client.query('BEGIN')
-
-    const primaryRaw = product.categoryNames[0] ?? ''
-    const primaryCategory = mapSheetSectionToTopLevel(primaryRaw)
-    const categorySlug = slugify(primaryCategory)
-
-    const categoryResult = await client.query<{ id: number }>(
-      `INSERT INTO categories (name, slug)
-       VALUES ($1, $2)
-       ON CONFLICT (name)
-       DO UPDATE SET slug = EXCLUDED.slug
-       RETURNING id`,
-      [primaryCategory, categorySlug],
-    )
-    const categoryId = categoryResult.rows[0].id
-
-    const imageUrl1 = product.imageUrls[0] ?? DEFAULT_IMAGE_URL
-    const imageUrl2 = product.imageUrls[1] ?? imageUrl1
-    const productResult = await client.query<{ id: number }>(
-      `INSERT INTO products (sku, name, description, price, in_stock, specs, image_url_1, image_url_2, image_urls, category_id, color, size, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9::jsonb,$10,$11,$12,NOW())
-       ON CONFLICT (sku)
-       DO UPDATE SET
-         name = EXCLUDED.name,
-         description = EXCLUDED.description,
-         price = EXCLUDED.price,
-         in_stock = EXCLUDED.in_stock,
-         specs = EXCLUDED.specs,
-         image_url_1 = EXCLUDED.image_url_1,
-         image_url_2 = EXCLUDED.image_url_2,
-         image_urls = EXCLUDED.image_urls,
-         category_id = EXCLUDED.category_id,
-         color = EXCLUDED.color,
-         size = EXCLUDED.size,
-         updated_at = NOW()
-       RETURNING id`,
-      [
-        product.sku,
-        product.name,
-        product.description,
-        product.price,
-        product.inStock,
-        JSON.stringify(product.specs),
-        imageUrl1,
-        imageUrl2,
-        JSON.stringify(product.imageUrls),
-        categoryId,
-        product.color ?? null,
-        product.size ?? null,
-      ],
-    )
-
-    const productId = productResult.rows[0].id
-    await client.query('DELETE FROM variants WHERE product_id = $1', [productId])
-
-    for (const variant of product.variants) {
-      await client.query(
-        `INSERT INTO variants (product_id, color, size) VALUES ($1, $2, $3)`,
-        [productId, variant.color ?? null, variant.size ?? null],
-      )
-    }
-
+    const primaryCategory = mapSheetSectionToTopLevel(product.categoryNames[0] ?? '')
+    const categoryId = await ensureCategoryId(client, new Map(), primaryCategory)
+    await upsertProductWithClient(client, product, categoryId)
     await client.query('COMMIT')
   } catch (error) {
     await client.query('ROLLBACK')
@@ -290,15 +318,93 @@ const upsertProduct = async (product: Product) => {
   }
 }
 
-export const syncCatalogFromGoogle = async (): Promise<SyncResult> => {
-  const [rows, driveScan] = await Promise.all([readSheetRows(), scanProductImagesFromDriveTree()])
+const upsertProductsBatched = async (
+  products: Product[],
+  onProgress?: (progress: CatalogSyncProgress) => void,
+): Promise<{ synced: number; errors: SyncError[] }> => {
+  const errors: SyncError[] = []
+  let synced = 0
+  const total = products.length
+  const client = await pool.connect()
+  const categoryCache = new Map<string, number>()
+
+  try {
+    for (let offset = 0; offset < products.length; offset += DB_CHUNK_SIZE) {
+      const chunk = products.slice(offset, offset + DB_CHUNK_SIZE)
+      try {
+        await client.query('BEGIN')
+        for (const product of chunk) {
+          const primaryCategory = mapSheetSectionToTopLevel(product.categoryNames[0] ?? '')
+          const categoryId = await ensureCategoryId(client, categoryCache, primaryCategory)
+          await upsertProductWithClient(client, product, categoryId)
+        }
+        await client.query('COMMIT')
+        synced += chunk.length
+      } catch (chunkError) {
+        await client.query('ROLLBACK')
+        for (const product of chunk) {
+          try {
+            await upsertOneProductIsolated(product)
+            synced += 1
+          } catch (error) {
+            const dbReason = error instanceof Error ? error.message : 'Unknown DB error'
+            errors.push({ sku: product.sku, reason: syncDbErrorReason(dbReason) })
+          }
+        }
+      }
+
+      if (synced % DB_PROGRESS_EVERY === 0 || synced === total) {
+        onProgress?.({
+          phase: 'database',
+          message: `Записано в каталог: ${synced} / ${total}`,
+          processedProducts: synced,
+          totalProducts: total,
+        })
+      }
+    }
+  } finally {
+    client.release()
+  }
+
+  return { synced, errors }
+}
+
+export type CatalogSyncProgressCallback = (progress: CatalogSyncProgress) => void
+
+export const syncCatalogFromGoogle = async (
+  onProgress?: CatalogSyncProgressCallback,
+): Promise<SyncResult> => {
+  const startedAt = Date.now()
+  const report = (progress: CatalogSyncProgress) => onProgress?.(progress)
+
+  report({ phase: 'sheet', message: 'Читаем Google Таблицу…' })
+
+  const driveScanPromise = scanProductImagesFromDriveTree((update) => {
+    report({
+      phase: 'drive',
+      message: update.message,
+      foldersScanned: update.foldersScanned,
+      imagesSeen: update.imagesSeen,
+    })
+  })
+
+  const sheetPromise = readSheetWithMeta()
+
+  const [sheetData, driveScan] = await Promise.all([sheetPromise, driveScanPromise])
+  const { title: sheetTitle, rows } = sheetData
+
+  report({
+    phase: 'sheet',
+    message: `Таблица «${sheetTitle || '—'}»: ${rows.length} строк`,
+  })
+
   const driveImageMap = driveScan.bySku
   const placeholderFileId = driveScan.placeholderFileId
   const placeholderThumbnailUrl = placeholderFileId ? buildDriveThumbnailUrl(placeholderFileId) : null
 
   const warnings: string[] = [...driveScan.warnings]
   if (!placeholderFileId) {
-    const msg = `Drive folder has no "${PLACEHOLDER_DRIVE_FILENAME}" placeholder; missing product images will use the default remote placeholder.`
+    const msg = `В папке Drive нет файла «${PLACEHOLDER_DRIVE_FILENAME}»; для товаров без фото будет внешняя заглушка.`
     warnings.push(msg)
     console.warn(`[sync] ${msg}`)
   } else {
@@ -306,14 +412,11 @@ export const syncCatalogFromGoogle = async (): Promise<SyncResult> => {
   }
 
   console.log(`[sync] Drive images found: ${driveImageMap.size} SKUs with images`)
-  if (driveImageMap.size > 0) {
-    const sample = [...driveImageMap.entries()].slice(0, 3)
-    console.log('[sync] Image samples:', sample.map(([sku, refs]) => `${sku}: ${refs.length} files`).join(', '))
-  }
+
   const errors: SyncError[] = []
-  let syncedProducts = 0
   let skippedProducts = 0
   let skippedByRule = 0
+  const productsToUpsert: Product[] = []
 
   for (const row of rows) {
     const skuRaw =
@@ -328,7 +431,7 @@ export const syncCatalogFromGoogle = async (): Promise<SyncResult> => {
     const sku = skuRaw.toUpperCase()
     if (!sku) {
       skippedProducts += 1
-      errors.push({ sku: 'UNKNOWN', reason: 'Missing SKU in spreadsheet row' })
+      errors.push({ sku: '—', reason: SYNC_REASON_MISSING_SKU })
       continue
     }
     if (!sku.startsWith('MU')) {
@@ -340,26 +443,47 @@ export const syncCatalogFromGoogle = async (): Promise<SyncResult> => {
     const product = normalizeProduct(row, driveImageMap.get(sku), placeholderThumbnailUrl)
     if (!product) {
       skippedProducts += 1
-      errors.push({ sku, reason: 'Invalid row data' })
+      errors.push({ sku, reason: SYNC_REASON_INVALID_ROW })
       continue
     }
 
-    try {
-      await upsertProduct(product)
-      syncedProducts += 1
-    } catch (error) {
-      skippedProducts += 1
-      const dbReason = error instanceof Error ? error.message : 'Unknown DB error'
-      errors.push({ sku, reason: `Database upsert failed: ${dbReason}` })
-    }
+    productsToUpsert.push(product)
   }
+
+  report({
+    phase: 'database',
+    message: `Записываем в каталог: ${productsToUpsert.length} товаров…`,
+    totalProducts: productsToUpsert.length,
+    processedProducts: 0,
+  })
+
+  const { synced, errors: dbErrors } = await upsertProductsBatched(productsToUpsert, report)
+  errors.push(...dbErrors)
+
+  const { errors: cappedErrors, errorGroups } = summarizeSyncErrors(errors)
+
+  const durationMs = Date.now() - startedAt
+
+  report({
+    phase: 'done',
+    message: `Готово: синхронизировано ${synced} товаров за ${Math.round(durationMs / 1000)} с.`,
+    processedProducts: synced,
+    totalProducts: productsToUpsert.length,
+  })
 
   return {
     totalRows: rows.length,
-    syncedProducts,
+    syncedProducts: synced,
     skippedProducts,
     skippedByRule,
-    errors,
+    errors: cappedErrors,
+    errorGroups,
+    durationMs,
+    sheetTitle: sheetTitle || undefined,
+    driveFoldersScanned: driveScan.foldersScanned,
+    driveImagesSeen: driveScan.imagesSeen,
+    driveImagesMatched: driveScan.imagesMatched,
+    driveSkusWithImages: driveImageMap.size,
     ...(warnings.length > 0 ? { warnings } : {}),
   }
 }

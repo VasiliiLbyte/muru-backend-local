@@ -28,6 +28,21 @@ export type SyncError = {
   reason: string
 }
 
+export type SyncErrorGroup = {
+  reason: string
+  count: number
+  sampleSkus: string[]
+}
+
+export type CatalogSyncProgress = {
+  phase: 'sheet' | 'drive' | 'database' | 'done'
+  message: string
+  foldersScanned?: number
+  imagesSeen?: number
+  processedProducts?: number
+  totalProducts?: number
+}
+
 export type SyncResult = {
   totalRows: number
   syncedProducts: number
@@ -36,6 +51,13 @@ export type SyncResult = {
   errors: SyncError[]
   /** Non-fatal issues, e.g. missing Drive placeholder file */
   warnings?: string[]
+  errorGroups?: SyncErrorGroup[]
+  durationMs?: number
+  sheetTitle?: string
+  driveFoldersScanned?: number
+  driveImagesSeen?: number
+  driveImagesMatched?: number
+  driveSkusWithImages?: number
 }
 
 export type CatalogNode = {

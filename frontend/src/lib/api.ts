@@ -4,6 +4,21 @@ import type { FavoriteItem } from '../types/favorite'
 import { getViteApiBaseUrl } from './api-base-url'
 import { getStoredToken } from './auth'
 
+export type SyncErrorGroup = {
+  reason: string
+  count: number
+  sampleSkus: string[]
+}
+
+export type CatalogSyncProgress = {
+  phase: 'sheet' | 'drive' | 'database' | 'done'
+  message: string
+  foldersScanned?: number
+  imagesSeen?: number
+  processedProducts?: number
+  totalProducts?: number
+}
+
 export type SyncApiResult = {
   totalRows: number
   syncedProducts: number
@@ -11,6 +26,13 @@ export type SyncApiResult = {
   skippedByRule?: number
   errors: Array<{ sku: string; reason: string }>
   warnings?: string[]
+  errorGroups?: SyncErrorGroup[]
+  durationMs?: number
+  sheetTitle?: string
+  driveFoldersScanned?: number
+  driveImagesSeen?: number
+  driveImagesMatched?: number
+  driveSkusWithImages?: number
 }
 
 export type CatalogSyncJobState = {
@@ -19,6 +41,7 @@ export type CatalogSyncJobState = {
   finishedAt: string | null
   result: SyncApiResult | null
   error: string | null
+  progress: CatalogSyncProgress | null
 }
 
 const SYNC_POLL_INTERVAL_MS = 4000
@@ -120,12 +143,16 @@ export const fetchCatalogSyncStatus = async (telegramUserId: number): Promise<Ca
   return payload.data as CatalogSyncJobState
 }
 
-const pollCatalogSyncUntilDone = async (telegramUserId: number): Promise<SyncApiResult> => {
+const pollCatalogSyncUntilDone = async (
+  telegramUserId: number,
+  onProgress?: (progress: CatalogSyncProgress | null) => void,
+): Promise<SyncApiResult> => {
   const deadline = Date.now() + SYNC_POLL_TIMEOUT_MS
 
   while (Date.now() < deadline) {
     await sleep(SYNC_POLL_INTERVAL_MS)
     const job = await fetchCatalogSyncStatus(telegramUserId)
+    onProgress?.(job.progress)
 
     if (job.status === 'success' && job.result) {
       return job.result
@@ -140,7 +167,10 @@ const pollCatalogSyncUntilDone = async (telegramUserId: number): Promise<SyncApi
   )
 }
 
-export const triggerCatalogSync = async (telegramUserId: number): Promise<SyncApiResult> => {
+export const triggerCatalogSync = async (
+  telegramUserId: number,
+  onProgress?: (progress: CatalogSyncProgress | null) => void,
+): Promise<SyncApiResult> => {
   let response: Response
   try {
     response = await safeFetch(`${API_BASE_URL}/api/admin/sync`, {
@@ -161,11 +191,12 @@ export const triggerCatalogSync = async (telegramUserId: number): Promise<SyncAp
   const payload = await response.json().catch(() => ({}))
 
   if (response.status === 202 && payload.success) {
-    return pollCatalogSyncUntilDone(telegramUserId)
+    onProgress?.({ phase: 'sheet', message: 'Синхронизация запущена на сервере…' })
+    return pollCatalogSyncUntilDone(telegramUserId, onProgress)
   }
 
   if (response.status === 409) {
-    return pollCatalogSyncUntilDone(telegramUserId)
+    return pollCatalogSyncUntilDone(telegramUserId, onProgress)
   }
 
   if (!response.ok || !payload.success) {

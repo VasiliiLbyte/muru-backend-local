@@ -1,7 +1,11 @@
 import { useMemo, useState } from 'react'
 
 import { AdminCategoriesSection } from './AdminCategoriesSection'
-import { triggerCatalogSync, type SyncApiResult } from '../lib/api'
+import {
+  triggerCatalogSync,
+  type CatalogSyncProgress,
+  type SyncApiResult,
+} from '../lib/api'
 import { pressable, pressableDisabled } from '../lib/uiClasses'
 
 type AdminPageProps = {
@@ -24,6 +28,24 @@ const mockOrders = [
   { id: '1003', date: '2026-05-04', status: 'Доставлен', amount: '21 300 ₽', client: 'Мария П.' },
 ]
 
+const formatDurationSec = (durationMs?: number) =>
+  durationMs != null ? `${Math.round(durationMs / 1000)} с` : null
+
+const formatSyncLogLine = (result: SyncApiResult): string => {
+  const parts = [
+    `${result.syncedProducts} товаров`,
+    `пропущено ${result.skippedProducts}`,
+  ]
+  const warnCount = result.warnings?.length ?? 0
+  if (warnCount > 0) parts.push(`предупреждений ${warnCount}`)
+  const errTotal =
+    result.errorGroups?.reduce((sum, g) => sum + g.count, 0) ?? result.errors.length
+  if (errTotal > 0) parts.push(`ошибок ${errTotal}`)
+  const dur = formatDurationSec(result.durationMs)
+  if (dur) parts.push(dur)
+  return parts.join(', ')
+}
+
 export const AdminPage = ({ userId, onBack }: AdminPageProps) => {
   const [adminSection, setAdminSection] = useState<'main' | 'categories'>('main')
   const [isLoading, setIsLoading] = useState(false)
@@ -32,6 +54,7 @@ export const AdminPage = ({ userId, onBack }: AdminPageProps) => {
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null)
   const [syncLogs, setSyncLogs] = useState<SyncLogEntry[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [syncProgress, setSyncProgress] = useState<CatalogSyncProgress | null>(null)
 
   const totalCatalogItems = useMemo(() => {
     if (!lastResult) return 0
@@ -48,14 +71,19 @@ export const AdminPage = ({ userId, onBack }: AdminPageProps) => {
     setIsLoading(true)
     setSyncStatus('in-progress')
     setError(null)
+    setSyncProgress({ phase: 'sheet', message: 'Запуск синхронизации…' })
 
     try {
-      const syncData = await triggerCatalogSync(userId)
+      const syncData = await triggerCatalogSync(userId, setSyncProgress)
       const now = new Date().toLocaleString('ru-RU')
 
       setLastResult(syncData)
       setLastSyncAt(now)
       setSyncStatus('success')
+      setSyncProgress({
+        phase: 'done',
+        message: `Готово: синхронизировано ${syncData.syncedProducts} товаров.`,
+      })
       setSyncLogs((prev) => [
         {
           timestamp: now,
@@ -70,6 +98,7 @@ export const AdminPage = ({ userId, onBack }: AdminPageProps) => {
 
       setSyncStatus('error')
       setError(message)
+      setSyncProgress(null)
       setSyncLogs((prev) => [
         {
           timestamp: now,
@@ -109,7 +138,7 @@ export const AdminPage = ({ userId, onBack }: AdminPageProps) => {
           {syncStatus === 'idle'
             ? 'Ожидание запуска'
             : syncStatus === 'in-progress'
-              ? 'Выполняется на сервере (2–5 мин)...'
+              ? 'Выполняется на сервере…'
               : syncStatus === 'success'
                 ? 'Успешно'
                 : 'Ошибка'}
@@ -136,7 +165,7 @@ export const AdminPage = ({ userId, onBack }: AdminPageProps) => {
           disabled={isLoading}
           onClick={handleSync}
         >
-          {isLoading ? 'Синхронизация...' : 'Синхронизировать каталог'}
+          {isLoading ? 'Синхронизация…' : 'Синхронизировать каталог'}
         </button>
         <button
           type="button"
@@ -157,23 +186,55 @@ export const AdminPage = ({ userId, onBack }: AdminPageProps) => {
 
       {error ? <p className="mt-3 text-sm text-red-700">{error}</p> : null}
 
-      {isLoading && !lastResult ? (
-        <div className="mt-4 grid gap-2">
-          <div className="h-20 animate-pulse rounded-xl bg-[#efe8d8]" />
-          <div className="h-20 animate-pulse rounded-xl bg-[#efe8d8]" />
+      {isLoading && syncProgress ? (
+        <div className="mt-4 rounded-lg border border-[#d8cfbc] bg-[#fff5df] px-3 py-2 text-sm text-[#5c5346]">
+          <p className="font-medium text-muru-olive">Ход синхронизации</p>
+          <p className="mt-1 flex items-center gap-2">
+            <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-muru-olive border-t-transparent" />
+            {syncProgress.message}
+          </p>
         </div>
       ) : null}
 
       {lastResult ? (
         <div className="mt-4 rounded-xl bg-[#efe8d8] p-3 text-sm">
           <h2 className="font-semibold text-muru-olive">Итог последней синхронизации</h2>
-          <p className="mt-1">Всего строк: {lastResult.totalRows}</p>
+          {lastResult.sheetTitle ? (
+            <p className="mt-1">
+              Лист Google: <span className="font-medium">{lastResult.sheetTitle}</span>
+            </p>
+          ) : null}
+          {formatDurationSec(lastResult.durationMs) ? (
+            <p>Время: {formatDurationSec(lastResult.durationMs)}</p>
+          ) : null}
+          {typeof lastResult.driveFoldersScanned === 'number' ? (
+            <p className="mt-1">
+              Drive: папок {lastResult.driveFoldersScanned}, файлов {lastResult.driveImagesSeen ?? '—'},
+              сопоставлено {lastResult.driveImagesMatched ?? '—'}, SKU с фото{' '}
+              {lastResult.driveSkusWithImages ?? '—'}
+            </p>
+          ) : null}
+          <p className="mt-1">Строк в таблице: {lastResult.totalRows}</p>
           <p>Синхронизировано: {lastResult.syncedProducts}</p>
           <p>Пропущено: {lastResult.skippedProducts}</p>
           {typeof lastResult.skippedByRule === 'number' ? (
-            <p>Пропущено по правилу MU: {lastResult.skippedByRule}</p>
+            <p>Не MU (правило артикула): {lastResult.skippedByRule}</p>
           ) : null}
-          {lastResult.errors.length > 0 ? (
+          {lastResult.errorGroups && lastResult.errorGroups.length > 0 ? (
+            <div className="mt-2">
+              <p className="font-medium text-muru-olive">Сводка ошибок</p>
+              <ul className="mt-1 list-disc pl-5">
+                {lastResult.errorGroups.map((group) => (
+                  <li key={group.reason}>
+                    {group.reason}: {group.count}
+                    {group.sampleSkus.length > 0
+                      ? ` (например: ${group.sampleSkus.join(', ')})`
+                      : ''}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : lastResult.errors.length > 0 ? (
             <ul className="mt-2 list-disc pl-5">
               {lastResult.errors.slice(0, 10).map((item) => (
                 <li key={`${item.sku}-${item.reason}`}>
@@ -200,12 +261,8 @@ export const AdminPage = ({ userId, onBack }: AdminPageProps) => {
           <ul className="mt-2 grid gap-2">
             {syncLogs.slice(0, 10).map((entry, index) => (
               <li key={`${entry.timestamp}-${index}`} className="rounded-lg bg-[#fff5df] px-2 py-1">
-                {entry.timestamp} - {entry.status === 'success' ? 'успешно' : 'ошибка'}{' '}
-                {entry.result
-                  ? `(обновлено: ${entry.result.syncedProducts}, ошибок: ${entry.result.errors.length})`
-                  : entry.error
-                    ? `(${entry.error})`
-                    : ''}
+                {entry.timestamp} — {entry.status === 'success' ? 'успешно' : 'ошибка'}{' '}
+                {entry.result ? `(${formatSyncLogLine(entry.result)})` : entry.error ? `(${entry.error})` : ''}
               </li>
             ))}
           </ul>
