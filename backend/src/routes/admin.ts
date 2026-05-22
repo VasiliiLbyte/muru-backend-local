@@ -2,9 +2,13 @@ import { Router } from 'express'
 
 import {
   getAdminCategoriesHandler,
-  postAdminCategoryCoverSyncHandler,
   putAdminCategoryCoversHandler,
 } from '../controllers/admin-categories.controller'
+import {
+  getCategoryCoverSyncJobState,
+  isCategoryCoverSyncRunning,
+  startCategoryCoverSyncJob,
+} from '../services/category-cover-sync-job-state'
 import {
   getCatalogSyncJobState,
   isCatalogSyncRunning,
@@ -31,7 +35,54 @@ const isAdminRequest = (req: { header: (name: string) => string | undefined; bod
 
 adminRouter.get('/categories', getAdminCategoriesHandler)
 adminRouter.put('/categories/covers', putAdminCategoryCoversHandler)
-adminRouter.post('/sync/category-covers', postAdminCategoryCoverSyncHandler)
+adminRouter.get('/sync/category-covers/status', (req, res) => {
+  if (!isAdminRequest(req)) {
+    return res.status(403).json({
+      success: false,
+      data: null,
+      error: 'Forbidden: admin access required',
+    })
+  }
+
+  return res.json({
+    success: true,
+    data: getCategoryCoverSyncJobState(),
+    error: null,
+  })
+})
+
+adminRouter.post('/sync/category-covers', (req, res) => {
+  if (!isAdminRequest(req)) {
+    return res.status(403).json({
+      success: false,
+      data: null,
+      error: 'Forbidden: admin access required',
+    })
+  }
+
+  if (isCategoryCoverSyncRunning()) {
+    return res.status(409).json({
+      success: false,
+      data: getCategoryCoverSyncJobState(),
+      error: 'Category cover sync is already running',
+    })
+  }
+
+  const started = startCategoryCoverSyncJob()
+  if (!started) {
+    return res.status(409).json({
+      success: false,
+      data: getCategoryCoverSyncJobState(),
+      error: 'Category cover sync is already running',
+    })
+  }
+
+  return res.status(202).json({
+    success: true,
+    data: { accepted: true, status: 'running' },
+    error: null,
+  })
+})
 
 adminRouter.get('/sync/status', (req, res) => {
   if (!isAdminRequest(req)) {

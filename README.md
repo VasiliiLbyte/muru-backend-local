@@ -211,7 +211,8 @@ curl --max-time 600 -X POST http://127.0.0.1:4000/api/admin/sync \
 ## Admin Sync Endpoint
 
 - `POST /api/admin/sync` — запускает синк в фоне, ответ **202** `{ accepted: true }` (не ждёт 3–5 мин).
-- `GET /api/admin/sync/status` — статус job: `idle` | `running` | `success` | `error` и `result` после успеха.
+- `GET /api/admin/sync/status` — статус job каталога: `idle` | `running` | `success` | `error` и `result` после успеха.
+- `POST /api/admin/sync/category-covers` — фоновая синхронизация обложек разделов, ответ **202**; `GET /api/admin/sync/category-covers/status` — прогресс (`progress.message`) и итог.
 - Auth: header `x-telegram-user-id` (или body `telegramUserId`) в `ADMIN_TELEGRAM_IDS`.
 - Sync behavior:
   - reads products from Google Sheets,

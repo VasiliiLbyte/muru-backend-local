@@ -6,6 +6,7 @@ import {
   triggerCategoryCoverSync,
   type AdminCategoryRow,
   type CategoryCoverSyncApiResult,
+  type CategoryCoverSyncProgress,
 } from '../lib/api'
 import { pressable, pressableDisabled } from '../lib/uiClasses'
 import { SmartImage } from '../components/SmartImage'
@@ -20,9 +21,11 @@ export const AdminCategoriesSection = ({ userId, onBack }: AdminCategoriesSectio
   const [drafts, setDrafts] = useState<Record<number, string>>({})
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
+  const [syncingCovers, setSyncingCovers] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saveNote, setSaveNote] = useState<string | null>(null)
   const [lastSync, setLastSync] = useState<CategoryCoverSyncApiResult | null>(null)
+  const [syncProgress, setSyncProgress] = useState<CategoryCoverSyncProgress | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -71,16 +74,21 @@ export const AdminCategoriesSection = ({ userId, onBack }: AdminCategoriesSectio
 
   const handleSyncCovers = async () => {
     setBusy(true)
+    setSyncingCovers(true)
     setError(null)
     setLastSync(null)
+    setSyncProgress({ phase: 'lookup', message: 'Запуск синхронизации…' })
     try {
-      const res = await triggerCategoryCoverSync(userId)
+      const res = await triggerCategoryCoverSync(userId, setSyncProgress)
       setLastSync(res)
+      setSyncProgress({ phase: 'done', message: `Готово: обновлено ${res.updated} обложек.` })
       await load()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Ошибка синхронизации обложек')
+      setSyncProgress(null)
     } finally {
       setBusy(false)
+      setSyncingCovers(false)
     }
   }
 
@@ -93,12 +101,22 @@ export const AdminCategoriesSection = ({ userId, onBack }: AdminCategoriesSectio
         </button>
       </div>
       <p className="text-xs text-[#5c5346]">
-        Укажите имя файла из той же папки Google Drive, что и фото товаров. Сохраните, затем нажмите синхронизацию
-        обложек.
+        Укажите <span className="font-medium">только имя файла</span> (например <code>MU0023_1_O.png</code>), не путь к
+        папке. Сохраните, затем синхронизируйте. После синка каталога поиск обложек обычно занимает несколько секунд.
       </p>
 
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
       {saveNote ? <p className="text-sm text-green-800">{saveNote}</p> : null}
+
+      {syncingCovers && syncProgress ? (
+        <div className="rounded-lg border border-[#d8cfbc] bg-[#fff5df] px-3 py-2 text-sm text-[#5c5346]">
+          <p className="font-medium text-muru-olive">Ход синхронизации</p>
+          <p className="mt-1 flex items-center gap-2">
+            <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-muru-olive border-t-transparent" />
+            {syncProgress.message}
+          </p>
+        </div>
+      ) : null}
 
       {loading ? (
         <div className="h-24 animate-pulse rounded-lg bg-[#efe8d8]" />
@@ -161,7 +179,7 @@ export const AdminCategoriesSection = ({ userId, onBack }: AdminCategoriesSectio
           disabled={busy || loading}
           onClick={() => void handleSyncCovers()}
         >
-          Синхронизировать картинки категорий
+          {syncingCovers ? 'Синхронизация… (1–5 мин)' : 'Синхронизировать картинки категорий'}
         </button>
         <button
           type="button"

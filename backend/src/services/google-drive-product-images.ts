@@ -5,6 +5,7 @@ import {
   classifyDriveFolder,
   parseDriveImageFilename,
 } from './google-drive-filename'
+import { setDriveFilenameIndexFromFiles } from './drive-filename-index-cache'
 import { createMuruDriveClient, ensureDriveFileIsPublic } from './google-drive-muru-folder'
 import { walkDriveImageFiles } from './google-drive-tree'
 import { env } from '../utils/env'
@@ -66,11 +67,13 @@ export const scanProductImagesFromDriveTree = async (): Promise<ProductDriveScan
   const warnings: string[] = []
   let placeholderFileId: string | null = null
   let imagesMatched = 0
+  const indexEntries: Array<{ id: string; name: string }> = []
 
   const { foldersScanned, imagesSeen } = await walkDriveImageFiles(
     drive,
     env.googleDriveFolderId,
     async (hit) => {
+      indexEntries.push({ id: hit.fileId, name: hit.fileName })
       const lowerName = hit.fileName.toLowerCase()
       if (lowerName === PLACEHOLDER_DRIVE_FILENAME) {
         placeholderFileId = hit.fileId
@@ -116,6 +119,8 @@ export const scanProductImagesFromDriveTree = async (): Promise<ProductDriveScan
         .join(', ')}${withOnlyExtra.length > 5 ? '…' : ''}`,
     )
   }
+
+  setDriveFilenameIndexFromFiles(indexEntries)
 
   console.log(
     `[sync] Drive tree: folders=${foldersScanned}, images=${imagesSeen}, matched=${imagesMatched}, SKUs=${bySku.size}, withMain=${withMain}`,

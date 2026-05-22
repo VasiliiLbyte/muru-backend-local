@@ -44,6 +44,30 @@ export type CategoryCoverSyncApiResult = {
   warnings?: string[]
 }
 
+export type CategoryCoverSyncProgress = {
+  phase: 'lookup' | 'publish' | 'done'
+  message: string
+  foldersScanned?: number
+  imagesSeen?: number
+  resolvedCount?: number
+  totalCategories?: number
+}
+
+export type CategoryCoverSyncJobState = {
+  status: 'idle' | 'running' | 'success' | 'error'
+  startedAt: string | null
+  finishedAt: string | null
+  result: CategoryCoverSyncApiResult | null
+  error: string | null
+  progress: CategoryCoverSyncProgress | null
+}
+
+const COVER_SYNC_POLL_INTERVAL_MS = 3000
+const COVER_SYNC_POLL_TIMEOUT_MS = 10 * 60 * 1000
+
+const coverSyncGatewayUnavailableMessage =
+  'Ответ сервера не получен вовремя. Синхронизация обложек может ещё выполняться — подождите 1–2 мин и нажмите «Синхронизировать» снова или проверьте pm2 logs.'
+
 export type SaveCategoryCoversApiResult = {
   saved: number
   validationErrors: string[]
@@ -188,16 +212,76 @@ export const saveAdminCategoryCovers = async (
   return payload.data as SaveCategoryCoversApiResult
 }
 
-export const triggerCategoryCoverSync = async (telegramUserId: number): Promise<CategoryCoverSyncApiResult> => {
-  const response = await safeFetch(`${API_BASE_URL}/api/admin/sync/category-covers`, {
-    method: 'POST',
-    headers: adminTelegramHeadersPost(telegramUserId),
-    body: JSON.stringify({ telegramUserId }),
+export const fetchCategoryCoverSyncStatus = async (
+  telegramUserId: number,
+): Promise<CategoryCoverSyncJobState> => {
+  const response = await safeFetch(`${API_BASE_URL}/api/admin/sync/category-covers/status`, {
+    headers: adminTelegramHeadersGet(telegramUserId),
   })
   const payload = await response.json()
   if (!response.ok || !payload.success) {
+    throw new Error(payload.error ?? 'Failed to fetch category cover sync status')
+  }
+  return payload.data as CategoryCoverSyncJobState
+}
+
+const pollCategoryCoverSyncUntilDone = async (
+  telegramUserId: number,
+  onProgress?: (progress: CategoryCoverSyncProgress | null) => void,
+): Promise<CategoryCoverSyncApiResult> => {
+  const deadline = Date.now() + COVER_SYNC_POLL_TIMEOUT_MS
+
+  while (Date.now() < deadline) {
+    await sleep(COVER_SYNC_POLL_INTERVAL_MS)
+    const job = await fetchCategoryCoverSyncStatus(telegramUserId)
+    onProgress?.(job.progress)
+
+    if (job.status === 'success' && job.result) {
+      return job.result
+    }
+    if (job.status === 'error') {
+      throw new Error(job.error ?? 'Category cover sync failed')
+    }
+  }
+
+  throw new Error(
+    'Синхронизация обложек занимает больше ожидаемого времени. Проверьте pm2 logs и повторите позже.',
+  )
+}
+
+export const triggerCategoryCoverSync = async (
+  telegramUserId: number,
+  onProgress?: (progress: CategoryCoverSyncProgress | null) => void,
+): Promise<CategoryCoverSyncApiResult> => {
+  let response: Response
+  try {
+    response = await safeFetch(`${API_BASE_URL}/api/admin/sync/category-covers`, {
+      method: 'POST',
+      headers: adminTelegramHeadersPost(telegramUserId),
+      body: JSON.stringify({ telegramUserId }),
+    })
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('Сервер временно недоступен')) {
+      throw new Error(coverSyncGatewayUnavailableMessage, { cause: error })
+    }
+    throw error
+  }
+
+  const payload = await response.json().catch(() => ({}))
+
+  if (response.status === 202 && payload.success) {
+    onProgress?.({ phase: 'lookup', message: 'Синхронизация запущена на сервере…' })
+    return pollCategoryCoverSyncUntilDone(telegramUserId, onProgress)
+  }
+
+  if (response.status === 409) {
+    return pollCategoryCoverSyncUntilDone(telegramUserId, onProgress)
+  }
+
+  if (!response.ok || !payload.success) {
     throw new Error(payload.error ?? 'Category cover sync failed')
   }
+
   return payload.data as CategoryCoverSyncApiResult
 }
 

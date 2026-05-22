@@ -60,11 +60,18 @@ export type DriveTreeFileHit = {
  */
 const DRIVE_WALK_LOG_EVERY_FOLDERS = 100
 
+export type WalkDriveImageFilesOptions = {
+  logPrefix?: string
+  onWalkProgress?: (stats: { foldersScanned: number; imagesSeen: number; queueLength: number }) => void
+}
+
 export const walkDriveImageFiles = async (
   drive: drive_v3.Drive,
   rootFolderId: string,
   onImage: (hit: DriveTreeFileHit) => void | Promise<void>,
+  options?: WalkDriveImageFilesOptions,
 ): Promise<{ foldersScanned: number; imagesSeen: number }> => {
+  const logPrefix = options?.logPrefix ?? '[sync]'
   const queue: Array<{ id: string; name: string }> = [{ id: rootFolderId, name: '' }]
   let foldersScanned = 0
   let imagesSeen = 0
@@ -73,7 +80,10 @@ export const walkDriveImageFiles = async (
     const current = queue.shift()!
     foldersScanned += 1
     if (foldersScanned % DRIVE_WALK_LOG_EVERY_FOLDERS === 0) {
-      console.log(`[sync] Drive walk: folders=${foldersScanned}, images=${imagesSeen}, queue=${queue.length}`)
+      console.log(
+        `${logPrefix} Drive walk: folders=${foldersScanned}, images=${imagesSeen}, queue=${queue.length}`,
+      )
+      options?.onWalkProgress?.({ foldersScanned, imagesSeen, queueLength: queue.length })
     }
     const children = await listFolderChildren(drive, current.id)
 
@@ -99,10 +109,16 @@ export const walkDriveImageFiles = async (
 export const listAllImageFilesInTree = async (
   drive: drive_v3.Drive,
   rootFolderId: string,
+  options?: WalkDriveImageFilesOptions,
 ): Promise<Array<{ id: string; name: string }>> => {
   const files: Array<{ id: string; name: string }> = []
-  await walkDriveImageFiles(drive, rootFolderId, async (hit) => {
-    files.push({ id: hit.fileId, name: hit.fileName })
-  })
+  await walkDriveImageFiles(
+    drive,
+    rootFolderId,
+    async (hit) => {
+      files.push({ id: hit.fileId, name: hit.fileName })
+    },
+    options,
+  )
   return files
 }
