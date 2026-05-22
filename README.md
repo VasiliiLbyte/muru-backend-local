@@ -26,7 +26,7 @@ Copy `.env.example` to `.env` and fill values:
 - `DATABASE_URL` - PostgreSQL connection string.
 - `GOOGLE_SERVICE_ACCOUNT_EMAIL` and `GOOGLE_PRIVATE_KEY` - service account credentials.
 - `GOOGLE_SHEET_ID` - Google Sheet ID (`13oevOsZad_qZ6K8LvCy0Xa-MnALX1dBChS9jMajvaWo` — [MURU реестр заполнения товаров актуальная](https://docs.google.com/spreadsheets/d/13oevOsZad_qZ6K8LvCy0Xa-MnALX1dBChS9jMajvaWo/edit)).
-- `GOOGLE_DRIVE_FOLDER_ID` - root Drive folder for product photos ([пример структуры](https://drive.google.com/drive/u/0/folders/1okABaQzSC-f9H6epKfhMH8sIImE2gLcQ)): разделы → … → **Обрезанные** (`MUxxxx_1_O.*` — главное фото) и **Доп фото** (`MUxxxx_2_O.*`, `MUxxxx_3_O.*`). В каталог попадают слоты **1** и **2**; legacy `MUxxxx-1.webp` в любой папке тоже поддерживается.
+- `GOOGLE_DRIVE_FOLDER_ID` - root Drive folder for product photos ([пример](https://drive.google.com/drive/u/0/folders/1okABaQzSC-f9H6epKfhMH8sIImE2gLcQ)): раздел → … → товар → **Обрезанные** → **Главное фото** (`MUxxxx_1_O.*`) и **Доп фото** (`MUxxxx_2_O.*`, `MUxxxx_3_O.*`). В корне дерева — `muru_placeholder_600.webp`. В каталог попадают слоты **1** и **2**; legacy `MUxxxx-1.webp` в любой папке тоже поддерживается.
 
 ## Google Access Setup
 
@@ -184,6 +184,27 @@ curl -sS http://127.0.0.1:4000/api/health
   Решение: запускать `pm2 ... ecosystem.config.js` из `/var/www/muru`.
 - `curl 127.0.0.1:4000` не отвечает.  
   Решение: проверить `pm2 status`, `pm2 logs`, корректность `.env`.
+- В админке «Сервер временно недоступен» при синхронизации, а `curl` на `127.0.0.1:4000` успешен.  
+  Решение: увеличить таймаут nginx для API (полный синк может занимать 1–3 мин):
+
+```nginx
+location /api/ {
+  proxy_pass http://127.0.0.1:4000;
+  proxy_read_timeout 300s;
+  proxy_connect_timeout 60s;
+}
+```
+
+Проверка синка напрямую (минуя nginx):
+
+```bash
+curl --max-time 600 -X POST http://127.0.0.1:4000/api/admin/sync \
+  -H "x-telegram-user-id: YOUR_ADMIN_ID" \
+  -H "Content-Type: application/json" \
+  -d '{"telegramUserId": YOUR_ADMIN_ID}'
+```
+
+В `pm2 logs` после успешного синка ожидайте `withMain` > 0 и отсутствие предупреждения про `muru_placeholder_600.webp` (если файл в корне Drive).
 - Нет уведомлений в Telegram.  
   Решение: проверить `TELEGRAM_BOT_TOKEN` и `ORDER_NOTIFY_TELEGRAM_IDS`.
 
@@ -193,9 +214,8 @@ curl -sS http://127.0.0.1:4000/api/health
 - Auth input: header `x-telegram-user-id` (or body `telegramUserId`) must be present in `ADMIN_TELEGRAM_IDS`.
 - Sync behavior:
   - reads products from Google Sheets,
-  - scans Drive files by `MUxxxx-1.webp` and `MUxxxx-2.webp`,
-  - generates public image links,
-  - upserts products/categories/variants into PostgreSQL.
+  - recursively scans Drive tree (`MUxxxx_1_O` / `_2_O` / `_3_O` in **Главное фото** / **Доп фото**, legacy `MUxxxx-N.webp`),
+  - publishes matched files and upserts products/categories/variants into PostgreSQL.
 
 ## Как запустить админку
 

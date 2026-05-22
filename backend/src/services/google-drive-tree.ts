@@ -58,6 +58,8 @@ export type DriveTreeFileHit = {
 /**
  * BFS from rootFolderId; invokes callback for each image file with parent folder display name.
  */
+const DRIVE_WALK_LOG_EVERY_FOLDERS = 100
+
 export const walkDriveImageFiles = async (
   drive: drive_v3.Drive,
   rootFolderId: string,
@@ -70,6 +72,9 @@ export const walkDriveImageFiles = async (
   while (queue.length > 0) {
     const current = queue.shift()!
     foldersScanned += 1
+    if (foldersScanned % DRIVE_WALK_LOG_EVERY_FOLDERS === 0) {
+      console.log(`[sync] Drive walk: folders=${foldersScanned}, images=${imagesSeen}, queue=${queue.length}`)
+    }
     const children = await listFolderChildren(drive, current.id)
 
     for (const child of children) {

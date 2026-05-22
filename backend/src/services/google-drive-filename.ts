@@ -45,10 +45,11 @@ export const normalizeDriveFolderName = (name: string) =>
     .replace(/ё/g, 'е')
     .replace(/\s+/g, ' ')
 
-export type DriveFolderImageKind = 'obrezannye' | 'dop_foto' | 'other'
+export type DriveFolderImageKind = 'glavnoe_foto' | 'obrezannye' | 'dop_foto' | 'other'
 
 export const classifyDriveFolder = (folderName: string): DriveFolderImageKind => {
   const n = normalizeDriveFolderName(folderName)
+  if (n === 'главное фото' || n === 'глав. фото' || n === 'главноефото') return 'glavnoe_foto'
   if (n === 'обрезанные') return 'obrezannye'
   if (n === 'доп фото' || n === 'доп. фото' || n === 'допфото') return 'dop_foto'
   return 'other'
@@ -59,6 +60,7 @@ export const acceptsImageInFolder = (
   parsed: ParsedDriveImage,
 ): boolean => {
   if (parsed.format === 'legacy') return true
+  if (folderKind === 'glavnoe_foto') return parsed.order === 1
   if (folderKind === 'obrezannye') return parsed.order === 1
   if (folderKind === 'dop_foto') return parsed.order === 2 || parsed.order === 3
   return false

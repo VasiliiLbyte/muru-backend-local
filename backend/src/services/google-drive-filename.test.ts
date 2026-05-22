@@ -40,7 +40,9 @@ describe('parseDriveImageFilename', () => {
 })
 
 describe('classifyDriveFolder', () => {
-  it('recognizes Обрезанные and Доп фото variants', () => {
+  it('recognizes Главное фото, Обрезанные and Доп фото variants', () => {
+    expect(classifyDriveFolder('Главное фото')).toBe('glavnoe_foto')
+    expect(classifyDriveFolder('Глав. фото')).toBe('glavnoe_foto')
     expect(classifyDriveFolder('Обрезанные')).toBe('obrezannye')
     expect(classifyDriveFolder('Доп фото')).toBe('dop_foto')
     expect(classifyDriveFolder('Доп. фото')).toBe('dop_foto')
@@ -53,7 +55,9 @@ describe('acceptsImageInFolder', () => {
   const cropped2 = { sku: 'MU0168', order: 2, format: 'cropped' as const }
   const legacy2 = { sku: 'MU0001', order: 2, format: 'legacy' as const }
 
-  it('allows order 1 _O only in obrezannye', () => {
+  it('allows order 1 _O in Главное фото and Обрезанные', () => {
+    expect(acceptsImageInFolder('glavnoe_foto', cropped1)).toBe(true)
+    expect(acceptsImageInFolder('glavnoe_foto', cropped2)).toBe(false)
     expect(acceptsImageInFolder('obrezannye', cropped1)).toBe(true)
     expect(acceptsImageInFolder('obrezannye', cropped2)).toBe(false)
     expect(acceptsImageInFolder('dop_foto', cropped2)).toBe(true)

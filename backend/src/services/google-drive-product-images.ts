@@ -1,3 +1,5 @@
+import type { drive_v3 } from 'googleapis'
+
 import {
   acceptsImageInFolder,
   classifyDriveFolder,
@@ -10,6 +12,8 @@ import { env } from '../utils/env'
 export type DriveImageRef = { order: number; fileId: string }
 
 export const PLACEHOLDER_DRIVE_FILENAME = 'muru_placeholder_600.webp'
+
+const PUBLISH_CONCURRENCY = 8
 
 export type ProductDriveScanResult = {
   bySku: Map<string, DriveImageRef[]>
@@ -37,6 +41,25 @@ const addRef = (
   map.set(sku, list)
 }
 
+const collectFileIdsToPublish = (
+  bySku: Map<string, DriveImageRef[]>,
+  placeholderFileId: string | null,
+): string[] => {
+  const ids = new Set<string>()
+  if (placeholderFileId) ids.add(placeholderFileId)
+  for (const refs of bySku.values()) {
+    for (const ref of refs) ids.add(ref.fileId)
+  }
+  return [...ids]
+}
+
+const publishDriveFilesBatch = async (drive: drive_v3.Drive, fileIds: string[]) => {
+  for (let i = 0; i < fileIds.length; i += PUBLISH_CONCURRENCY) {
+    const batch = fileIds.slice(i, i + PUBLISH_CONCURRENCY)
+    await Promise.all(batch.map((fileId) => ensureDriveFileIsPublic(drive, fileId)))
+  }
+}
+
 export const scanProductImagesFromDriveTree = async (): Promise<ProductDriveScanResult> => {
   const drive = createMuruDriveClient()
   const bySku = new Map<string, DriveImageRef[]>()
@@ -51,7 +74,6 @@ export const scanProductImagesFromDriveTree = async (): Promise<ProductDriveScan
       const lowerName = hit.fileName.toLowerCase()
       if (lowerName === PLACEHOLDER_DRIVE_FILENAME) {
         placeholderFileId = hit.fileId
-        await ensureDriveFileIsPublic(drive, hit.fileId)
         return
       }
 
@@ -61,7 +83,6 @@ export const scanProductImagesFromDriveTree = async (): Promise<ProductDriveScan
       const folderKind = classifyDriveFolder(hit.parentFolderName)
       if (!acceptsImageInFolder(folderKind, parsed)) return
 
-      await ensureDriveFileIsPublic(drive, hit.fileId)
       imagesMatched += 1
       addRef(
         bySku,
@@ -73,6 +94,12 @@ export const scanProductImagesFromDriveTree = async (): Promise<ProductDriveScan
     },
   )
 
+  const fileIdsToPublish = collectFileIdsToPublish(bySku, placeholderFileId)
+  if (fileIdsToPublish.length > 0) {
+    console.log(`[sync] Drive publish: ${fileIdsToPublish.length} files`)
+    await publishDriveFilesBatch(drive, fileIdsToPublish)
+  }
+
   for (const [, refs] of bySku) {
     refs.sort((a, b) => a.order - b.order)
   }
@@ -83,7 +110,7 @@ export const scanProductImagesFromDriveTree = async (): Promise<ProductDriveScan
   )
   if (withOnlyExtra.length > 0) {
     warnings.push(
-      `${withOnlyExtra.length} SKU(s) have extra photo slot 3 but no main (_1_O in Обрезанные): ${withOnlyExtra
+      `${withOnlyExtra.length} SKU(s) have slot 3 but no main (_1_O in Главное фото): ${withOnlyExtra
         .slice(0, 5)
         .map(([sku]) => sku)
         .join(', ')}${withOnlyExtra.length > 5 ? '…' : ''}`,
