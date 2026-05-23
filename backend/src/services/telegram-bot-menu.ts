@@ -35,18 +35,18 @@ const row = (...buttons: Array<InlineKeyboardButton | null>): InlineKeyboardButt
 export const buildStartInlineKeyboard = (menu: BotMenuEnv): InlineKeyboardButton[][] => {
   const mini = menu.miniAppUrl.trim()
   const rows: Array<InlineKeyboardButton[] | null> = [
-    row(webAppButton('Посмотреть каталог', mini)),
+    row(webAppButton('🛋 Посмотреть каталог', mini)),
     row(
-      webAppButton('Корзина', mini ? appendTab(mini, 'cart') : ''),
-      urlButton('Доставка и возврат', menu.deliveryUrl),
+      webAppButton('🛒 Корзина', mini ? appendTab(mini, 'cart') : ''),
+      urlButton('📦 Доставка и возврат', menu.deliveryUrl),
     ),
     row(
-      webAppButton('Новинки', mini ? appendTab(mini, 'catalog') : ''),
-      webAppButton('Избранное', mini ? appendTab(mini, 'favorites') : ''),
+      webAppButton('✨ Новинки', mini ? appendTab(mini, 'catalog') : ''),
+      webAppButton('🤍 Избранное', mini ? appendTab(mini, 'favorites') : ''),
     ),
-    row(urlButton('Бюро заботы', menu.careUrl)),
-    row(urlButton('Сайт MURU', menu.siteUrl)),
-    row(urlButton('Telegram - канал MURU', menu.channelUrl)),
+    row(urlButton('💬 Бюро заботы', menu.careUrl)),
+    row(urlButton('🏡 Сайт MURU', menu.siteUrl)),
+    row(urlButton('📣 Telegram - канал MURU', menu.channelUrl)),
   ]
   return rows.filter((r): r is InlineKeyboardButton[] => r !== null)
 }

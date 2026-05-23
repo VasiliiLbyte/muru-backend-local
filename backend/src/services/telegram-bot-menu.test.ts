@@ -15,19 +15,21 @@ describe('buildStartInlineKeyboard', () => {
     const keyboard = buildStartInlineKeyboard(fullMenu)
     expect(keyboard).toHaveLength(6)
     expect(keyboard[0]).toEqual([
-      { text: 'Посмотреть каталог', web_app: { url: 'https://murushop.online' } },
+      { text: '🛋 Посмотреть каталог', web_app: { url: 'https://murushop.online' } },
     ])
-    expect(keyboard[1][0]).toMatchObject({ text: 'Корзина' })
+    expect(keyboard[1][0]).toMatchObject({ text: '🛒 Корзина' })
     expect(keyboard[1][0]).toHaveProperty('web_app.url', 'https://murushop.online/?tab=cart')
     expect(keyboard[1][1]).toEqual({
-      text: 'Доставка и возврат',
+      text: '📦 Доставка и возврат',
       url: fullMenu.deliveryUrl,
     })
+    expect(keyboard[2][0]).toMatchObject({ text: '✨ Новинки' })
     expect(keyboard[2][0]).toHaveProperty('web_app.url', 'https://murushop.online/?tab=catalog')
+    expect(keyboard[2][1]).toMatchObject({ text: '🤍 Избранное' })
     expect(keyboard[2][1]).toHaveProperty('web_app.url', 'https://murushop.online/?tab=favorites')
-    expect(keyboard[3][0].text).toBe('Бюро заботы')
-    expect(keyboard[4][0].text).toBe('Сайт MURU')
-    expect(keyboard[5][0].text).toBe('Telegram - канал MURU')
+    expect(keyboard[3][0].text).toBe('💬 Бюро заботы')
+    expect(keyboard[4][0].text).toBe('🏡 Сайт MURU')
+    expect(keyboard[5][0].text).toBe('📣 Telegram - канал MURU')
   })
 
   it('omits rows with no valid buttons', () => {
@@ -40,9 +42,9 @@ describe('buildStartInlineKeyboard', () => {
     })
     expect(keyboard).toHaveLength(3)
     expect(keyboard.map((r) => r.map((b) => b.text))).toEqual([
-      ['Посмотреть каталог'],
-      ['Корзина'],
-      ['Новинки', 'Избранное'],
+      ['🛋 Посмотреть каталог'],
+      ['🛒 Корзина'],
+      ['✨ Новинки', '🤍 Избранное'],
     ])
   })
 })
