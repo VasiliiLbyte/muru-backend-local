@@ -44,6 +44,18 @@ export type CatalogSyncJobState = {
   progress: CatalogSyncProgress | null
 }
 
+export type CatalogSyncHistoryItem = {
+  id: number
+  adminTelegramId: number
+  status: 'success' | 'error'
+  syncedProducts: number
+  skippedProducts: number | null
+  totalRows: number | null
+  errorMessage: string | null
+  finishedAt: string
+  durationMs: number | null
+}
+
 const SYNC_POLL_INTERVAL_MS = 4000
 const SYNC_POLL_TIMEOUT_MS = 10 * 60 * 1000
 
@@ -155,6 +167,27 @@ export const fetchCatalogSyncStatus = async (telegramUserId: number): Promise<Ca
   }
 
   return payload.data as CatalogSyncJobState
+}
+
+export const fetchCatalogSyncHistory = async (
+  telegramUserId: number,
+  limit = 3,
+): Promise<CatalogSyncHistoryItem[]> => {
+  const response = await safeFetch(
+    `${API_BASE_URL}/api/admin/sync/history?limit=${encodeURIComponent(String(limit))}`,
+    {
+      headers: {
+        'x-telegram-user-id': String(telegramUserId),
+      },
+    },
+  )
+
+  const payload = await response.json()
+  if (!response.ok || !payload.success) {
+    throw new Error(payload.error ?? 'Failed to load sync history')
+  }
+
+  return (payload.data as { items: CatalogSyncHistoryItem[] }).items
 }
 
 const pollCatalogSyncUntilDone = async (

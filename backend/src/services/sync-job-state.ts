@@ -1,4 +1,8 @@
 import type { CatalogSyncProgress, SyncResult } from '../types/catalog'
+import {
+  recordCatalogSyncError,
+  recordCatalogSyncRun,
+} from './catalog-sync-history.service'
 import { syncCatalogFromGoogle } from './google-sync'
 
 export type CatalogSyncJobStatus = 'idle' | 'running' | 'success' | 'error'
@@ -32,7 +36,7 @@ const setProgress = (progress: CatalogSyncProgress) => {
   state = { ...state, progress }
 }
 
-export const startCatalogSyncJob = (): boolean => {
+export const startCatalogSyncJob = (adminTelegramId: number): boolean => {
   if (state.status === 'running') {
     return false
   }
@@ -52,6 +56,11 @@ export const startCatalogSyncJob = (): boolean => {
   void (async () => {
     try {
       const result = await syncCatalogFromGoogle(setProgress)
+      try {
+        await recordCatalogSyncRun({ adminTelegramId, status: 'success', result })
+      } catch (logError) {
+        console.error('[catalog-sync-history] failed to record success', logError)
+      }
       state = {
         status: 'success',
         startedAt: state.startedAt,
@@ -65,6 +74,11 @@ export const startCatalogSyncJob = (): boolean => {
         },
       }
     } catch (error) {
+      try {
+        await recordCatalogSyncError({ adminTelegramId, error })
+      } catch (logError) {
+        console.error('[catalog-sync-history] failed to record error', logError)
+      }
       state = {
         status: 'error',
         startedAt: state.startedAt,

@@ -1,7 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import {
+  fetchCatalogSyncHistory,
+  fetchCatalogSyncStatus,
   triggerCatalogSync,
+  type CatalogSyncHistoryItem,
   type CatalogSyncProgress,
   type SyncApiResult,
 } from '../lib/api'
@@ -14,44 +17,115 @@ type AdminSyncSectionProps = {
 
 type SyncStatus = 'idle' | 'in-progress' | 'success' | 'error'
 
-type SyncLogEntry = {
-  timestamp: string
-  status: Exclude<SyncStatus, 'idle' | 'in-progress'>
-  result?: SyncApiResult
-  error?: string
-}
-
-const formatDurationSec = (durationMs?: number) =>
+const formatDurationSec = (durationMs?: number | null) =>
   durationMs != null ? `${Math.round(durationMs / 1000)} с` : null
 
-const formatSyncLogLine = (result: SyncApiResult): string => {
-  const parts = [
-    `${result.syncedProducts} товаров`,
-    `пропущено ${result.skippedProducts}`,
-  ]
-  const warnCount = result.warnings?.length ?? 0
-  if (warnCount > 0) parts.push(`предупреждений ${warnCount}`)
-  const errTotal =
-    result.errorGroups?.reduce((sum, g) => sum + g.count, 0) ?? result.errors.length
-  if (errTotal > 0) parts.push(`ошибок ${errTotal}`)
-  const dur = formatDurationSec(result.durationMs)
-  if (dur) parts.push(dur)
-  return parts.join(', ')
+const formatFinishedAt = (iso: string): string => {
+  try {
+    return new Date(iso).toLocaleString('ru-RU')
+  } catch {
+    return iso
+  }
 }
+
+const formatHistoryLine = (entry: CatalogSyncHistoryItem): string => {
+  const when = formatFinishedAt(entry.finishedAt)
+  if (entry.status === 'success') {
+    return `${when} — успешно — ${entry.syncedProducts} товаров — админ ${entry.adminTelegramId}`
+  }
+  const err = entry.errorMessage ? ` — ${entry.errorMessage}` : ''
+  return `${when} — ошибка — админ ${entry.adminTelegramId}${err}`
+}
+
+const historyToPartialResult = (entry: CatalogSyncHistoryItem): SyncApiResult => ({
+  totalRows: entry.totalRows ?? 0,
+  syncedProducts: entry.syncedProducts,
+  skippedProducts: entry.skippedProducts ?? 0,
+  errors: [],
+  durationMs: entry.durationMs ?? undefined,
+})
 
 export const AdminSyncSection = ({ userId, onOpenCategories }: AdminSyncSectionProps) => {
   const [isLoading, setIsLoading] = useState(false)
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle')
   const [lastResult, setLastResult] = useState<SyncApiResult | null>(null)
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null)
-  const [syncLogs, setSyncLogs] = useState<SyncLogEntry[]>([])
+  const [lastSyncedCount, setLastSyncedCount] = useState<number | null>(null)
+  const [historyItems, setHistoryItems] = useState<CatalogSyncHistoryItem[]>([])
   const [error, setError] = useState<string | null>(null)
   const [syncProgress, setSyncProgress] = useState<CatalogSyncProgress | null>(null)
 
-  const totalCatalogItems = useMemo(() => {
-    if (!lastResult) return 0
-    return Math.max(lastResult.totalRows, lastResult.syncedProducts)
-  }, [lastResult])
+  const hydrateSummaryFromHistory = (items: CatalogSyncHistoryItem[]) => {
+    const latest = items[0]
+    if (!latest) {
+      setLastSyncAt(null)
+      setLastSyncedCount(null)
+      setLastResult(null)
+      return
+    }
+    setLastSyncAt(formatFinishedAt(latest.finishedAt))
+    const lastSuccess = items.find((item) => item.status === 'success')
+    if (lastSuccess) {
+      setLastSyncedCount(lastSuccess.syncedProducts)
+      setLastResult(historyToPartialResult(lastSuccess))
+      setSyncStatus('success')
+    } else {
+      setLastSyncedCount(null)
+      setLastResult(null)
+      setSyncStatus('error')
+    }
+  }
+
+  const loadPersistedState = useCallback(async () => {
+    try {
+      const [items, job] = await Promise.all([
+        fetchCatalogSyncHistory(userId, 3),
+        fetchCatalogSyncStatus(userId),
+      ])
+      setHistoryItems(items)
+
+      if (job.status === 'running') {
+        setSyncStatus('in-progress')
+        setSyncProgress(job.progress)
+        return
+      }
+
+      if (job.status === 'success' && job.result) {
+        setSyncStatus('success')
+        setLastResult(job.result)
+        setLastSyncedCount(job.result.syncedProducts)
+        if (job.finishedAt) {
+          setLastSyncAt(formatFinishedAt(job.finishedAt))
+        }
+        return
+      }
+
+      if (job.status === 'error') {
+        setSyncStatus('error')
+        if (job.error) setError(job.error)
+        if (job.finishedAt) {
+          setLastSyncAt(formatFinishedAt(job.finishedAt))
+        }
+        if (items.length > 0) return
+      }
+
+      if (items.length > 0) {
+        hydrateSummaryFromHistory(items)
+      }
+    } catch {
+      // Non-blocking: section still allows manual sync
+    }
+  }, [userId])
+
+  useEffect(() => {
+    void loadPersistedState()
+  }, [loadPersistedState])
+
+  const refreshHistory = useCallback(async () => {
+    const items = await fetchCatalogSyncHistory(userId, 3)
+    setHistoryItems(items)
+    return items
+  }, [userId])
 
   const handleSync = async () => {
     setIsLoading(true)
@@ -61,38 +135,27 @@ export const AdminSyncSection = ({ userId, onOpenCategories }: AdminSyncSectionP
 
     try {
       const syncData = await triggerCatalogSync(userId, setSyncProgress)
-      const now = new Date().toLocaleString('ru-RU')
+      const now = formatFinishedAt(new Date().toISOString())
 
       setLastResult(syncData)
       setLastSyncAt(now)
+      setLastSyncedCount(syncData.syncedProducts)
       setSyncStatus('success')
       setSyncProgress({
         phase: 'done',
         message: `Готово: синхронизировано ${syncData.syncedProducts} товаров.`,
       })
-      setSyncLogs((prev) => [
-        {
-          timestamp: now,
-          status: 'success',
-          result: syncData,
-        },
-        ...prev,
-      ])
+      await refreshHistory()
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Ошибка синхронизации'
-      const now = new Date().toLocaleString('ru-RU')
-
       setSyncStatus('error')
       setError(message)
       setSyncProgress(null)
-      setSyncLogs((prev) => [
-        {
-          timestamp: now,
-          status: 'error',
-          error: message,
-        },
-        ...prev,
-      ])
+      try {
+        await refreshHistory()
+      } catch {
+        // ignore
+      }
     } finally {
       setIsLoading(false)
     }
@@ -116,13 +179,16 @@ export const AdminSyncSection = ({ userId, onOpenCategories }: AdminSyncSectionP
               ? 'Выполняется на сервере…'
               : syncStatus === 'success'
                 ? 'Успешно'
-                : 'Ошибка'}
+                : syncStatus === 'error'
+                  ? 'Ошибка'
+                  : 'Ожидание запуска'}
         </p>
         <p>
           <span className="font-medium">Последний запуск:</span> {lastSyncAt ?? 'ещё не запускалась'}
         </p>
         <p>
-          <span className="font-medium">Количество товаров:</span> {totalCatalogItems}
+          <span className="font-medium">Количество товаров:</span>{' '}
+          {lastSyncedCount != null ? lastSyncedCount : '—'}
         </p>
       </div>
 
@@ -139,7 +205,7 @@ export const AdminSyncSection = ({ userId, onOpenCategories }: AdminSyncSectionP
           type="button"
           className={`${pressableDisabled} rounded-xl bg-[#e3dccd] px-4 py-3 text-sm font-semibold`}
           disabled={isLoading}
-          onClick={() => void handleSync()}
+          onClick={() => void loadPersistedState()}
         >
           Обновить
         </button>
@@ -223,14 +289,13 @@ export const AdminSyncSection = ({ userId, onOpenCategories }: AdminSyncSectionP
 
       <div className="rounded-xl bg-[#efe8d8] p-3 text-sm">
         <h3 className="font-semibold text-muru-olive">Лог последних изменений</h3>
-        {syncLogs.length === 0 ? (
+        {historyItems.length === 0 ? (
           <p className="mt-1">Лог пуст. Запустите синхронизацию.</p>
         ) : (
           <ul className="mt-2 grid gap-2">
-            {syncLogs.slice(0, 10).map((entry, index) => (
-              <li key={`${entry.timestamp}-${index}`} className="rounded-lg bg-[#fff5df] px-2 py-1">
-                {entry.timestamp} — {entry.status === 'success' ? 'успешно' : 'ошибка'}{' '}
-                {entry.result ? `(${formatSyncLogLine(entry.result)})` : entry.error ? `(${entry.error})` : ''}
+            {historyItems.map((entry) => (
+              <li key={entry.id} className="rounded-lg bg-[#fff5df] px-2 py-1">
+                {formatHistoryLine(entry)}
               </li>
             ))}
           </ul>

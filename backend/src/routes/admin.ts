@@ -15,6 +15,7 @@ import {
   isCategoryCoverSyncRunning,
   startCategoryCoverSyncJob,
 } from '../services/category-cover-sync-job-state'
+import { listCatalogSyncHistory } from '../services/catalog-sync-history.service'
 import {
   getCatalogSyncJobState,
   isCatalogSyncRunning,
@@ -142,6 +143,31 @@ adminRouter.post('/sync/category-covers', (req, res) => {
   })
 })
 
+adminRouter.get('/sync/history', async (req, res) => {
+  if (!isAdminRequest(req)) {
+    return res.status(403).json({
+      success: false,
+      data: null,
+      error: 'Forbidden: admin access required',
+    })
+  }
+
+  try {
+    const items = await listCatalogSyncHistory(req.query.limit)
+    return res.json({
+      success: true,
+      data: { items },
+      error: null,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to load sync history',
+    })
+  }
+})
+
 adminRouter.get('/sync/status', (req, res) => {
   if (!isAdminRequest(req)) {
     return res.status(403).json({
@@ -167,6 +193,18 @@ adminRouter.post('/sync', async (req, res) => {
     })
   }
 
+  const telegramUserId = parseTelegramUserId(
+    req.header('x-telegram-user-id'),
+    req.body?.telegramUserId,
+  )
+  if (!telegramUserId) {
+    return res.status(400).json({
+      success: false,
+      data: null,
+      error: 'telegramUserId is required',
+    })
+  }
+
   if (isCatalogSyncRunning()) {
     return res.status(409).json({
       success: false,
@@ -175,7 +213,7 @@ adminRouter.post('/sync', async (req, res) => {
     })
   }
 
-  const started = startCatalogSyncJob()
+  const started = startCatalogSyncJob(telegramUserId)
   if (!started) {
     return res.status(409).json({
       success: false,
