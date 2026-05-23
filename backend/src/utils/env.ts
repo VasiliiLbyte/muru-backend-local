@@ -41,6 +41,7 @@ const envSchema = z.object({
   ENABLE_SHEETS_STOCK_WRITE: z.string().optional(),
   GOOGLE_SHEET_ID: z.string().default('13oevOsZad_qZ6K8LvCy0Xa-MnALX1dBChS9jMajvaWo'),
   GOOGLE_DRIVE_FOLDER_ID: z.string().min(1, 'GOOGLE_DRIVE_FOLDER_ID is required'),
+  IMAGE_CACHE_DIR: z.string().optional(),
 })
 
 const parsed = envSchema.safeParse(process.env)
@@ -75,8 +76,15 @@ const enableSheetsStockWrite =
       ? false
       : catalogSource === 'sheets'
 
+const nodeEnv = parsed.data.NODE_ENV || 'development'
+const defaultImageCacheDir =
+  nodeEnv === 'production'
+    ? '/var/www/muru/cache/img'
+    : resolve(process.cwd(), 'cache', 'img')
+
 export const env = {
-  nodeEnv: parsed.data.NODE_ENV || 'development',
+  nodeEnv,
+  imageCacheDir: parsed.data.IMAGE_CACHE_DIR?.trim() || defaultImageCacheDir,
   port: Number(parsed.data.PORT || 4000),
   databaseUrl: parsed.data.DATABASE_URL,
   jwtSecret: parsed.data.JWT_SECRET,

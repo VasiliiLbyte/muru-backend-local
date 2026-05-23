@@ -16,6 +16,8 @@ import {
   startCategoryCoverSyncJob,
 } from '../services/category-cover-sync-job-state'
 import { listCatalogSyncHistory } from '../services/catalog-sync-history.service'
+import { invalidateImageCache } from '../services/image-proxy.service'
+import { isValidDriveFileId } from '../utils/drive-file-id'
 import {
   getCatalogSyncJobState,
   isCatalogSyncRunning,
@@ -141,6 +143,43 @@ adminRouter.post('/sync/category-covers', (req, res) => {
     data: { accepted: true, status: 'running' },
     error: null,
   })
+})
+
+adminRouter.post('/images/invalidate', async (req, res) => {
+  if (!isAdminRequest(req)) {
+    return res.status(403).json({
+      success: false,
+      data: null,
+      error: 'Forbidden: admin access required',
+    })
+  }
+
+  const fileIds = Array.isArray(req.body?.fileIds)
+    ? req.body.fileIds.filter((id: unknown) => typeof id === 'string' && isValidDriveFileId(id))
+    : []
+
+  if (fileIds.length === 0) {
+    return res.status(400).json({
+      success: false,
+      data: null,
+      error: 'fileIds must be a non-empty array of valid Drive file ids',
+    })
+  }
+
+  try {
+    await invalidateImageCache(fileIds)
+    return res.json({
+      success: true,
+      data: { invalidated: fileIds.length },
+      error: null,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to invalidate image cache',
+    })
+  }
 })
 
 adminRouter.get('/sync/history', async (req, res) => {

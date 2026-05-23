@@ -35,7 +35,8 @@ export const ProductDetailPage = ({
         <SmartImage
           src={images[safeImageIndex]}
           alt={product.name}
-          className="aspect-square w-full rounded-xl bg-[#efe8d8] object-cover"
+          className="aspect-square w-full rounded-xl bg-[#efe8d8]"
+          priority
         />
         <div className="mt-2 flex justify-center gap-1">
           {images.map((_, idx) => (

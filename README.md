@@ -176,7 +176,23 @@ curl -sS http://127.0.0.1:4000/api/health
 - Вкладка `Профиль` -> `Админ` видна только для ID из `VITE_ADMIN_IDS`.
 - Создание заказа отправляет уведомления на `ORDER_NOTIFY_TELEGRAM_IDS`.
 
-### 5) Частые проблемы на VPS
+### 5) Image proxy (`/img/`)
+
+Каталог отдаёт картинки через backend (sharp + дисковый кэш), не напрямую с Google Drive.
+
+```bash
+mkdir -p /var/www/muru/cache/img
+# пользователь, под которым крутится pm2 (часто root на VPS):
+chown -R "$(whoami)" /var/www/muru/cache
+```
+
+В `.env`: `IMAGE_CACHE_DIR=/var/www/muru/cache/img` (см. `.env.example`).
+
+Nginx: см. [`deploy/nginx-img-cache.snippet`](deploy/nginx-img-cache.snippet) — `proxy_cache_path` в `http {}` и `location /img/` рядом с `/api/`.
+
+После синка каталога кэш для затронутых Drive file id сбрасывается автоматически. Ручной сброс: `POST /api/admin/images/invalidate` body `{ "fileIds": ["..."] }`.
+
+### 6) Частые проблемы на VPS
 
 - `sh: 1: tsc: not found` - выполнен `npm ci --omit=dev` до сборки.  
   Решение: `npm ci` -> `npm run build` -> `npm ci --omit=dev`.

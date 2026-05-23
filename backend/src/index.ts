@@ -3,6 +3,7 @@ import dotenv from 'dotenv'
 import express from 'express'
 
 import { adminRouter } from './routes/admin'
+import { imageRouter } from './routes/images'
 import { authRouter } from './routes/auth.routes'
 import { catalogRouter } from './routes/catalog.routes'
 import { favoritesRouter } from './routes/favorites.routes'
@@ -41,6 +42,7 @@ app.use(
   }),
 )
 app.use(express.json())
+app.use(imageRouter)
 app.use('/api/auth', authRouter)
 app.use('/api/admin', adminRouter)
 app.use('/api/catalog', catalogRouter)

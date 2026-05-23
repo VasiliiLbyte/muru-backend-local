@@ -5,6 +5,10 @@ node_modules/
 dist/
 coverage/
 
+# image proxy disk cache (local dev)
+backend/cache/
+cache/
+
 # env files
 .env
 .env.local

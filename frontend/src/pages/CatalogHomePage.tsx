@@ -23,7 +23,7 @@ export const CatalogHomePage = ({ tree }: CatalogHomePageProps) => {
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {sorted.map((category) => (
+        {sorted.map((category, index) => (
           <button
             key={category.slug}
             type="button"
@@ -35,7 +35,8 @@ export const CatalogHomePage = ({ tree }: CatalogHomePageProps) => {
                 <SmartImage
                   src={category.coverImageUrl}
                   alt={category.name}
-                  className="h-full w-full object-cover"
+                  className="h-full w-full"
+                  priority={index === 0}
                 />
               ) : null}
             </div>

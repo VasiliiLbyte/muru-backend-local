@@ -24,7 +24,9 @@ import {
   SYNC_REASON_MISSING_SKU,
   syncDbErrorReason,
 } from './google-sync-errors'
+import { invalidateImageCache } from './image-proxy.service'
 import { buildTwoSlotImageUrls } from './google-sync-image-urls'
+import { extractDriveFileId } from '../utils/drive-file-id'
 
 const rowSchema = z.object({
   sku: z.string().min(1),
@@ -351,6 +353,11 @@ export const syncCatalogFromGoogle = async (
   let skippedProducts = 0
   let skippedByRule = 0
   const productsToUpsert: Product[] = []
+  const touchedFileIds = new Set<string>()
+
+  if (placeholderFileId) {
+    touchedFileIds.add(placeholderFileId)
+  }
 
   for (const row of rows) {
     const sku = resolveSkuFromRow(row)
@@ -365,11 +372,25 @@ export const syncCatalogFromGoogle = async (
       continue
     }
 
-    const product = normalizeProduct(row, driveImageMap.get(sku), placeholderThumbnailUrl)
+    const imageRefs = driveImageMap.get(sku)
+    if (imageRefs) {
+      for (const ref of imageRefs) {
+        if (ref.order >= 1 && ref.order <= 3) {
+          touchedFileIds.add(ref.fileId)
+        }
+      }
+    }
+
+    const product = normalizeProduct(row, imageRefs, placeholderThumbnailUrl)
     if (!product) {
       skippedProducts += 1
       errors.push({ sku, reason: SYNC_REASON_INVALID_ROW })
       continue
+    }
+
+    for (const url of product.imageUrls) {
+      const id = extractDriveFileId(url)
+      if (id) touchedFileIds.add(id)
     }
 
     productsToUpsert.push(product)
@@ -384,6 +405,15 @@ export const syncCatalogFromGoogle = async (
 
   const { synced, errors: dbErrors } = await upsertProductsBatched(productsToUpsert, report)
   errors.push(...dbErrors)
+
+  if (touchedFileIds.size > 0) {
+    try {
+      await invalidateImageCache([...touchedFileIds])
+      console.log(`[sync] Image cache invalidated for ${touchedFileIds.size} Drive file(s)`)
+    } catch (invalidateError) {
+      console.error('[sync] Image cache invalidate failed', invalidateError)
+    }
+  }
 
   const { errors: cappedErrors, errorGroups } = summarizeSyncErrors(errors)
 
