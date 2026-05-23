@@ -5,6 +5,7 @@ import {
   findHeaderRowIndex,
   normalizeHeaderKey,
   resolveSheetPrice,
+  resolveSkuFromRow,
   rowToRecord,
 } from './google-sheet-headers'
 
@@ -59,5 +60,27 @@ describe('columnIndexToA1', () => {
     expect(columnIndexToA1(0)).toBe('A')
     expect(columnIndexToA1(4)).toBe('E')
     expect(columnIndexToA1(26)).toBe('AA')
+  })
+})
+
+describe('resolveSkuFromRow', () => {
+  it('reads SKU from артикул column', () => {
+    const row = rowToRecord(
+      ['наименование товара', 'артикул товара для сайта', 'раздел каталога 1-й уровень'],
+      ['Подсвечник', 'MU0042', 'Вазы и аксессуары'],
+    )
+    expect(resolveSkuFromRow(row)).toBe('MU0042')
+  })
+
+  it('reads SKU from фото с сайта when columns are shifted', () => {
+    const row = rowToRecord(
+      ['№ п/п', 'наименование товара', 'фото с сайта', 'раздел каталога 1-й уровень'],
+      ['1', 'Керамический подсвечник', 'MU0001', 'Вазы и аксессуары'],
+    )
+    expect(resolveSkuFromRow(row)).toBe('MU0001')
+  })
+
+  it('finds embedded MU sku in any column', () => {
+    expect(resolveSkuFromRow({ misc: 'prefix MU12345 suffix' })).toBe('MU12345')
   })
 })

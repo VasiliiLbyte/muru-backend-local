@@ -14,6 +14,18 @@ const SKU_HEADER_ALIASES = [
   'код товара',
 ]
 
+/** Matches MU0001-style site SKUs in a cell value. */
+export const MU_SKU_CELL_PATTERN = /^MU\d{4,}\b/i
+
+const extractMuSku = (value: string): string => {
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+  const exact = trimmed.match(/^MU\d{4,}\b/i)
+  if (exact) return exact[0].toUpperCase()
+  const embedded = trimmed.match(/MU\d{4,}\b/i)
+  return embedded ? embedded[0].toUpperCase() : ''
+}
+
 export const normalizeHeaderKey = (value: string) =>
   value
     .replace(/^\uFEFF/, '')
@@ -84,3 +96,29 @@ export const resolvePrimaryCatalogSection = (source: Record<string, string>) =>
   source.categories ??
   source['категории'] ??
   ''
+
+/**
+ * Resolves site SKU from a row record (handles shifted columns in client xlsx).
+ */
+export const resolveSkuFromRow = (source: Record<string, string>): string => {
+  for (const alias of SKU_HEADER_ALIASES) {
+    const fromAlias = extractMuSku(source[alias] ?? '')
+    if (fromAlias) return fromAlias
+  }
+
+  for (const [key, raw] of Object.entries(source)) {
+    if (!isSkuHeader(normalizeHeaderKey(key))) continue
+    const fromHeader = extractMuSku(raw ?? '')
+    if (fromHeader) return fromHeader
+  }
+
+  const fromPhotoColumn = extractMuSku(source['фото с сайта'] ?? '')
+  if (fromPhotoColumn) return fromPhotoColumn
+
+  for (const raw of Object.values(source)) {
+    const found = extractMuSku(raw ?? '')
+    if (found) return found
+  }
+
+  return ''
+}

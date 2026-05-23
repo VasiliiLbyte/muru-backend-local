@@ -1,5 +1,4 @@
 import type { PoolClient } from 'pg'
-import { google } from 'googleapis'
 import { z } from 'zod'
 
 import { mapSheetSectionToTopLevel } from '../constants/catalog-top-level'
@@ -7,21 +6,18 @@ import type { CatalogSyncProgress, Product, SyncError, SyncResult, Variant } fro
 import { pool } from '../utils/db'
 import { env } from '../utils/env'
 
-import {
-  findHeaderRowIndex,
-  isSkuHeader,
-  normalizeHeaderKey,
-  resolvePrimaryCatalogSection,
-  resolveSheetPrice,
-  rowToRecord,
-  SHEET_VALUE_RANGE,
-} from './google-sheet-headers'
+import { readCatalogWithMeta } from './google-catalog-reader'
 import { buildDriveThumbnailUrl } from './google-drive-muru-folder'
 import {
   PLACEHOLDER_DRIVE_FILENAME,
   scanProductImagesFromDriveTree,
   type DriveImageRef,
 } from './google-drive-product-images'
+import {
+  resolvePrimaryCatalogSection,
+  resolveSheetPrice,
+  resolveSkuFromRow,
+} from './google-sheet-headers'
 import {
   summarizeSyncErrors,
   SYNC_REASON_INVALID_ROW,
@@ -44,6 +40,9 @@ const rowSchema = z.object({
 const DEFAULT_IMAGE_URL = 'https://placehold.co/1200x1200?text=MURU'
 const DB_CHUNK_SIZE = 40
 const DB_PROGRESS_EVERY = 10
+
+const STOCK_WRITE_DISABLED_WARNING =
+  'Списание остатков в таблицу отключено; остаток обновляется только при синхронизации каталога.'
 
 const slugify = (value: string) =>
   (value
@@ -84,80 +83,12 @@ const parseVariants = (raw: string): Variant[] => {
     })
 }
 
-const createGoogleAuth = () =>
-  new google.auth.JWT({
-    email: env.googleServiceAccountEmail,
-    key: env.googlePrivateKey,
-    scopes: [
-      'https://www.googleapis.com/auth/spreadsheets.readonly',
-      'https://www.googleapis.com/auth/drive',
-    ],
-  })
-
-const detectSheetWithHeaders = async (
-  sheetsApi: ReturnType<typeof google.sheets>,
-): Promise<{ title: string; rows: string[][]; headerRowIndex: number } | null> => {
-  const metadata = await sheetsApi.spreadsheets.get({
-    spreadsheetId: env.googleSheetId,
-    fields: 'sheets(properties(title))',
-  })
-  const titles =
-    metadata.data.sheets
-      ?.map((sheet) => sheet.properties?.title)
-      .filter((title): title is string => Boolean(title)) ?? []
-
-  const orderedTitles = ['Лист1', ...titles.filter((title) => title !== 'Лист1')]
-
-  for (const title of orderedTitles) {
-    const response = await sheetsApi.spreadsheets.values.get({
-      spreadsheetId: env.googleSheetId,
-      range: `${title}!${SHEET_VALUE_RANGE}`,
-    })
-    const rows = response.data.values ?? []
-    if (rows.length < 2) continue
-
-    const headerRowIndex = findHeaderRowIndex(rows)
-    const header = rows[headerRowIndex].map((cell) => normalizeHeaderKey(String(cell ?? '')))
-    if (header.some((key) => isSkuHeader(key))) {
-      return { title, rows, headerRowIndex }
-    }
-  }
-
-  return null
-}
-
-type SheetReadResult = { title: string; rows: Record<string, string>[] }
-
-const readSheetWithMeta = async (): Promise<SheetReadResult> => {
-  const auth = createGoogleAuth()
-  const sheets = google.sheets({ version: 'v4', auth })
-  const detected = await detectSheetWithHeaders(sheets)
-  if (!detected) return { title: '', rows: [] }
-
-  const { title, rows, headerRowIndex } = detected
-  const header = rows[headerRowIndex].map((cell) => normalizeHeaderKey(String(cell ?? '')))
-  console.log('[sync] Sheet selected:', title)
-  console.log('[sync] Sheet headers found:', header.join(', '))
-  const dataRows = rows
-    .slice(headerRowIndex + 1)
-    .map((row) => rowToRecord(header, row.map((cell) => String(cell ?? ''))))
-  return { title, rows: dataRows }
-}
-
 const normalizeProduct = (
   source: Record<string, string>,
   imageRefs: DriveImageRef[] | undefined,
   placeholderThumbnailUrl: string | null,
 ): Product | null => {
-  const skuValue =
-    source.sku ??
-    source['артикул'] ??
-    source['артикул товара'] ??
-    source['артикул товара для сайта'] ??
-    source['sku/артикул'] ??
-    source['артикул/sku'] ??
-    source['код товара'] ??
-    ''
+  const skuValue = resolveSkuFromRow(source)
   const primarySection = resolvePrimaryCatalogSection(source)
   const normalizedCategories = primarySection.trim()
   const parsed = rowSchema.safeParse({
@@ -340,7 +271,7 @@ const upsertProductsBatched = async (
         }
         await client.query('COMMIT')
         synced += chunk.length
-      } catch (chunkError) {
+      } catch {
         await client.query('ROLLBACK')
         for (const product of chunk) {
           try {
@@ -377,8 +308,6 @@ export const syncCatalogFromGoogle = async (
   const startedAt = Date.now()
   const report = (progress: CatalogSyncProgress) => onProgress?.(progress)
 
-  report({ phase: 'sheet', message: 'Читаем Google Таблицу…' })
-
   const driveScanPromise = scanProductImagesFromDriveTree((update) => {
     report({
       phase: 'drive',
@@ -388,14 +317,16 @@ export const syncCatalogFromGoogle = async (
     })
   })
 
-  const sheetPromise = readSheetWithMeta()
+  const sheetPromise = readCatalogWithMeta((message) => {
+    report({ phase: 'sheet', message })
+  })
 
   const [sheetData, driveScan] = await Promise.all([sheetPromise, driveScanPromise])
   const { title: sheetTitle, rows } = sheetData
 
   report({
     phase: 'sheet',
-    message: `Таблица «${sheetTitle || '—'}»: ${rows.length} строк`,
+    message: `Источник «${sheetTitle || '—'}»: ${rows.length} строк`,
   })
 
   const driveImageMap = driveScan.bySku
@@ -403,6 +334,9 @@ export const syncCatalogFromGoogle = async (
   const placeholderThumbnailUrl = placeholderFileId ? buildDriveThumbnailUrl(placeholderFileId) : null
 
   const warnings: string[] = [...driveScan.warnings]
+  if (!env.enableSheetsStockWrite) {
+    warnings.push(STOCK_WRITE_DISABLED_WARNING)
+  }
   if (!placeholderFileId) {
     const msg = `В папке Drive нет файла «${PLACEHOLDER_DRIVE_FILENAME}»; для товаров без фото будет внешняя заглушка.`
     warnings.push(msg)
@@ -419,16 +353,7 @@ export const syncCatalogFromGoogle = async (
   const productsToUpsert: Product[] = []
 
   for (const row of rows) {
-    const skuRaw =
-      row.sku ??
-      row['артикул'] ??
-      row['артикул товара'] ??
-      row['артикул товара для сайта'] ??
-      row['sku/артикул'] ??
-      row['артикул/sku'] ??
-      row['код товара'] ??
-      ''
-    const sku = skuRaw.toUpperCase()
+    const sku = resolveSkuFromRow(row)
     if (!sku) {
       skippedProducts += 1
       errors.push({ sku: '—', reason: SYNC_REASON_MISSING_SKU })

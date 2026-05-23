@@ -3,6 +3,7 @@ import { z } from 'zod'
 
 import type { AuthenticatedRequest } from '../middleware/auth.middleware'
 import { decreaseStockInSheets } from '../services/google-sheets-write.service'
+import { env } from '../utils/env'
 import { notifyAdminsByTelegram, notifyByEmail, notifyClientByTelegram } from '../services/order-notifications.service'
 import { createOrder, getDraftOrderByTelegramUserId, getOrdersByTelegramUserId, saveDraftOrder } from '../services/orders.service'
 
@@ -97,9 +98,15 @@ export const createOrderHandler = async (req: Request, res: Response) => {
       quantity: item.quantity,
     }))
 
-    void decreaseStockInSheets(stockUpdates).catch((err) => {
-      console.error('[sheets-write:error]', err)
-    })
+    if (env.enableSheetsStockWrite) {
+      void decreaseStockInSheets(stockUpdates).catch((err) => {
+        console.error('[sheets-write:error]', err)
+      })
+    } else {
+      console.log(
+        '[sheets-write] skipped (CATALOG_SOURCE=xlsx or ENABLE_SHEETS_STOCK_WRITE=false); stock is DB-only until next catalog sync',
+      )
+    }
 
     void notifyAdminsByTelegram(order).catch((notifyError) => {
       console.error('[telegram-order-notify:error]', notifyError)

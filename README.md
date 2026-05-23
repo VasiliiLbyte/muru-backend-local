@@ -25,15 +25,19 @@ Copy `.env.example` to `.env` and fill values:
 - `ADMIN_TELEGRAM_IDS` - comma-separated Telegram user IDs allowed to run `/api/admin/sync`.
 - `DATABASE_URL` - PostgreSQL connection string.
 - `GOOGLE_SERVICE_ACCOUNT_EMAIL` and `GOOGLE_PRIVATE_KEY` - service account credentials.
-- `GOOGLE_SHEET_ID` - Google Sheet ID (`13oevOsZad_qZ6K8LvCy0Xa-MnALX1dBChS9jMajvaWo` — [MURU реестр заполнения товаров актуальная](https://docs.google.com/spreadsheets/d/13oevOsZad_qZ6K8LvCy0Xa-MnALX1dBChS9jMajvaWo/edit)).
+- `CATALOG_SOURCE` - `xlsx` (default): read client **.xlsx** from Drive; `sheets`: legacy Google Sheets API.
+- `GOOGLE_CATALOG_FILE_ID` - Drive file ID of the product registry xlsx ([MURU реестр заполнения товаров](https://docs.google.com/spreadsheets/d/13R05JyBIJsMl0fE7qQRxG1nVcKTU3XFg/edit) → `13R05JyBIJsMl0fE7qQRxG1nVcKTU3XFg`).
+- `GOOGLE_CATALOG_XLSX_SHEET_NAME` - optional worksheet name inside the xlsx; if empty, the first sheet with an «артикул» header row is used.
+- `ENABLE_SHEETS_STOCK_WRITE` - `false` for `CATALOG_SOURCE=xlsx` (no stock write-back to spreadsheet on orders; stock updates on full catalog sync only). Set `true` with `CATALOG_SOURCE=sheets` to restore Sheets stock deduction.
+- `GOOGLE_SHEET_ID` - used only when `CATALOG_SOURCE=sheets`.
 - `GOOGLE_DRIVE_FOLDER_ID` - root Drive folder for product photos ([пример](https://drive.google.com/drive/u/0/folders/1okABaQzSC-f9H6epKfhMH8sIImE2gLcQ)): раздел → … → товар → **Обрезанные** → **Главное фото** (`MUxxxx_1_O.*`) и **Доп фото** (`MUxxxx_2_O.*`, `MUxxxx_3_O.*`). В корне дерева — `muru_placeholder_600.webp`. В каталог попадают слоты **1** и **2**; legacy `MUxxxx-1.webp` в любой папке тоже поддерживается.
 
 ## Google Access Setup
 
-1. Create a Google Cloud service account and enable **Google Sheets API** and **Google Drive API**.
-2. Share the target Google Sheet and Drive **root photo folder** with `GOOGLE_SERVICE_ACCOUNT_EMAIL` (**Editor** on both — для синка, публичных ссылок на фото и списания остатка в таблице).
-3. Put credentials into `.env`.
-4. After switching to a new spreadsheet, set `GOOGLE_SHEET_ID` in `.env` on the server and run `pm2 reload ecosystem.config.js --update-env`.
+1. Create a Google Cloud service account and enable **Google Drive API** (and **Google Sheets API** only if `CATALOG_SOURCE=sheets`).
+2. Share the client **registry .xlsx** on Drive and the **root photo folder** with `GOOGLE_SERVICE_ACCOUNT_EMAIL` (**Reader** on xlsx is enough; **Editor** on the photo folder for public image links).
+3. Put credentials into `.env` (`CATALOG_SOURCE=xlsx`, `GOOGLE_CATALOG_FILE_ID=…`, `ENABLE_SHEETS_STOCK_WRITE=false`).
+4. After changing catalog file or env, run `pm2 reload ecosystem.config.js --update-env` on the server and run a full catalog sync in admin.
 
 ## Database Schema
 
