@@ -13,7 +13,7 @@ import { SmartImage } from '../components/SmartImage'
 
 type AdminCategoriesSectionProps = {
   userId: number
-  onBack: () => void
+  onBack?: () => void
 }
 
 export const AdminCategoriesSection = ({ userId, onBack }: AdminCategoriesSectionProps) => {
@@ -93,12 +93,14 @@ export const AdminCategoriesSection = ({ userId, onBack }: AdminCategoriesSectio
   }
 
   return (
-    <section className="mt-4 space-y-3 rounded-xl border border-muru-accent bg-[#fff9ed] p-3">
+    <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-semibold text-muru-olive">Категории — обложки из Drive</h2>
-        <button type="button" className={`${pressable} rounded-lg bg-[#efe8d8] px-3 py-1.5 text-sm`} onClick={onBack}>
-          К обзору админки
-        </button>
+        {onBack ? (
+          <button type="button" className={`${pressable} rounded-lg bg-[#efe8d8] px-3 py-1.5 text-sm`} onClick={onBack}>
+            К обзору админки
+          </button>
+        ) : null}
       </div>
       <p className="text-xs text-[#5c5346]">
         Укажите <span className="font-medium">только имя файла</span> (например <code>MU0023_1_O.png</code>), не путь к
@@ -214,6 +216,6 @@ export const AdminCategoriesSection = ({ userId, onBack }: AdminCategoriesSectio
           ) : null}
         </div>
       ) : null}
-    </section>
+    </div>
   )
 }

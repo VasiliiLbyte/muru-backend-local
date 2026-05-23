@@ -225,7 +225,7 @@ export const createOrder = async (input: CheckoutDraftInput): Promise<OrderDraft
       `INSERT INTO orders (
         telegram_user_id, status, delivery_mode, delivery_option, delivery_price, delivery_eta,
         address, comment, birth_date, subtotal, total, is_draft, created_at, updated_at
-      ) VALUES ($1, 'Черновик', $2, $3, $4, $5, $6, $7, $8, $9, $10, FALSE, NOW(), NOW())
+      ) VALUES ($1, 'Новый', $2, $3, $4, $5, $6, $7, $8, $9, $10, FALSE, NOW(), NOW())
       RETURNING id, telegram_user_id, status, delivery_mode, delivery_option, delivery_price::text,
                 delivery_eta, address, comment, birth_date::text, subtotal::text, total::text`,
       [

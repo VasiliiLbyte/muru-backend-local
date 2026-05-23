@@ -54,6 +54,35 @@ export const notifyByEmail = async (order: OrderDraft): Promise<void> => {
   })
 }
 
+export const notifyClientStatusChange = async (
+  order: OrderDraft,
+  newStatus: string,
+): Promise<void> => {
+  if (!env.telegramBotToken) return
+
+  const etaLine = order.deliveryEta ? `Ориентировочная дата: ${order.deliveryEta}` : ''
+
+  try {
+    await callTelegramApi('sendMessage', {
+      chat_id: order.telegramUserId,
+      parse_mode: 'HTML',
+      text: [
+        `✅ <b>Заказ #${order.id} подтверждён</b>`,
+        '',
+        `Статус: <b>${newStatus}</b>`,
+        `Сумма: <b>${order.total.toFixed(2)} ₽</b>`,
+        etaLine,
+        '',
+        'Спасибо за заказ! Мы свяжемся с вами при необходимости.',
+      ]
+        .filter(Boolean)
+        .join('\n'),
+    })
+  } catch (error) {
+    console.error('[notify-client-status:error]', error)
+  }
+}
+
 export const notifyClientByTelegram = async (order: OrderDraft): Promise<void> => {
   if (!env.telegramBotToken) return
 

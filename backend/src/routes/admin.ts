@@ -5,6 +5,12 @@ import {
   putAdminCategoryCoversHandler,
 } from '../controllers/admin-categories.controller'
 import {
+  getAdminOrderByIdHandler,
+  listAdminOrdersHandler,
+  patchAdminOrderHandler,
+  restockAdminOrderHandler,
+} from '../controllers/admin-orders.controller'
+import {
   getCategoryCoverSyncJobState,
   isCategoryCoverSyncRunning,
   startCategoryCoverSyncJob,
@@ -39,6 +45,50 @@ adminRouter.get('/me', (req, res) => {
     data: { isAdmin: isAdminRequest(req) },
     error: null,
   })
+})
+
+adminRouter.get('/orders', (req, res) => {
+  if (!isAdminRequest(req)) {
+    return res.status(403).json({
+      success: false,
+      data: null,
+      error: 'Forbidden: admin access required',
+    })
+  }
+  return listAdminOrdersHandler(req, res)
+})
+
+adminRouter.get('/orders/:id', (req, res) => {
+  if (!isAdminRequest(req)) {
+    return res.status(403).json({
+      success: false,
+      data: null,
+      error: 'Forbidden: admin access required',
+    })
+  }
+  return getAdminOrderByIdHandler(req, res)
+})
+
+adminRouter.patch('/orders/:id', (req, res) => {
+  if (!isAdminRequest(req)) {
+    return res.status(403).json({
+      success: false,
+      data: null,
+      error: 'Forbidden: admin access required',
+    })
+  }
+  return patchAdminOrderHandler(req, res)
+})
+
+adminRouter.post('/orders/:id/restock', (req, res) => {
+  if (!isAdminRequest(req)) {
+    return res.status(403).json({
+      success: false,
+      data: null,
+      error: 'Forbidden: admin access required',
+    })
+  }
+  return restockAdminOrderHandler(req, res)
 })
 
 adminRouter.get('/categories', getAdminCategoriesHandler)

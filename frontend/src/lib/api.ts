@@ -120,6 +120,20 @@ const safeFetch = async (url: string, options?: RequestInit): Promise<Response> 
   }
 }
 
+export type ApiHealthStatus = 'ok' | 'error'
+
+export const fetchApiHealth = async (): Promise<ApiHealthStatus> => {
+  try {
+    const response = await safeFetch(`${API_BASE_URL}/api/health`)
+    const payload = await response.json()
+    if (!response.ok || !payload.success) return 'error'
+    const status = (payload.data as { status?: string } | undefined)?.status
+    return status === 'ok' ? 'ok' : 'error'
+  } catch {
+    return 'error'
+  }
+}
+
 const getAuthHeaders = (): HeadersInit => {
   const raw = getStoredToken()
   if (!raw) return {}
@@ -227,6 +241,132 @@ const adminTelegramHeadersPost = (telegramUserId: number): HeadersInit => ({
   'Content-Type': 'application/json',
   'x-telegram-user-id': String(telegramUserId),
 })
+
+const adminTelegramHeadersPatch = (telegramUserId: number): HeadersInit => ({
+  'Content-Type': 'application/json',
+  'x-telegram-user-id': String(telegramUserId),
+})
+
+export type AdminOrderListItem = {
+  id: number
+  telegramUserId: number
+  status: string
+  total: number
+  deliveryMode: 'delivery' | 'pickup'
+  address: string
+  createdAt: string
+  itemsCount: number
+  customerName: string | null
+  customerPhone: string | null
+}
+
+export type AdminOrderDetailItem = {
+  sku: string
+  name: string
+  price: number
+  quantity: number
+  color?: string
+  size?: string
+  imageUrl?: string | null
+}
+
+export type AdminOrderDetail = AdminOrderListItem & {
+  items: AdminOrderDetailItem[]
+  comment: string
+  adminComment: string
+  deliveryOption: string | null
+  deliveryPrice: number
+  deliveryEta: string | null
+  subtotal: number
+}
+
+export type AdminOrdersListParams = {
+  status?: string
+  q?: string
+  dateFrom?: string
+  dateTo?: string
+  page?: number
+  pageSize?: number
+}
+
+export type AdminOrdersListResult = {
+  items: AdminOrderListItem[]
+  total: number
+  page: number
+  pageSize: number
+  statusCounts: Record<string, number>
+}
+
+export const fetchAdminOrders = async (
+  telegramUserId: number,
+  params: AdminOrdersListParams = {},
+): Promise<AdminOrdersListResult> => {
+  const search = new URLSearchParams()
+  if (params.status) search.set('status', params.status)
+  if (params.q) search.set('q', params.q)
+  if (params.dateFrom) search.set('dateFrom', params.dateFrom)
+  if (params.dateTo) search.set('dateTo', params.dateTo)
+  if (params.page) search.set('page', String(params.page))
+  if (params.pageSize) search.set('pageSize', String(params.pageSize))
+
+  const qs = search.toString()
+  const url = `${API_BASE_URL}/api/admin/orders${qs ? `?${qs}` : ''}`
+  const response = await safeFetch(url, {
+    headers: adminTelegramHeadersGet(telegramUserId),
+  })
+  const payload = await response.json()
+  if (!response.ok || !payload.success) {
+    throw new Error(payload.error ?? 'Failed to load orders')
+  }
+  return payload.data as AdminOrdersListResult
+}
+
+export const fetchAdminOrderById = async (
+  telegramUserId: number,
+  orderId: number,
+): Promise<AdminOrderDetail> => {
+  const response = await safeFetch(`${API_BASE_URL}/api/admin/orders/${orderId}`, {
+    headers: adminTelegramHeadersGet(telegramUserId),
+  })
+  const payload = await response.json()
+  if (!response.ok || !payload.success) {
+    throw new Error(payload.error ?? 'Failed to load order')
+  }
+  return payload.data as AdminOrderDetail
+}
+
+export const updateAdminOrder = async (
+  telegramUserId: number,
+  orderId: number,
+  body: { status?: string; adminComment?: string; deliveryEta?: string | null },
+): Promise<AdminOrderDetail> => {
+  const response = await safeFetch(`${API_BASE_URL}/api/admin/orders/${orderId}`, {
+    method: 'PATCH',
+    headers: adminTelegramHeadersPatch(telegramUserId),
+    body: JSON.stringify(body),
+  })
+  const payload = await response.json()
+  if (!response.ok || !payload.success) {
+    throw new Error(payload.error ?? 'Failed to update order')
+  }
+  return payload.data as AdminOrderDetail
+}
+
+export const restockAdminOrder = async (
+  telegramUserId: number,
+  orderId: number,
+): Promise<AdminOrderDetail> => {
+  const response = await safeFetch(`${API_BASE_URL}/api/admin/orders/${orderId}/restock`, {
+    method: 'POST',
+    headers: adminTelegramHeadersPost(telegramUserId),
+    body: JSON.stringify({}),
+  })
+  const payload = await response.json()
+  if (!response.ok || !payload.success) {
+    throw new Error(payload.error ?? 'Failed to restock order')
+  }
+  return payload.data as AdminOrderDetail
+}
 
 export const fetchAdminCategories = async (telegramUserId: number): Promise<AdminCategoryRow[]> => {
   const response = await safeFetch(`${API_BASE_URL}/api/admin/categories`, {
