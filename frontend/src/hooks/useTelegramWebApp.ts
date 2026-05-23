@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import '@tma.js/sdk'
 
 import { authenticateWithTelegram, clearToken } from '../lib/auth'
 import { fetchAdminAccess } from '../lib/api'

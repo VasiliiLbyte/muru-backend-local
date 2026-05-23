@@ -12,5 +12,13 @@ export const normalizeApiBaseUrl = (raw: unknown): string => {
   }
 }
 
-export const getViteApiBaseUrl = (): string =>
-  normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL)
+export const getViteApiBaseUrl = (): string => {
+  const fromEnv = import.meta.env.VITE_API_BASE_URL
+  if (typeof fromEnv === 'string' && fromEnv.trim()) {
+    return normalizeApiBaseUrl(fromEnv)
+  }
+  if (import.meta.env.PROD && typeof window !== 'undefined' && window.location?.origin) {
+    return window.location.origin
+  }
+  return normalizeApiBaseUrl(undefined)
+}

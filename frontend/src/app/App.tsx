@@ -201,13 +201,20 @@ const AppShell = () => {
   }, [])
 
   useEffect(() => {
+    const path = location.pathname.replace(/\/$/, '') || '/'
+    if (path === '/' || path === '') {
+      navigate({ pathname: '/catalog', search: location.search, hash: location.hash }, { replace: true })
+    }
+  }, [location.pathname, location.search, location.hash, navigate])
+
+  useEffect(() => {
     const tab = tabFromQueryParam(new URLSearchParams(window.location.search).get('tab'))
     if (!tab) return
     setActiveTab(tab)
     if (tab === 'Каталог') {
-      navigate('/catalog', { replace: true })
+      navigate({ pathname: '/catalog', search: location.search, hash: location.hash }, { replace: true })
     }
-  }, [navigate])
+  }, [navigate, location.search, location.hash])
 
   useEffect(() => {
     if (activeTab === 'Корзина') {
