@@ -72,6 +72,16 @@ export type AdminCategoryRow = {
   coverImageUrl: string | null
 }
 
+export type BotWelcomeSettings = {
+  welcomeCoverDriveFilename: string | null
+  welcomeImageUrl: string | null
+}
+
+export type SaveBotWelcomeApiResult = {
+  settings: BotWelcomeSettings
+  resolveWarning: string | null
+}
+
 export type CategoryCoverSyncApiResult = {
   updated: number
   skipped: number
@@ -399,6 +409,33 @@ export const restockAdminOrder = async (
     throw new Error(payload.error ?? 'Failed to restock order')
   }
   return payload.data as AdminOrderDetail
+}
+
+export const fetchBotWelcomeSettings = async (telegramUserId: number): Promise<BotWelcomeSettings> => {
+  const response = await safeFetch(`${API_BASE_URL}/api/admin/bot-welcome`, {
+    headers: adminTelegramHeadersGet(telegramUserId),
+  })
+  const payload = await response.json()
+  if (!response.ok || !payload.success) {
+    throw new Error(payload.error ?? 'Failed to load bot welcome settings')
+  }
+  return payload.data as BotWelcomeSettings
+}
+
+export const saveBotWelcomeSettings = async (
+  telegramUserId: number,
+  body: { welcomeCoverDriveFilename: string | null },
+): Promise<SaveBotWelcomeApiResult> => {
+  const response = await safeFetch(`${API_BASE_URL}/api/admin/bot-welcome`, {
+    method: 'PUT',
+    headers: adminTelegramHeadersPost(telegramUserId),
+    body: JSON.stringify(body),
+  })
+  const payload = await response.json()
+  if (!response.ok || !payload.success) {
+    throw new Error(payload.error ?? 'Failed to save bot welcome settings')
+  }
+  return payload.data as SaveBotWelcomeApiResult
 }
 
 export const fetchAdminCategories = async (telegramUserId: number): Promise<AdminCategoryRow[]> => {

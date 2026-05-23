@@ -1,5 +1,6 @@
 import { useState } from 'react'
 
+import { AdminBotWelcomeSection } from './AdminBotWelcomeSection'
 import { AdminCategoriesSection } from './AdminCategoriesSection'
 import { AdminOrdersSection } from './AdminOrdersSection'
 import { AdminLayout } from './AdminLayout'
@@ -14,7 +15,7 @@ type AdminPageProps = {
 }
 
 const needsUserId = (section: AdminSectionId): boolean =>
-  section === 'sync' || section === 'categories' || section === 'orders'
+  section === 'sync' || section === 'categories' || section === 'orders' || section === 'settings'
 
 export const AdminPage = ({ userId, onBack }: AdminPageProps) => {
   const [section, setSection] = useState<AdminSectionId>('sync')
@@ -47,7 +48,7 @@ export const AdminPage = ({ userId, onBack }: AdminPageProps) => {
       case 'promos':
         return <PlaceholderSection title="Промокоды" />
       case 'settings':
-        return <PlaceholderSection title="Настройки" />
+        return <AdminBotWelcomeSection userId={userId!} />
       default:
         return <PlaceholderSection title={getAdminNavLabel(section)} />
     }

@@ -41,7 +41,6 @@ export const CatalogHomePage = ({ tree }: CatalogHomePageProps) => {
               ) : null}
             </div>
             <h2 className="text-sm font-semibold text-muru-olive">{category.name}</h2>
-            <p className="mt-1 text-xs">{category.children.length} подкатегорий</p>
           </button>
         ))}
       </div>

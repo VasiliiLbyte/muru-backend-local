@@ -3,7 +3,6 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate, usePa
 
 import { AdminDashboard } from '../admin/AdminDashboard'
 import { CartProvider, useCart } from '../cart/CartContext'
-import { CatalogFilters } from '../components/CatalogFilters'
 import { CatalogSearch } from '../components/CatalogSearch'
 import { BottomNavigation } from '../components/BottomNavigation'
 import { FavoritesProvider, useFavorites } from '../favorites/FavoritesContext'
@@ -23,13 +22,23 @@ import { SearchPage } from '../pages/SearchPage'
 
 const DEFAULT_TAB = 'Каталог'
 
+type BottomTab = typeof DEFAULT_TAB | 'Поиск' | 'Корзина' | 'Избранное' | 'Профиль'
+
+const tabFromQueryParam = (raw: string | null): BottomTab | null => {
+  const tab = raw?.trim().toLowerCase()
+  if (tab === 'cart') return 'Корзина'
+  if (tab === 'favorites') return 'Избранное'
+  if (tab === 'catalog' || tab === '') return 'Каталог'
+  if (tab === 'search') return 'Поиск'
+  if (tab === 'profile') return 'Профиль'
+  return null
+}
+
 type CatalogRoutesProps = {
   tree: CatalogNode[]
   products: CatalogProduct[]
   search: string
-  filters: { color: string; size: string; priceMax: string }
   onSearchChange: (value: string) => void
-  onFilterChange: (key: 'color' | 'size' | 'priceMax', value: string) => void
   onProductsChange: (items: CatalogProduct[]) => void
   onOpenProductDetail: (sku: string) => void
   onAddToCart: (product: CatalogProduct) => void
@@ -43,9 +52,7 @@ const CatalogRoutes = ({
   tree,
   products,
   search,
-  filters,
   onSearchChange,
-  onFilterChange,
   onProductsChange,
   onOpenProductDetail,
   onAddToCart,
@@ -100,9 +107,6 @@ const CatalogRoutes = ({
         subcategory: subcategoryNameForQuery,
         subcategorySlug: subcategory?.slug ?? (subcategorySlugRaw || undefined),
         q: search || undefined,
-        color: isCatalogRoot ? undefined : filters.color || undefined,
-        size: isCatalogRoot ? undefined : filters.size || undefined,
-        priceMax: isCatalogRoot ? undefined : filters.priceMax ? Number(filters.priceMax) : undefined,
       })
         .then((items) => {
           if (requestSeqRef.current !== requestId) return
@@ -132,9 +136,6 @@ const CatalogRoutes = ({
     subcategoryNameForQuery,
     search,
     isCatalogRoot,
-    filters.color,
-    filters.size,
-    filters.priceMax,
     onProductsChange,
     onProductsLoading,
   ])
@@ -142,16 +143,6 @@ const CatalogRoutes = ({
   return (
     <>
       <CatalogSearch value={search} onChange={onSearchChange} onActivate={onSearchActivate} />
-      {!isCatalogRoot ? (
-        <CatalogFilters
-          color={filters.color}
-          size={filters.size}
-          priceMax={filters.priceMax}
-          onColorChange={(value) => onFilterChange('color', value)}
-          onSizeChange={(value) => onFilterChange('size', value)}
-          onPriceMaxChange={(value) => onFilterChange('priceMax', value)}
-        />
-      ) : null}
       <Routes>
         <Route index element={<CatalogHomePage tree={tree} />} />
         <Route
@@ -200,7 +191,6 @@ const AppShell = () => {
   const [isCatalogLoading, setIsCatalogLoading] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<CatalogProductDetail | null>(null)
   const [search, setSearch] = useState('')
-  const [filters, setFilters] = useState({ color: '', size: '', priceMax: '' })
   const { userId, isAdmin, webApp } = useTelegramWebApp()
   const { addProduct, loadDraft, items: cartItems } = useCart()
   const cartItemCount = useMemo(() => cartItems.reduce((n, i) => n + i.quantity, 0), [cartItems])
@@ -209,6 +199,15 @@ const AppShell = () => {
   useEffect(() => {
     fetchCatalogTree().then(setCatalogTree).catch(() => setCatalogTree([]))
   }, [])
+
+  useEffect(() => {
+    const tab = tabFromQueryParam(new URLSearchParams(window.location.search).get('tab'))
+    if (!tab) return
+    setActiveTab(tab)
+    if (tab === 'Каталог') {
+      navigate('/catalog', { replace: true })
+    }
+  }, [navigate])
 
   useEffect(() => {
     if (activeTab === 'Корзина') {
@@ -270,7 +269,6 @@ const AppShell = () => {
     setSelectedProduct(null)
     if (tab === 'Каталог') {
       navigate('/catalog')
-      setFilters({ color: '', size: '', priceMax: '' })
     }
   }
 
@@ -337,10 +335,8 @@ const AppShell = () => {
                 tree={catalogTree}
                 products={catalogProducts}
                 search={search}
-                filters={filters}
                 onSearchChange={setSearch}
                 onSearchActivate={() => setActiveTab('Поиск')}
-                onFilterChange={(key, value) => setFilters((prev) => ({ ...prev, [key]: value }))}
                 onProductsChange={setCatalogProducts}
                 onOpenProductDetail={openProductBySku}
                 onAddToCart={addProduct}
@@ -386,6 +382,7 @@ const AppShell = () => {
           userId={userId}
           isLoading={favoritesLoading}
           onGoCatalog={() => handleSelectTab('Каталог')}
+          onOpenProductDetail={openProductBySku}
           onRemoveFavorite={
             userId !== undefined
               ? (item) => toggleFavorite(userId, item).catch(() => undefined)

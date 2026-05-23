@@ -28,6 +28,12 @@ const envSchema = z.object({
   ORDER_NOTIFY_TELEGRAM_IDS: z.string().default(''),
   TELEGRAM_BOT_TOKEN: z.string().optional(),
   TELEGRAM_MINI_APP_URL: z.string().optional(),
+  BOT_WELCOME_DESCRIPTION: z.string().optional(),
+  BOT_WELCOME_MESSAGE: z.string().optional(),
+  BOT_SITE_URL: z.string().optional(),
+  BOT_CHANNEL_URL: z.string().optional(),
+  BOT_CARE_URL: z.string().optional(),
+  BOT_DELIVERY_URL: z.string().optional(),
   ORDER_NOTIFY_EMAIL: z.union([z.string().email(), z.literal('')]).default('Muru_online@mail.ru'),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.string().optional(),
@@ -76,6 +82,12 @@ const enableSheetsStockWrite =
       ? false
       : catalogSource === 'sheets'
 
+const DEFAULT_BOT_WELCOME_DESCRIPTION = 'Добро пожаловать в магазин интерьерного декора MURU'
+
+const DEFAULT_BOT_WELCOME_MESSAGE = `Добро пожаловать в MURU
+
+В мире, где слишком много шума, мы создаём дом, который звучит как уют и спокойствие. MURU - это тишина, ставшая формой.`
+
 const nodeEnv = parsed.data.NODE_ENV || 'development'
 const defaultImageCacheDir =
   nodeEnv === 'production'
@@ -94,6 +106,13 @@ export const env = {
   orderNotifyTelegramIds,
   telegramBotToken: parsed.data.TELEGRAM_BOT_TOKEN ?? '',
   telegramMiniAppUrl: parsed.data.TELEGRAM_MINI_APP_URL ?? '',
+  botWelcomeDescription:
+    parsed.data.BOT_WELCOME_DESCRIPTION?.trim() || DEFAULT_BOT_WELCOME_DESCRIPTION,
+  botWelcomeMessage: parsed.data.BOT_WELCOME_MESSAGE?.trim() || DEFAULT_BOT_WELCOME_MESSAGE,
+  botSiteUrl: parsed.data.BOT_SITE_URL?.trim() ?? '',
+  botChannelUrl: parsed.data.BOT_CHANNEL_URL?.trim() ?? '',
+  botCareUrl: parsed.data.BOT_CARE_URL?.trim() ?? '',
+  botDeliveryUrl: parsed.data.BOT_DELIVERY_URL?.trim() ?? '',
   orderNotifyEmail: parsed.data.ORDER_NOTIFY_EMAIL || 'Muru_online@mail.ru',
   smtpHost: parsed.data.SMTP_HOST ?? '',
   smtpPort: Number(parsed.data.SMTP_PORT || 0),

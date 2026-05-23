@@ -1,6 +1,10 @@
 import { Router } from 'express'
 
 import {
+  getAdminBotWelcomeHandler,
+  putAdminBotWelcomeHandler,
+} from '../controllers/admin-bot-welcome.controller'
+import {
   getAdminCategoriesHandler,
   putAdminCategoryCoversHandler,
 } from '../controllers/admin-categories.controller'
@@ -96,6 +100,8 @@ adminRouter.post('/orders/:id/restock', (req, res) => {
 
 adminRouter.get('/categories', getAdminCategoriesHandler)
 adminRouter.put('/categories/covers', putAdminCategoryCoversHandler)
+adminRouter.get('/bot-welcome', getAdminBotWelcomeHandler)
+adminRouter.put('/bot-welcome', putAdminBotWelcomeHandler)
 adminRouter.get('/sync/category-covers/status', (req, res) => {
   if (!isAdminRequest(req)) {
     return res.status(403).json({

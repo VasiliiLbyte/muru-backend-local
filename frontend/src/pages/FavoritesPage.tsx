@@ -6,11 +6,19 @@ type FavoritesPageProps = {
   items: FavoriteItem[]
   userId?: number
   onGoCatalog: () => void
+  onOpenProductDetail: (sku: string) => void
   onRemoveFavorite?: (item: FavoriteItem) => void | Promise<void>
   isLoading?: boolean
 }
 
-export const FavoritesPage = ({ items, userId, onGoCatalog, onRemoveFavorite, isLoading = false }: FavoritesPageProps) => {
+export const FavoritesPage = ({
+  items,
+  userId,
+  onGoCatalog,
+  onOpenProductDetail,
+  onRemoveFavorite,
+  isLoading = false,
+}: FavoritesPageProps) => {
   if (isLoading) {
     return (
       <section className="space-y-3">
@@ -49,17 +57,26 @@ export const FavoritesPage = ({ items, userId, onGoCatalog, onRemoveFavorite, is
             key={item.sku}
             className="flex items-center gap-3 rounded-xl border border-muru-accent bg-[#fff9ed] p-3 pr-2"
           >
-            <SmartImage src={item.imageUrl} alt={item.name} className="h-16 w-16 shrink-0 rounded-lg object-cover" />
-            <div className="min-w-0 flex-1">
-              <h2 className="text-sm font-semibold leading-snug">{item.name}</h2>
-              <p className="text-sm">{item.price.toFixed(2)} ₽</p>
-            </div>
+            <button
+              type="button"
+              className={`${pressable} flex min-w-0 flex-1 items-center gap-3 text-left`}
+              onClick={() => onOpenProductDetail(item.sku)}
+            >
+              <SmartImage src={item.imageUrl} alt={item.name} className="h-16 w-16 shrink-0 rounded-lg" />
+              <div className="min-w-0 flex-1">
+                <h2 className="text-sm font-semibold leading-snug">{item.name}</h2>
+                <p className="text-sm">{item.price.toFixed(2)} ₽</p>
+              </div>
+            </button>
             {userId && onRemoveFavorite ? (
               <button
                 type="button"
                 className={`${pressable} shrink-0 rounded-lg p-2 text-muru-text hover:bg-[#fde2e2]`}
                 aria-label={`Удалить «${item.name}» из избранного`}
-                onClick={() => void onRemoveFavorite(item)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  void onRemoveFavorite(item)
+                }}
               >
                 <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
                   <path d="M3 6h18" strokeLinecap="round" />

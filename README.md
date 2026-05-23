@@ -120,7 +120,10 @@ bash deploy.sh
 В файле `.env` на сервере обязательно проверь:
 
 - `TELEGRAM_BOT_TOKEN` - токен бота из BotFather.
-- `TELEGRAM_MINI_APP_URL` - публичный HTTPS URL Mini App (например, `https://murushop.online`).
+- `TELEGRAM_MINI_APP_URL` - публичный **HTTPS** URL Mini App для кнопок `web_app` в меню бота (например, `https://murushop.online`). Не используй `t.me/...` — Telegram откроет Mini App только с прямым HTTPS URL.
+- `BOT_WELCOME_DESCRIPTION` - текст профиля бота до кнопки СТАРТ (backend вызывает `setMyDescription` при старте).
+- `BOT_WELCOME_MESSAGE` - подпись к фото после `/start` (по умолчанию зашит в код).
+- `BOT_SITE_URL`, `BOT_CHANNEL_URL`, `BOT_CARE_URL`, `BOT_DELIVERY_URL` - внешние кнопки в inline-меню после `/start`.
 - `VITE_API_BASE_URL` - публичный backend URL (если frontend ходит не на same-origin).
 - `VITE_ADMIN_IDS`, `ADMIN_TELEGRAM_IDS` - Telegram ID админов.
 - `ORDER_NOTIFY_TELEGRAM_IDS` - Telegram ID для уведомлений по заказам.
@@ -134,6 +137,9 @@ bash deploy.sh
 2. Командой `/mybots` выбери нужного бота.
 3. `Bot Settings` -> `Menu Button` -> задай URL Mini App (`https://...`).
 4. Проверь, что URL публичный и с валидным SSL (Telegram требует HTTPS).
+5. Описание до СТАРТ backend выставляет через Bot API (`setMyDescription` / `setMyShortDescription`). При желании сверь в BotFather: `Edit Bot` -> `Edit Description` — текст должен совпадать с `BOT_WELCOME_DESCRIPTION`.
+6. Картинка приветствия после `/start` — в админке Mini App: **Настройки** -> имя файла на Google Drive (как обложки категорий). Миграция: `psql "$DATABASE_URL" -f backend/src/db/migrations/004_bot_welcome_settings.sql`.
+7. После `/start` бот шлёт фото (если URL резолвится) + текст + inline-клавиатуру (каталог, корзина `?tab=cart`, избранное `?tab=favorites`, внешние ссылки из `BOT_*_URL`).
 
 ### 3) Деплой на VPS (backend + frontend)
 
@@ -173,6 +179,7 @@ curl -sS http://127.0.0.1:4000/api/health
 
 - `https://murushop.online` открывается.
 - Mini App открывается из Telegram через кнопку бота.
+- Новый чат с ботом: видно description и СТАРТ; `/start` — приветствие и 6 рядов кнопок; «Корзина» / «Избранное» открывают Mini App на нужной вкладке.
 - Вкладка `Профиль` -> `Админ` видна только для ID из `VITE_ADMIN_IDS`.
 - Создание заказа отправляет уведомления на `ORDER_NOTIFY_TELEGRAM_IDS`.
 
