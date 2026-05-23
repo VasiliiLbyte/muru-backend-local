@@ -10,6 +10,23 @@ export type BotMenuEnv = {
   deliveryUrl: string
 }
 
+/** web_app must open /catalog — root URL often shows blank screen in Telegram WebView. */
+export const resolveMiniAppCatalogBase = (miniAppUrl: string): string => {
+  const trimmed = miniAppUrl.trim()
+  if (!trimmed) return ''
+  try {
+    const url = new URL(trimmed)
+    const path = url.pathname.replace(/\/$/, '') || '/'
+    if (path === '/' || !path.startsWith('/catalog')) {
+      url.pathname = '/catalog'
+    }
+    return url.toString()
+  } catch {
+    if (trimmed.includes('/catalog')) return trimmed
+    return `${trimmed.replace(/\/+$/, '')}/catalog`
+  }
+}
+
 const appendTab = (baseUrl: string, tab: string): string => {
   try {
     const url = new URL(baseUrl)
@@ -33,16 +50,16 @@ const row = (...buttons: Array<InlineKeyboardButton | null>): InlineKeyboardButt
 }
 
 export const buildStartInlineKeyboard = (menu: BotMenuEnv): InlineKeyboardButton[][] => {
-  const mini = menu.miniAppUrl.trim()
+  const catalogBase = resolveMiniAppCatalogBase(menu.miniAppUrl)
   const rows: Array<InlineKeyboardButton[] | null> = [
-    row(webAppButton('🛋 Посмотреть каталог', mini)),
+    row(webAppButton('🛋 Посмотреть каталог', catalogBase)),
     row(
-      webAppButton('🛒 Корзина', mini ? appendTab(mini, 'cart') : ''),
+      webAppButton('🛒 Корзина', catalogBase ? appendTab(catalogBase, 'cart') : ''),
       urlButton('📦 Доставка и возврат', menu.deliveryUrl),
     ),
     row(
-      webAppButton('✨ Новинки', mini ? appendTab(mini, 'catalog') : ''),
-      webAppButton('🤍 Избранное', mini ? appendTab(mini, 'favorites') : ''),
+      webAppButton('✨ Новинки', catalogBase ? appendTab(catalogBase, 'catalog') : ''),
+      webAppButton('🤍 Избранное', catalogBase ? appendTab(catalogBase, 'favorites') : ''),
     ),
     row(urlButton('💬 Бюро заботы', menu.careUrl)),
     row(urlButton('🏡 Сайт MURU', menu.siteUrl)),
