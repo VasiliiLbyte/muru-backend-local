@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 
 import {
   createAdminPromoCode,
@@ -81,6 +81,217 @@ const buildPayload = (form: PromoFormState): CreateAdminPromoCodePayload => {
   }
 }
 
+const validatePromoForm = (form: PromoFormState): string | null => {
+  if (!form.code.trim()) return 'Введите код промокода'
+
+  const discountValue = Number(form.discountValue)
+  if (!Number.isFinite(discountValue) || discountValue <= 0) {
+    return 'Укажите размер скидки'
+  }
+
+  if (form.discountType === 'percent') {
+    if (discountValue < 1 || discountValue > 100) {
+      return 'Скидка в процентах: от 1 до 100'
+    }
+  }
+
+  const usageLimitPerUser = Number(form.usageLimitPerUser)
+  if (!Number.isInteger(usageLimitPerUser) || usageLimitPerUser < 1) {
+    return 'Лимит на пользователя: целое число от 1'
+  }
+
+  const usageLimitRaw = form.usageLimit.trim()
+  if (usageLimitRaw) {
+    const usageLimit = Number(usageLimitRaw)
+    if (!Number.isInteger(usageLimit) || usageLimit < 1) {
+      return 'Общий лимит: целое число от 1 или пусто'
+    }
+  }
+
+  return null
+}
+
+const discountFieldConfig = (discountType: PromoDiscountType) => {
+  if (discountType === 'percent') {
+    return {
+      label: 'Скидка, %',
+      placeholder: '10',
+      min: 1,
+      max: 100,
+      step: 1,
+      hint: '«10» = скидка 10% от суммы товаров',
+    }
+  }
+  return {
+    label: 'Скидка, ₽',
+    placeholder: '500',
+    min: 1,
+    max: undefined as number | undefined,
+    step: 1,
+    hint: null as string | null,
+  }
+}
+
+type BottomSheetProps = {
+  zIndex: number
+  title: string
+  onClose: () => void
+  footer?: ReactNode
+  bodyRef?: React.RefObject<HTMLDivElement | null>
+  children: ReactNode
+}
+
+const AdminBottomSheet = ({ zIndex, title, onClose, footer, bodyRef, children }: BottomSheetProps) => (
+  <div
+    className="fixed inset-0 flex flex-col justify-end bg-black/40"
+    style={{ zIndex }}
+    role="presentation"
+  >
+    <button type="button" className="absolute inset-0 cursor-default" aria-label="Закрыть" onClick={onClose} />
+    <div
+      className="relative mx-auto flex w-full max-w-md max-h-[min(90dvh,100%)] flex-col rounded-t-2xl border border-muru-accent bg-[#fff9ed] shadow-lg"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div className="flex shrink-0 items-center justify-between border-b border-[#d8cfbc] px-4 py-3">
+        <h3 className="text-base font-semibold text-muru-olive">{title}</h3>
+        <button type="button" className={`${pressable} rounded-lg px-3 py-1 text-sm`} onClick={onClose}>
+          Закрыть
+        </button>
+      </div>
+      <div ref={bodyRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3">
+        {children}
+      </div>
+      {footer ? (
+        <div className="shrink-0 border-t border-[#d8cfbc] px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          {footer}
+        </div>
+      ) : null}
+    </div>
+  </div>
+)
+
+type PromoFormFieldsProps = {
+  form: PromoFormState
+  busy: boolean
+  onChange: (patch: Partial<PromoFormState>) => void
+}
+
+const PromoFormFields = ({ form, busy, onChange }: PromoFormFieldsProps) => {
+  const discountConfig = discountFieldConfig(form.discountType)
+
+  return (
+    <div className="grid gap-3 text-sm">
+      <label className="block space-y-1">
+        <span className="font-medium text-muru-olive">Код</span>
+        <input
+          className="w-full rounded-lg border border-muru-olive/20 bg-white px-3 py-2 uppercase"
+          value={form.code}
+          onChange={(e) => onChange({ code: e.target.value })}
+          placeholder="TEST10"
+          disabled={busy}
+          autoComplete="off"
+        />
+      </label>
+      <label className="block space-y-1">
+        <span className="font-medium text-muru-olive">Тип скидки</span>
+        <select
+          className="w-full rounded-lg border border-muru-olive/20 bg-white px-3 py-2"
+          value={form.discountType}
+          onChange={(e) => onChange({ discountType: e.target.value as PromoDiscountType })}
+          disabled={busy}
+        >
+          <option value="percent">Процент (%)</option>
+          <option value="fixed">Фиксированная сумма (₽)</option>
+        </select>
+      </label>
+      <label className="block space-y-1">
+        <span className="font-medium text-muru-olive">{discountConfig.label}</span>
+        <input
+          type="number"
+          inputMode="numeric"
+          min={discountConfig.min}
+          max={discountConfig.max}
+          step={discountConfig.step}
+          className="w-full rounded-lg border border-muru-olive/20 bg-white px-3 py-2"
+          value={form.discountValue}
+          onChange={(e) => onChange({ discountValue: e.target.value })}
+          placeholder={discountConfig.placeholder}
+          disabled={busy}
+        />
+        {discountConfig.hint ? (
+          <span className="text-xs text-[#5c5346]">{discountConfig.hint}</span>
+        ) : null}
+      </label>
+      <label className="block space-y-1">
+        <span className="font-medium text-muru-olive">Мин. сумма заказа (₽)</span>
+        <input
+          type="number"
+          inputMode="numeric"
+          min="0"
+          className="w-full rounded-lg border border-muru-olive/20 bg-white px-3 py-2"
+          value={form.minOrderAmount}
+          onChange={(e) => onChange({ minOrderAmount: e.target.value })}
+          disabled={busy}
+        />
+      </label>
+      <label className="block space-y-1">
+        <span className="font-medium text-muru-olive">Начало действия</span>
+        <input
+          type="datetime-local"
+          className="w-full rounded-lg border border-muru-olive/20 bg-white px-3 py-2"
+          value={form.startsAt}
+          onChange={(e) => onChange({ startsAt: e.target.value })}
+          disabled={busy}
+        />
+      </label>
+      <label className="block space-y-1">
+        <span className="font-medium text-muru-olive">Окончание</span>
+        <input
+          type="datetime-local"
+          className="w-full rounded-lg border border-muru-olive/20 bg-white px-3 py-2"
+          value={form.expiresAt}
+          onChange={(e) => onChange({ expiresAt: e.target.value })}
+          disabled={busy}
+        />
+      </label>
+      <label className="block space-y-1">
+        <span className="font-medium text-muru-olive">Общий лимит (пусто = без лимита)</span>
+        <input
+          type="number"
+          inputMode="numeric"
+          min="1"
+          className="w-full rounded-lg border border-muru-olive/20 bg-white px-3 py-2"
+          value={form.usageLimit}
+          onChange={(e) => onChange({ usageLimit: e.target.value })}
+          disabled={busy}
+        />
+      </label>
+      <label className="block space-y-1">
+        <span className="font-medium text-muru-olive">Лимит на пользователя</span>
+        <input
+          type="number"
+          inputMode="numeric"
+          min="1"
+          className="w-full rounded-lg border border-muru-olive/20 bg-white px-3 py-2"
+          value={form.usageLimitPerUser}
+          onChange={(e) => onChange({ usageLimitPerUser: e.target.value })}
+          disabled={busy}
+        />
+      </label>
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          checked={form.isActive}
+          onChange={(e) => onChange({ isActive: e.target.checked })}
+          disabled={busy}
+        />
+        <span>Активен</span>
+      </label>
+    </div>
+  )
+}
+
 export const AdminPromoCodesSection = ({ userId }: AdminPromoCodesSectionProps) => {
   const [items, setItems] = useState<AdminPromoCode[]>([])
   const [loading, setLoading] = useState(true)
@@ -92,6 +303,7 @@ export const AdminPromoCodesSection = ({ userId }: AdminPromoCodesSectionProps) 
   const [usagesPromo, setUsagesPromo] = useState<AdminPromoCode | null>(null)
   const [usages, setUsages] = useState<AdminPromoCodeUsage[]>([])
   const [usagesLoading, setUsagesLoading] = useState(false)
+  const modalBodyRef = useRef<HTMLDivElement>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -109,6 +321,14 @@ export const AdminPromoCodesSection = ({ userId }: AdminPromoCodesSectionProps) 
   useEffect(() => {
     void load()
   }, [load])
+
+  useEffect(() => {
+    if (!modalOpen) return
+    const frame = requestAnimationFrame(() => {
+      if (modalBodyRef.current) modalBodyRef.current.scrollTop = 0
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [modalOpen, editing?.id])
 
   const openCreate = () => {
     setEditing(null)
@@ -129,6 +349,12 @@ export const AdminPromoCodesSection = ({ userId }: AdminPromoCodesSectionProps) 
   }
 
   const handleSave = async () => {
+    const validationError = validatePromoForm(form)
+    if (validationError) {
+      setError(validationError)
+      return
+    }
+
     setBusy(true)
     setError(null)
     try {
@@ -175,6 +401,8 @@ export const AdminPromoCodesSection = ({ userId }: AdminPromoCodesSectionProps) 
       setUsagesLoading(false)
     }
   }
+
+  const modalTitle = editing ? `Редактировать ${editing.code}` : 'Новый промокод'
 
   return (
     <div className="space-y-3">
@@ -253,114 +481,16 @@ export const AdminPromoCodesSection = ({ userId }: AdminPromoCodesSectionProps) 
       )}
 
       {modalOpen ? (
-        <div className="fixed inset-0 z-[95] flex items-end justify-center bg-black/40 p-4 sm:items-center">
-          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-muru-accent bg-[#fff9ed] p-4">
-            <h3 className="text-base font-semibold text-muru-olive">
-              {editing ? `Редактировать ${editing.code}` : 'Новый промокод'}
-            </h3>
-            <div className="mt-3 grid gap-3 text-sm">
-              <label className="block space-y-1">
-                <span>Код</span>
-                <input
-                  className="w-full rounded-lg border border-muru-olive/20 bg-white px-3 py-2 uppercase"
-                  value={form.code}
-                  onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
-                  disabled={busy}
-                />
-              </label>
-              <label className="block space-y-1">
-                <span>Тип скидки</span>
-                <select
-                  className="w-full rounded-lg border border-muru-olive/20 bg-white px-3 py-2"
-                  value={form.discountType}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, discountType: e.target.value as PromoDiscountType }))
-                  }
-                  disabled={busy}
-                >
-                  <option value="percent">Процент</option>
-                  <option value="fixed">Фиксированная (₽)</option>
-                </select>
-              </label>
-              <label className="block space-y-1">
-                <span>Значение</span>
-                <input
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  className="w-full rounded-lg border border-muru-olive/20 bg-white px-3 py-2"
-                  value={form.discountValue}
-                  onChange={(e) => setForm((f) => ({ ...f, discountValue: e.target.value }))}
-                  disabled={busy}
-                />
-              </label>
-              <label className="block space-y-1">
-                <span>Мин. сумма заказа (₽)</span>
-                <input
-                  type="number"
-                  min="0"
-                  className="w-full rounded-lg border border-muru-olive/20 bg-white px-3 py-2"
-                  value={form.minOrderAmount}
-                  onChange={(e) => setForm((f) => ({ ...f, minOrderAmount: e.target.value }))}
-                  disabled={busy}
-                />
-              </label>
-              <label className="block space-y-1">
-                <span>Начало действия</span>
-                <input
-                  type="datetime-local"
-                  className="w-full rounded-lg border border-muru-olive/20 bg-white px-3 py-2"
-                  value={form.startsAt}
-                  onChange={(e) => setForm((f) => ({ ...f, startsAt: e.target.value }))}
-                  disabled={busy}
-                />
-              </label>
-              <label className="block space-y-1">
-                <span>Окончание</span>
-                <input
-                  type="datetime-local"
-                  className="w-full rounded-lg border border-muru-olive/20 bg-white px-3 py-2"
-                  value={form.expiresAt}
-                  onChange={(e) => setForm((f) => ({ ...f, expiresAt: e.target.value }))}
-                  disabled={busy}
-                />
-              </label>
-              <label className="block space-y-1">
-                <span>Общий лимит (пусто = без лимита)</span>
-                <input
-                  type="number"
-                  min="1"
-                  className="w-full rounded-lg border border-muru-olive/20 bg-white px-3 py-2"
-                  value={form.usageLimit}
-                  onChange={(e) => setForm((f) => ({ ...f, usageLimit: e.target.value }))}
-                  disabled={busy}
-                />
-              </label>
-              <label className="block space-y-1">
-                <span>Лимит на пользователя</span>
-                <input
-                  type="number"
-                  min="1"
-                  className="w-full rounded-lg border border-muru-olive/20 bg-white px-3 py-2"
-                  value={form.usageLimitPerUser}
-                  onChange={(e) => setForm((f) => ({ ...f, usageLimitPerUser: e.target.value }))}
-                  disabled={busy}
-                />
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={form.isActive}
-                  onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))}
-                  disabled={busy}
-                />
-                <span>Активен</span>
-              </label>
-            </div>
-            <div className="mt-4 flex gap-2">
+        <AdminBottomSheet
+          zIndex={95}
+          title={modalTitle}
+          onClose={closeModal}
+          bodyRef={modalBodyRef}
+          footer={
+            <div className="flex gap-2">
               <button
                 type="button"
-                className={busy ? pressableDisabled : pressable}
+                className={`${busy ? pressableDisabled : pressable} rounded-xl bg-muru-olive px-4 py-2 text-sm font-medium text-muru-ivory`}
                 disabled={busy}
                 onClick={() => void handleSave()}
               >
@@ -370,38 +500,40 @@ export const AdminPromoCodesSection = ({ userId }: AdminPromoCodesSectionProps) 
                 Отмена
               </button>
             </div>
-          </div>
-        </div>
+          }
+        >
+          <PromoFormFields
+            form={form}
+            busy={busy}
+            onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
+          />
+        </AdminBottomSheet>
       ) : null}
 
       {usagesPromo ? (
-        <div className="fixed inset-0 z-[96] flex items-end justify-center bg-black/40 p-4 sm:items-center">
-          <div className="max-h-[80vh] w-full max-w-md overflow-y-auto rounded-2xl border border-muru-accent bg-[#fff9ed] p-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-muru-olive">История: {usagesPromo.code}</h3>
-              <button type="button" className={pressable} onClick={() => setUsagesPromo(null)}>
-                Закрыть
-              </button>
-            </div>
-            {usagesLoading ? (
-              <p className="mt-3 text-sm">Загрузка…</p>
-            ) : usages.length === 0 ? (
-              <p className="mt-3 text-sm text-muru-olive/80">Использований пока нет.</p>
-            ) : (
-              <ul className="mt-3 space-y-2 text-sm">
-                {usages.map((u) => (
-                  <li key={u.id} className="rounded-lg bg-[#efe8d8] px-3 py-2">
-                    <p>User {u.telegramUserId}</p>
-                    <p className="text-xs text-[#5c5346]">
-                      {u.orderId ? `Заказ #${u.orderId}` : 'Без заказа'} ·{' '}
-                      {new Date(u.usedAt).toLocaleString('ru-RU')}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
+        <AdminBottomSheet
+          zIndex={96}
+          title={`История: ${usagesPromo.code}`}
+          onClose={() => setUsagesPromo(null)}
+        >
+          {usagesLoading ? (
+            <p className="text-sm">Загрузка…</p>
+          ) : usages.length === 0 ? (
+            <p className="text-sm text-muru-olive/80">Использований пока нет.</p>
+          ) : (
+            <ul className="space-y-2 text-sm">
+              {usages.map((u) => (
+                <li key={u.id} className="rounded-lg bg-[#efe8d8] px-3 py-2">
+                  <p>User {u.telegramUserId}</p>
+                  <p className="text-xs text-[#5c5346]">
+                    {u.orderId ? `Заказ #${u.orderId}` : 'Без заказа'} ·{' '}
+                    {new Date(u.usedAt).toLocaleString('ru-RU')}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </AdminBottomSheet>
       ) : null}
     </div>
   )
