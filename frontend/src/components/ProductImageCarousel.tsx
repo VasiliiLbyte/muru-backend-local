@@ -13,7 +13,7 @@ type ProductImageCarouselProps = {
   onImageActivate?: () => void
 }
 
-const defaultImageClass = 'aspect-square w-full rounded-xl bg-[#efe8d8] object-cover'
+const defaultImageClass = 'aspect-square w-full rounded-xl bg-[#efe8d8]'
 
 export const ProductImageCarousel = ({
   images,
@@ -62,9 +62,20 @@ export const ProductImageCarousel = ({
         onClick={onImageActivate ? handleClick : undefined}
         {...pointerHandlers}
       >
-        <div className="flex w-full" style={trackStyle}>
+        <div
+          className={`flex ${canSwipe ? '' : 'w-full'}`}
+          style={
+            canSwipe
+              ? { ...trackStyle, width: `${slideImages.length * 100}%` }
+              : trackStyle
+          }
+        >
           {slideImages.map((src, idx) => (
-            <div key={`${src}-${idx}`} className="min-w-full shrink-0">
+            <div
+              key={`${src}-${idx}`}
+              className="aspect-square shrink-0 overflow-hidden rounded-xl"
+              style={canSwipe ? { flex: `0 0 ${100 / slideImages.length}%` } : { width: '100%' }}
+            >
               <SmartImage
                 src={src}
                 alt={idx === 0 ? alt : `${alt}, фото ${idx + 1}`}

@@ -155,8 +155,10 @@ export const useImageCarouselSwipe = ({ count, onIndexChange, viewportRef }: Use
     return Date.now() < suppressClickUntilRef.current
   }, [])
 
+  const slideShiftPercent = safeCount > 0 ? (safeIndex * 100) / safeCount : 0
+
   const trackStyle: CSSProperties = {
-    transform: `translateX(calc(-${safeIndex * 100}% + ${dragOffsetPx}px))`,
+    transform: `translateX(calc(-${slideShiftPercent}% + ${dragOffsetPx}px))`,
     transition: isDragging ? 'none' : 'transform 0.25s ease-out',
   }
 
