@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 
 import type { CatalogProductDetail } from '../types/catalog'
-import { SmartImage } from '../components/SmartImage'
-import { pressable, pressableTight } from '../lib/uiClasses'
+import { ProductImageCarousel } from '../components/ProductImageCarousel'
+import { pressable } from '../lib/uiClasses'
 
 type ProductDetailPageProps = {
   product: CatalogProductDetail
@@ -21,33 +21,18 @@ export const ProductDetailPage = ({
   isFavorite,
   isAuthorized,
 }: ProductDetailPageProps) => {
-  const [imageIndex, setImageIndex] = useState(0)
   const specEntries = useMemo(() => Object.entries(product.specs || {}), [product.specs])
-  const images = useMemo(
-    () => (product.imageUrls.length > 0 ? product.imageUrls : ['https://placehold.co/1200x1200?text=MURU']),
-    [product.imageUrls],
-  )
-  const safeImageIndex = Math.min(imageIndex, images.length - 1)
 
   return (
     <section className="space-y-4">
       <div className="rounded-2xl border border-muru-accent bg-[#fff9ed] p-3">
-        <SmartImage
-          src={images[safeImageIndex]}
+        <ProductImageCarousel
+          key={product.sku}
+          images={product.imageUrls}
           alt={product.name}
-          className="aspect-square w-full rounded-xl bg-[#efe8d8]"
+          imageClassName="aspect-square w-full rounded-xl bg-[#efe8d8]"
           priority
         />
-        <div className="mt-2 flex justify-center gap-1">
-          {images.map((_, idx) => (
-            <button
-              key={`${product.sku}-detail-${idx}`}
-              type="button"
-              className={`${pressableTight} h-2 w-2 rounded-full ${idx === safeImageIndex ? 'bg-muru-olive' : 'bg-muru-accent'}`}
-              onClick={() => setImageIndex(idx)}
-            />
-          ))}
-        </div>
       </div>
 
       <div className="rounded-2xl border border-muru-accent bg-[#fff9ed] p-4">

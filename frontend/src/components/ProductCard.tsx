@@ -1,8 +1,6 @@
-import { useMemo, useState } from 'react'
-
 import type { CatalogProduct } from '../types/catalog'
-import { pressable, pressableTight } from '../lib/uiClasses'
-import { SmartImage } from './SmartImage'
+import { pressable } from '../lib/uiClasses'
+import { ProductImageCarousel } from './ProductImageCarousel'
 
 type ProductCardProps = {
   product: CatalogProduct
@@ -12,37 +10,14 @@ type ProductCardProps = {
 }
 
 export const ProductCard = ({ product, onOpenDetail, onAddToCart, onNotifyRestock }: ProductCardProps) => {
-  const [imageIndex, setImageIndex] = useState(0)
-  const images = useMemo(
-    () => (product.imageUrls.length > 0 ? product.imageUrls : ['https://placehold.co/600x600?text=MURU']),
-    [product.imageUrls],
-  )
-  const safeImageIndex = Math.min(imageIndex, images.length - 1)
-
   return (
     <article className="rounded-2xl border border-muru-accent bg-[#fff9ed] p-3 shadow-sm">
-      <button
-        type="button"
-        className={`${pressable} w-full text-left`}
-        onClick={() => onOpenDetail(product.sku)}
-      >
-        <SmartImage
-          src={images[safeImageIndex]}
-          alt={product.name}
-          className="aspect-square w-full rounded-xl bg-[#efe8d8] object-cover"
-        />
-      </button>
-      <div className="mt-2 flex justify-center gap-1">
-          {images.map((_, idx) => (
-            <button
-              key={`${product.sku}-${idx}`}
-              type="button"
-              className={`${pressableTight} h-2 w-2 rounded-full ${idx === safeImageIndex ? 'bg-muru-olive' : 'bg-muru-accent'}`}
-              onClick={() => setImageIndex(idx)}
-              aria-label={`Фото ${idx + 1}`}
-            />
-          ))}
-      </div>
+      <ProductImageCarousel
+        key={product.sku}
+        images={product.imageUrls}
+        alt={product.name}
+        onImageActivate={() => onOpenDetail(product.sku)}
+      />
       <h3 className="mt-2 line-clamp-2 min-h-10 text-sm font-medium">{product.name}</h3>
       <p className="mt-1 text-sm font-semibold">{product.price.toFixed(2)} ₽</p>
       <p className={`mt-1 text-xs ${product.inStock > 0 ? 'text-green-700' : 'text-amber-700'}`}>
