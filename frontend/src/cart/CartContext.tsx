@@ -1,16 +1,26 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 
-import { createOrder, fetchOrderDraft, saveOrderDraft } from '../lib/api'
+import { createOrder, fetchOrderDraft, saveOrderDraft, validateOrderPromo } from '../lib/api'
 import type { CartItem, CheckoutForm, DraftOrder } from '../types/cart'
 import type { CatalogProduct, CatalogProductDetail } from '../types/catalog'
+import type { PromoDiscountType } from '../lib/api'
+
+export type ActivatedPromo = {
+  code: string
+  discount: number
+  discountType: PromoDiscountType
+}
 
 type CartContextValue = {
   items: CartItem[]
   checkout: CheckoutForm
   isLoading: boolean
   error: string | null
-  promoCode: string
+  promoInput: string
+  activatedPromo: ActivatedPromo | null
+  promoError: string | null
   isPromoActive: boolean
+  promoCode: string
   discount: number
   subtotal: number
   total: number
@@ -18,7 +28,8 @@ type CartContextValue = {
   addProduct: (product: CatalogProduct | CatalogProductDetail) => void
   updateQuantity: (sku: string, quantity: number) => void
   removeItem: (sku: string) => void
-  activatePromoMock: (code: string) => void
+  setPromoInput: (value: string) => void
+  applyPromo: () => Promise<void>
   clearPromo: () => void
   updateCheckout: (patch: Partial<CheckoutForm>) => void
   persistDraft: (telegramUserId?: number) => Promise<void>
@@ -42,18 +53,30 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [checkout, setCheckout] = useState<CheckoutForm>(defaultCheckout)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [promoCode, setPromoCode] = useState('')
-  const [isPromoActive, setIsPromoActive] = useState(false)
+  const [promoInput, setPromoInput] = useState('')
+  const [activatedPromo, setActivatedPromo] = useState<ActivatedPromo | null>(null)
+  const [promoError, setPromoError] = useState<string | null>(null)
 
   const subtotal = useMemo(() => items.reduce((sum, item) => sum + item.price * item.quantity, 0), [items])
-  const discount = useMemo(
-    () => (isPromoActive ? Number((subtotal * 0.1).toFixed(2)) : 0),
-    [isPromoActive, subtotal],
-  )
+  const discount = activatedPromo?.discount ?? 0
+  const isPromoActive = activatedPromo != null
+  const promoCode = activatedPromo?.code ?? ''
   const total = useMemo(
     () => Math.max(0, subtotal - discount + (checkout.deliveryMode === 'pickup' ? 0 : checkout.deliveryPrice)),
     [subtotal, discount, checkout.deliveryMode, checkout.deliveryPrice],
   )
+
+  const clearPromoState = useCallback(() => {
+    setActivatedPromo(null)
+    setPromoError(null)
+  }, [])
+
+  useEffect(() => {
+    if (items.length === 0) {
+      clearPromoState()
+      setPromoInput('')
+    }
+  }, [items.length, clearPromoState])
 
   const loadDraft = useCallback(async (telegramUserId?: number) => {
     if (!telegramUserId) return
@@ -63,8 +86,8 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       const draft = await fetchOrderDraft(telegramUserId)
       if (!draft) return
       setItems(draft.items)
-      setPromoCode('')
-      setIsPromoActive(false)
+      clearPromoState()
+      setPromoInput('')
       setCheckout({
         deliveryMode: draft.deliveryMode,
         deliveryOption: draft.deliveryOption ?? '',
@@ -79,7 +102,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [clearPromoState])
 
   const addProduct = useCallback((product: CatalogProduct | CatalogProductDetail) => {
     setItems((prev) => {
@@ -116,17 +139,44 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     setCheckout((prev) => ({ ...prev, ...patch }))
   }, [])
 
-  const activatePromoMock = useCallback((code: string) => {
-    const normalized = code.trim().toUpperCase()
-    if (!normalized) return
-    setPromoCode(normalized)
-    setIsPromoActive(true)
-  }, [])
-
   const clearPromo = useCallback(() => {
-    setPromoCode('')
-    setIsPromoActive(false)
-  }, [])
+    clearPromoState()
+    setPromoInput('')
+  }, [clearPromoState])
+
+  const applyPromo = useCallback(async () => {
+    const code = promoInput.trim()
+    if (!code) {
+      setPromoError('Введите промокод')
+      return
+    }
+    if (subtotal <= 0) {
+      setPromoError('Добавьте товары в корзину')
+      return
+    }
+
+    setPromoError(null)
+    setIsLoading(true)
+    try {
+      const result = await validateOrderPromo({ code, subtotal })
+      if (!result.valid) {
+        setActivatedPromo(null)
+        setPromoError(result.reason)
+        return
+      }
+      setActivatedPromo({
+        code: result.code,
+        discount: result.discountValue,
+        discountType: result.discountType,
+      })
+      setPromoInput(result.code)
+    } catch (err) {
+      setActivatedPromo(null)
+      setPromoError(err instanceof Error ? err.message : 'Не удалось применить промокод')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [promoInput, subtotal])
 
   const persistDraft = useCallback(
     async (telegramUserId?: number) => {
@@ -144,7 +194,6 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
           address: checkout.address,
           comment: checkout.comment,
           birthDate: checkout.birthDate || undefined,
-          promoCode: isPromoActive ? promoCode : undefined,
         })
         setItems(draft.items)
       } catch (err) {
@@ -153,7 +202,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         setIsLoading(false)
       }
     },
-    [items, checkout, isPromoActive, promoCode],
+    [items, checkout],
   )
 
   const submitOrder = useCallback(
@@ -172,12 +221,11 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
           address: checkout.address,
           comment: checkout.comment,
           birthDate: checkout.birthDate || undefined,
-          promoCode: isPromoActive ? promoCode : undefined,
+          promoCode: activatedPromo?.code,
         })
         setItems([])
         setCheckout(defaultCheckout)
-        setPromoCode('')
-        setIsPromoActive(false)
+        clearPromo()
         return createdOrder
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Не удалось создать заказ'
@@ -187,7 +235,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         setIsLoading(false)
       }
     },
-    [items, checkout, isPromoActive, promoCode],
+    [items, checkout, activatedPromo, clearPromo],
   )
 
   const value = useMemo<CartContextValue>(
@@ -196,8 +244,11 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       checkout,
       isLoading,
       error,
-      promoCode,
+      promoInput,
+      activatedPromo,
+      promoError,
       isPromoActive,
+      promoCode,
       discount,
       subtotal,
       total,
@@ -205,7 +256,8 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       addProduct,
       updateQuantity,
       removeItem,
-      activatePromoMock,
+      setPromoInput,
+      applyPromo,
       clearPromo,
       updateCheckout,
       persistDraft,
@@ -216,8 +268,11 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       checkout,
       isLoading,
       error,
-      promoCode,
+      promoInput,
+      activatedPromo,
+      promoError,
       isPromoActive,
+      promoCode,
       discount,
       subtotal,
       total,
@@ -225,7 +280,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       addProduct,
       updateQuantity,
       removeItem,
-      activatePromoMock,
+      applyPromo,
       clearPromo,
       updateCheckout,
       persistDraft,

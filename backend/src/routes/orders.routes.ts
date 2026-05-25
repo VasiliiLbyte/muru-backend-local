@@ -5,6 +5,7 @@ import {
   getDraftOrderHandler,
   getMyOrdersHandler,
   saveDraftOrderHandler,
+  validatePromoHandler,
 } from '../controllers/orders.controller'
 import { requireAuth } from '../middleware/auth.middleware'
 
@@ -14,6 +15,7 @@ ordersRouter.use(requireAuth)
 ordersRouter.get('/draft/:telegramUserId', getDraftOrderHandler)
 ordersRouter.get('/my', getMyOrdersHandler)
 ordersRouter.post('/draft/save', saveDraftOrderHandler)
+ordersRouter.post('/promo/validate', validatePromoHandler)
 ordersRouter.post('/create', createOrderHandler)
 
 export { ordersRouter }

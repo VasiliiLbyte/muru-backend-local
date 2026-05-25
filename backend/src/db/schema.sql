@@ -68,6 +68,8 @@ CREATE TABLE IF NOT EXISTS orders (
 
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS admin_comment TEXT NOT NULL DEFAULT '';
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS manager_telegram_id BIGINT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS promo_code TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS promo_discount NUMERIC(12, 2) NOT NULL DEFAULT 0;
 
 CREATE TABLE IF NOT EXISTS order_items (
   id SERIAL PRIMARY KEY,
@@ -134,6 +136,31 @@ CREATE TABLE IF NOT EXISTS catalog_sync_log (
 );
 
 CREATE INDEX IF NOT EXISTS idx_catalog_sync_log_finished_at ON catalog_sync_log (finished_at DESC);
+
+CREATE TABLE IF NOT EXISTS promo_codes (
+  id SERIAL PRIMARY KEY,
+  code TEXT NOT NULL UNIQUE,
+  discount_type TEXT NOT NULL CHECK (discount_type IN ('percent', 'fixed')),
+  discount_value NUMERIC(12, 2) NOT NULL,
+  min_order_amount NUMERIC(12, 2) NOT NULL DEFAULT 0,
+  starts_at TIMESTAMPTZ,
+  expires_at TIMESTAMPTZ,
+  usage_limit INTEGER,
+  usage_limit_per_user INTEGER NOT NULL DEFAULT 1,
+  used_count INTEGER NOT NULL DEFAULT 0,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS promo_code_usages (
+  id SERIAL PRIMARY KEY,
+  promo_code_id INTEGER NOT NULL REFERENCES promo_codes(id) ON DELETE CASCADE,
+  telegram_user_id BIGINT NOT NULL,
+  order_id INTEGER REFERENCES orders(id) ON DELETE SET NULL,
+  used_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_promo_usages_user ON promo_code_usages(telegram_user_id, promo_code_id);
 
 CREATE TABLE IF NOT EXISTS bot_welcome_settings (
   id INTEGER PRIMARY KEY CHECK (id = 1),

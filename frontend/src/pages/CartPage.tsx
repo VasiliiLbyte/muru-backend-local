@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 
 import { useCart } from '../cart/CartContext'
 import { SmartImage } from '../components/SmartImage'
@@ -16,16 +16,30 @@ export const CartPage = ({ userId, onGoCatalog, onCheckout }: CartPageProps) => 
     subtotal,
     discount,
     total,
-    promoCode,
-    isPromoActive,
+    promoInput,
+    setPromoInput,
+    activatedPromo,
+    promoError,
     isLoading,
     updateQuantity,
     removeItem,
     persistDraft,
-    activatePromoMock,
+    applyPromo,
+    clearPromo,
   } = useCart()
 
+  const [promoBusy, setPromoBusy] = useState(false)
+
   const hasItems = useMemo(() => items.length > 0, [items.length])
+
+  const handleApplyPromo = async () => {
+    setPromoBusy(true)
+    try {
+      await applyPromo()
+    } finally {
+      setPromoBusy(false)
+    }
+  }
 
   if (!hasItems) {
     return (
@@ -47,17 +61,36 @@ export const CartPage = ({ userId, onGoCatalog, onCheckout }: CartPageProps) => 
   return (
     <section className="space-y-4 pb-3">
       <div className="rounded-2xl border border-muru-accent bg-[#fff9ed] p-4">
-        <div className="flex items-center justify-between gap-2">
-          <h1 className="text-4xl font-semibold text-[#5e5252]">Корзина</h1>
+        <h1 className="text-4xl font-semibold text-[#5e5252]">Корзина</h1>
+        <div className="mt-3 flex gap-2">
+          <input
+            type="text"
+            value={promoInput}
+            onChange={(e) => setPromoInput(e.target.value)}
+            placeholder="Промокод"
+            className="min-w-0 flex-1 rounded-xl border border-muru-accent bg-white px-3 py-2 text-sm uppercase"
+            disabled={isLoading || promoBusy}
+          />
           <button
             type="button"
-            className={`${pressable} rounded-xl bg-[#efe8d8] px-3 py-2 text-xs font-medium`}
-            onClick={() => activatePromoMock('MURU10')}
+            className={`${pressableDisabled} shrink-0 rounded-xl bg-[#8f2b2b] px-3 py-2 text-xs font-semibold text-[#fff5ef]`}
+            disabled={isLoading || promoBusy}
+            onClick={() => void handleApplyPromo()}
           >
-            Активировать промокод
+            Применить
           </button>
         </div>
-        {isPromoActive ? <p className="mt-2 text-xs text-[#8f2b2b]">Промокод активирован: {promoCode}</p> : null}
+        {promoError ? <p className="mt-2 text-xs text-red-700">{promoError}</p> : null}
+        {activatedPromo ? (
+          <div className="mt-2 flex items-center justify-between gap-2 text-xs text-[#8f2b2b]">
+            <span>
+              Промокод {activatedPromo.code}: −{activatedPromo.discount.toFixed(2)} ₽
+            </span>
+            <button type="button" className={`${pressable} underline`} onClick={clearPromo}>
+              Сбросить
+            </button>
+          </div>
+        ) : null}
       </div>
 
       {items.map((item) => (
@@ -109,10 +142,12 @@ export const CartPage = ({ userId, onGoCatalog, onCheckout }: CartPageProps) => 
             <span>Товары</span>
             <span>{subtotal.toFixed(1)} ₽</span>
           </div>
-          <div className="flex items-center justify-between">
-            <span>Скидка</span>
-            <span>- {discount.toFixed(1)} ₽</span>
-          </div>
+          {discount > 0 ? (
+            <div className="flex items-center justify-between text-[#8f2b2b]">
+              <span>Скидка</span>
+              <span>− {discount.toFixed(1)} ₽</span>
+            </div>
+          ) : null}
           <div className="flex items-center justify-between font-semibold text-lg">
             <span>Итого</span>
             <span>{total.toFixed(1)} ₽</span>

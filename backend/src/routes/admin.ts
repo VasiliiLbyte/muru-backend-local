@@ -1,6 +1,13 @@
 import { Router } from 'express'
 
 import {
+  createAdminPromoCodeHandler,
+  deleteAdminPromoCodeHandler,
+  listAdminPromoCodeUsagesHandler,
+  listAdminPromoCodesHandler,
+  patchAdminPromoCodeHandler,
+} from '../controllers/admin-promo-codes.controller'
+import {
   getAdminBotWelcomeHandler,
   putAdminBotWelcomeHandler,
 } from '../controllers/admin-bot-welcome.controller'
@@ -102,6 +109,12 @@ adminRouter.get('/categories', getAdminCategoriesHandler)
 adminRouter.put('/categories/covers', putAdminCategoryCoversHandler)
 adminRouter.get('/bot-welcome', getAdminBotWelcomeHandler)
 adminRouter.put('/bot-welcome', putAdminBotWelcomeHandler)
+
+adminRouter.get('/promo-codes', listAdminPromoCodesHandler)
+adminRouter.post('/promo-codes', createAdminPromoCodeHandler)
+adminRouter.patch('/promo-codes/:id', patchAdminPromoCodeHandler)
+adminRouter.delete('/promo-codes/:id', deleteAdminPromoCodeHandler)
+adminRouter.get('/promo-codes/:id/usages', listAdminPromoCodeUsagesHandler)
 adminRouter.get('/sync/category-covers/status', (req, res) => {
   if (!isAdminRequest(req)) {
     return res.status(403).json({

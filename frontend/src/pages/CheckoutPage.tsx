@@ -31,13 +31,18 @@ export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
     total,
     subtotal,
     discount,
-    promoCode,
-    isPromoActive,
+    promoInput,
+    setPromoInput,
+    activatedPromo,
+    promoError,
+    applyPromo,
+    clearPromo,
     persistDraft,
     isLoading,
     error,
   } = useCart()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [promoBusy, setPromoBusy] = useState(false)
 
   const hasItems = useMemo(() => items.length > 0, [items.length])
 
@@ -163,13 +168,42 @@ export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
         <label className="text-sm font-semibold text-muru-olive" htmlFor="checkout-promo">
           Промокод
         </label>
-        <input
-          id="checkout-promo"
-          value={isPromoActive ? promoCode : ''}
-          readOnly
-          placeholder="Промокод не активирован"
-          className="mt-2 w-full rounded-xl border border-muru-accent bg-white px-3 py-2 text-sm"
-        />
+        <div className="mt-2 flex gap-2">
+          <input
+            id="checkout-promo"
+            value={promoInput}
+            onChange={(e) => setPromoInput(e.target.value)}
+            placeholder="Введите промокод"
+            className="min-w-0 flex-1 rounded-xl border border-muru-accent bg-white px-3 py-2 text-sm uppercase"
+            disabled={isLoading || promoBusy || isSubmitting}
+          />
+          <button
+            type="button"
+            className={`${pressableDisabled} shrink-0 rounded-xl bg-muru-olive px-3 py-2 text-xs font-medium text-muru-ivory`}
+            disabled={isLoading || promoBusy || isSubmitting}
+            onClick={async () => {
+              setPromoBusy(true)
+              try {
+                await applyPromo()
+              } finally {
+                setPromoBusy(false)
+              }
+            }}
+          >
+            Применить
+          </button>
+        </div>
+        {promoError ? <p className="mt-2 text-xs text-red-700">{promoError}</p> : null}
+        {activatedPromo ? (
+          <div className="mt-2 flex items-center justify-between text-xs text-[#8f2b2b]">
+            <span>
+              {activatedPromo.code}: −{activatedPromo.discount.toFixed(2)} ₽
+            </span>
+            <button type="button" className={`${pressable} underline`} onClick={clearPromo}>
+              Сбросить
+            </button>
+          </div>
+        ) : null}
       </div>
 
       <div className="rounded-2xl border border-muru-accent bg-[#fff9ed] p-4">

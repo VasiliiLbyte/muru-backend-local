@@ -321,6 +321,51 @@ export type AdminOrderDetail = AdminOrderListItem & {
   deliveryPrice: number
   deliveryEta: string | null
   subtotal: number
+  promoCode: string | null
+  promoDiscount: number
+}
+
+export type PromoDiscountType = 'percent' | 'fixed'
+
+export type PromoDisplayStatus = 'Активен' | 'Истёк' | 'Отключён'
+
+export type AdminPromoCode = {
+  id: number
+  code: string
+  discountType: PromoDiscountType
+  discountValue: number
+  minOrderAmount: number
+  startsAt: string | null
+  expiresAt: string | null
+  usageLimit: number | null
+  usageLimitPerUser: number
+  usedCount: number
+  isActive: boolean
+  createdAt: string
+  status: PromoDisplayStatus
+}
+
+export type AdminPromoCodeUsage = {
+  id: number
+  telegramUserId: number
+  orderId: number | null
+  usedAt: string
+}
+
+export type ValidateOrderPromoResult =
+  | { valid: true; discountValue: number; discountType: PromoDiscountType; code: string }
+  | { valid: false; reason: string }
+
+export type CreateAdminPromoCodePayload = {
+  code: string
+  discountType: PromoDiscountType
+  discountValue: number
+  minOrderAmount?: number
+  startsAt?: string | null
+  expiresAt?: string | null
+  usageLimit?: number | null
+  usageLimitPerUser?: number
+  isActive?: boolean
 }
 
 export type AdminOrdersListParams = {
@@ -409,6 +454,91 @@ export const restockAdminOrder = async (
     throw new Error(payload.error ?? 'Failed to restock order')
   }
   return payload.data as AdminOrderDetail
+}
+
+export const fetchAdminPromoCodes = async (telegramUserId: number): Promise<AdminPromoCode[]> => {
+  const response = await safeFetch(`${API_BASE_URL}/api/admin/promo-codes`, {
+    headers: adminTelegramHeadersGet(telegramUserId),
+  })
+  const payload = await response.json()
+  if (!response.ok || !payload.success) {
+    throw new Error(payload.error ?? 'Failed to load promo codes')
+  }
+  return payload.data as AdminPromoCode[]
+}
+
+export const createAdminPromoCode = async (
+  telegramUserId: number,
+  body: CreateAdminPromoCodePayload,
+): Promise<AdminPromoCode> => {
+  const response = await safeFetch(`${API_BASE_URL}/api/admin/promo-codes`, {
+    method: 'POST',
+    headers: adminTelegramHeadersPost(telegramUserId),
+    body: JSON.stringify(body),
+  })
+  const payload = await response.json()
+  if (!response.ok || !payload.success) {
+    throw new Error(payload.error ?? 'Failed to create promo code')
+  }
+  return payload.data as AdminPromoCode
+}
+
+export const patchAdminPromoCode = async (
+  telegramUserId: number,
+  id: number,
+  body: Partial<CreateAdminPromoCodePayload>,
+): Promise<AdminPromoCode> => {
+  const response = await safeFetch(`${API_BASE_URL}/api/admin/promo-codes/${id}`, {
+    method: 'PATCH',
+    headers: adminTelegramHeadersPatch(telegramUserId),
+    body: JSON.stringify(body),
+  })
+  const payload = await response.json()
+  if (!response.ok || !payload.success) {
+    throw new Error(payload.error ?? 'Failed to update promo code')
+  }
+  return payload.data as AdminPromoCode
+}
+
+export const deleteAdminPromoCode = async (telegramUserId: number, id: number): Promise<void> => {
+  const response = await safeFetch(`${API_BASE_URL}/api/admin/promo-codes/${id}`, {
+    method: 'DELETE',
+    headers: adminTelegramHeadersGet(telegramUserId),
+  })
+  const payload = await response.json()
+  if (!response.ok || !payload.success) {
+    throw new Error(payload.error ?? 'Failed to delete promo code')
+  }
+}
+
+export const fetchAdminPromoCodeUsages = async (
+  telegramUserId: number,
+  promoCodeId: number,
+): Promise<AdminPromoCodeUsage[]> => {
+  const response = await safeFetch(`${API_BASE_URL}/api/admin/promo-codes/${promoCodeId}/usages`, {
+    headers: adminTelegramHeadersGet(telegramUserId),
+  })
+  const payload = await response.json()
+  if (!response.ok || !payload.success) {
+    throw new Error(payload.error ?? 'Failed to load promo usages')
+  }
+  return payload.data as AdminPromoCodeUsage[]
+}
+
+export const validateOrderPromo = async (body: {
+  code: string
+  subtotal: number
+}): Promise<ValidateOrderPromoResult> => {
+  const response = await safeFetch(`${API_BASE_URL}/api/orders/promo/validate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify(body),
+  })
+  const payload = await response.json()
+  if (!response.ok || !payload.success) {
+    throw new Error(payload.error ?? 'Failed to validate promo')
+  }
+  return payload.data as ValidateOrderPromoResult
 }
 
 export const fetchBotWelcomeSettings = async (telegramUserId: number): Promise<BotWelcomeSettings> => {

@@ -19,6 +19,7 @@ export type CheckoutDraftInput = {
   address?: string
   comment?: string
   birthDate?: string
+  promoCode?: string
 }
 
 export type OrderDraft = {
@@ -34,6 +35,8 @@ export type OrderDraft = {
   birthDate: string | null
   subtotal: number
   total: number
+  promoCode?: string | null
+  promoDiscount?: number
   items: OrderItemInput[]
 }
 
@@ -42,6 +45,8 @@ export type OrderHistoryItem = {
   createdAt: string
   status: string
   total: number
+  promoCode?: string | null
+  promoDiscount?: number
   items: OrderItemInput[]
 }
 

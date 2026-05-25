@@ -5,6 +5,7 @@ import type { AuthenticatedRequest } from '../middleware/auth.middleware'
 import { decreaseStockInSheets } from '../services/google-sheets-write.service'
 import { env } from '../utils/env'
 import { notifyAdminsByTelegram, notifyByEmail, notifyClientByTelegram } from '../services/order-notifications.service'
+import { PromoValidationError, validatePromoCode } from '../services/promo.service'
 import { createOrder, getDraftOrderByTelegramUserId, getOrdersByTelegramUserId, saveDraftOrder } from '../services/orders.service'
 
 const itemSchema = z.object({
@@ -26,6 +27,12 @@ const draftPayloadSchema = z.object({
   address: z.string().optional(),
   comment: z.string().optional(),
   birthDate: z.string().optional(),
+  promoCode: z.string().optional(),
+})
+
+const validatePromoBodySchema = z.object({
+  code: z.string().min(1),
+  subtotal: z.number().nonnegative(),
 })
 
 export const getDraftOrderHandler = async (req: Request, res: Response) => {
@@ -119,10 +126,58 @@ export const createOrderHandler = async (req: Request, res: Response) => {
     })
     return res.json({ success: true, data: order, error: null })
   } catch (error) {
+    if (error instanceof PromoValidationError) {
+      return res.status(400).json({ success: false, data: null, error: error.message })
+    }
     return res.status(500).json({
       success: false,
       data: null,
       error: error instanceof Error ? error.message : 'Failed to create order',
+    })
+  }
+}
+
+export const validatePromoHandler = async (req: Request, res: Response) => {
+  const telegramUserId = (req as AuthenticatedRequest).auth?.telegramId
+  if (!telegramUserId) return res.status(401).json({ success: false, data: null, error: 'Unauthorized' })
+
+  const parsed = validatePromoBodySchema.safeParse(req.body)
+  if (!parsed.success) {
+    return res.status(400).json({
+      success: false,
+      data: null,
+      error: parsed.error.issues.map((issue) => issue.message).join('; '),
+    })
+  }
+
+  try {
+    const result = await validatePromoCode({
+      code: parsed.data.code,
+      telegramUserId,
+      subtotal: parsed.data.subtotal,
+    })
+    if (!result.valid) {
+      return res.json({
+        success: true,
+        data: { valid: false, reason: result.reason },
+        error: null,
+      })
+    }
+    return res.json({
+      success: true,
+      data: {
+        valid: true,
+        discountValue: result.discountValue,
+        discountType: result.discountType,
+        code: result.code,
+      },
+      error: null,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to validate promo',
     })
   }
 }

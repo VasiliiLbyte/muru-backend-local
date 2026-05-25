@@ -38,6 +38,8 @@ export type AdminOrderDetail = AdminOrderListItem & {
   deliveryPrice: number
   deliveryEta: string | null
   subtotal: number
+  promoCode: string | null
+  promoDiscount: number
 }
 
 export type AdminOrdersListFilters = {
@@ -281,6 +283,8 @@ export const getAdminOrderById = async (orderId: number): Promise<AdminOrderDeta
     address: string
     comment: string
     admin_comment: string
+    promo_code: string | null
+    promo_discount: string
     created_at: string
     customer_name: string | null
     customer_phone: string | null
@@ -298,6 +302,8 @@ export const getAdminOrderById = async (orderId: number): Promise<AdminOrderDeta
        o.address,
        o.comment,
        o.admin_comment,
+       o.promo_code,
+       o.promo_discount::text,
        o.created_at::text,
        up.full_name AS customer_name,
        up.phone AS customer_phone
@@ -329,6 +335,8 @@ export const getAdminOrderById = async (orderId: number): Promise<AdminOrderDeta
     itemsCount: items.length,
     customerName: row.customer_name,
     customerPhone: row.customer_phone,
+    promoCode: row.promo_code,
+    promoDiscount: toNumber(row.promo_discount),
     items,
   }
 }

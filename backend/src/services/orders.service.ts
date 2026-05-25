@@ -1,5 +1,10 @@
 import type { PoolClient } from 'pg'
 
+import {
+  applyPromoCodeOnOrder,
+  validatePromoCode,
+  PromoValidationError,
+} from './promo.service'
 import { pool } from '../utils/db'
 import type { CheckoutDraftInput, OrderDraft, OrderHistoryItem, OrderItemInput } from '../types/order'
 
@@ -25,6 +30,8 @@ const mapOrderDraft = (
     birth_date: string | null
     subtotal: string
     total: string
+    promo_code: string | null
+    promo_discount: string
   },
   items: Array<{
     product_sku: string
@@ -47,6 +54,8 @@ const mapOrderDraft = (
   birthDate: orderRow.birth_date,
   subtotal: Number(orderRow.subtotal),
   total: Number(orderRow.total),
+  promoCode: orderRow.promo_code,
+  promoDiscount: Number(orderRow.promo_discount),
   items: items.map((item) => ({
     sku: item.product_sku,
     name: item.product_name,
@@ -84,9 +93,12 @@ export const getDraftOrderByTelegramUserId = async (
     birth_date: string | null
     subtotal: string
     total: string
+    promo_code: string | null
+    promo_discount: string
   }>(
     `SELECT id, telegram_user_id, status, delivery_mode, delivery_option, delivery_price::text,
-            delivery_eta, address, comment, birth_date::text, subtotal::text, total::text
+            delivery_eta, address, comment, birth_date::text, subtotal::text, total::text,
+            promo_code, promo_discount::text
      FROM orders
      WHERE telegram_user_id = $1 AND is_draft = TRUE
      ORDER BY updated_at DESC
@@ -203,8 +215,28 @@ export const saveDraftOrder = async (input: CheckoutDraftInput): Promise<OrderDr
 export const createOrder = async (input: CheckoutDraftInput): Promise<OrderDraft> => {
   const subtotal = normalizeMoney(calculateSubtotal(input.items))
   const deliveryPrice = input.deliveryMode === 'pickup' ? 0 : normalizeMoney(input.deliveryPrice)
-  const total = normalizeMoney(subtotal + deliveryPrice)
+
+  let promoDiscount = 0
+  let promoCodeStored: string | null = null
+  let promoCodeId: number | null = null
+
+  if (input.promoCode?.trim()) {
+    const validation = await validatePromoCode({
+      code: input.promoCode,
+      telegramUserId: input.telegramUserId,
+      subtotal,
+    })
+    if (!validation.valid) {
+      throw new PromoValidationError(validation.reason)
+    }
+    promoDiscount = validation.discountValue
+    promoCodeStored = validation.code
+    promoCodeId = validation.promoCodeId
+  }
+
+  const total = normalizeMoney(Math.max(0, subtotal - promoDiscount + deliveryPrice))
   const client = await pool.connect()
+  let createdOrderId: number | null = null
 
   try {
     await client.query('BEGIN')
@@ -221,13 +253,17 @@ export const createOrder = async (input: CheckoutDraftInput): Promise<OrderDraft
       birth_date: string | null
       subtotal: string
       total: string
+      promo_code: string | null
+      promo_discount: string
     }>(
       `INSERT INTO orders (
         telegram_user_id, status, delivery_mode, delivery_option, delivery_price, delivery_eta,
-        address, comment, birth_date, subtotal, total, is_draft, created_at, updated_at
-      ) VALUES ($1, 'Новый', $2, $3, $4, $5, $6, $7, $8, $9, $10, FALSE, NOW(), NOW())
+        address, comment, birth_date, subtotal, total, promo_code, promo_discount,
+        is_draft, created_at, updated_at
+      ) VALUES ($1, 'Новый', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, FALSE, NOW(), NOW())
       RETURNING id, telegram_user_id, status, delivery_mode, delivery_option, delivery_price::text,
-                delivery_eta, address, comment, birth_date::text, subtotal::text, total::text`,
+                delivery_eta, address, comment, birth_date::text, subtotal::text, total::text,
+                promo_code, promo_discount::text`,
       [
         input.telegramUserId,
         input.deliveryMode,
@@ -239,9 +275,12 @@ export const createOrder = async (input: CheckoutDraftInput): Promise<OrderDraft
         input.birthDate ?? null,
         subtotal,
         total,
+        promoCodeStored,
+        promoDiscount,
       ],
     )
     const order = inserted.rows[0]
+    createdOrderId = order.id
     await replaceOrderItems(client, order.id, input.items)
     for (const item of input.items) {
       await client.query(
@@ -255,6 +294,24 @@ export const createOrder = async (input: CheckoutDraftInput): Promise<OrderDraft
       [input.telegramUserId],
     )
     await client.query('COMMIT')
+
+    if (promoCodeId != null && createdOrderId != null) {
+      const usageClient = await pool.connect()
+      try {
+        await usageClient.query('BEGIN')
+        await applyPromoCodeOnOrder(usageClient, {
+          promoCodeId,
+          telegramUserId: input.telegramUserId,
+          orderId: createdOrderId,
+        })
+        await usageClient.query('COMMIT')
+      } catch (error) {
+        await usageClient.query('ROLLBACK')
+        throw error
+      } finally {
+        usageClient.release()
+      }
+    }
 
     const itemsResult = await pool.query<{
       product_sku: string
@@ -285,8 +342,10 @@ export const getOrdersByTelegramUserId = async (telegramUserId: number): Promise
     created_at: string
     status: string
     total: string
+    promo_code: string | null
+    promo_discount: string
   }>(
-    `SELECT id, created_at::text, status, total::text
+    `SELECT id, created_at::text, status, total::text, promo_code, promo_discount::text
      FROM orders
      WHERE telegram_user_id = $1
      ORDER BY created_at DESC`,
@@ -329,6 +388,8 @@ export const getOrdersByTelegramUserId = async (telegramUserId: number): Promise
     createdAt: row.created_at,
     status: row.status,
     total: Number(row.total),
+    promoCode: row.promo_code,
+    promoDiscount: Number(row.promo_discount),
     items: itemMap.get(row.id) ?? [],
   }))
 }

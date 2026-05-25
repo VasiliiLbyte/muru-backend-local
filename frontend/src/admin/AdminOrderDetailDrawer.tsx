@@ -186,6 +186,15 @@ export const AdminOrderDetailDrawer = ({
                 </div>
               </div>
 
+              {order.promoDiscount > 0 && order.promoCode ? (
+                <div className="rounded-xl bg-[#efe8d8] p-3">
+                  <p className="font-medium text-muru-olive">Промокод</p>
+                  <p className="mt-1">
+                    {order.promoCode} · скидка {formatMoney(order.promoDiscount)}
+                  </p>
+                </div>
+              ) : null}
+
               <div className="rounded-xl bg-[#efe8d8] p-3">
                 <p className="font-medium text-muru-olive">Доставка</p>
                 <p className="mt-1">
