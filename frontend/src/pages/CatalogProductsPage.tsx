@@ -41,7 +41,9 @@ export const CatalogProductsPage = ({
           ))}
         </div>
       ) : null}
-      {products.length === 0 ? <p className="text-sm">Товары не найдены.</p> : null}
+      {!isLoading && products.length === 0 ? (
+        <p className="text-sm">Товары не найдены.</p>
+      ) : null}
     </section>
   )
 }
