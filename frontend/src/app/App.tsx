@@ -64,6 +64,7 @@ const CatalogRoutes = ({
   const requestSeqRef = useRef(0)
   const location = useLocation()
   const params = useParams<{ categorySlug?: string; subcategorySlug?: string }>()
+  const [productsRouteKey, setProductsRouteKey] = useState<string | null>(null)
 
   const normalizedCatalogPath = (location.pathname.replace(/\/$/, '') || '/')
   const isCatalogRoot = normalizedCatalogPath === '/catalog'
@@ -95,50 +96,70 @@ const CatalogRoutes = ({
   const categoryNameForQuery = category?.name ?? (categorySlugRaw ? fallbackCategoryName : undefined)
   const subcategoryNameForQuery = subcategory?.name ?? (subcategorySlugRaw ? fallbackSubcategoryName : undefined)
 
+  const trimmedSearch = search.trim()
+  const showsSubcategoriesGrid = Boolean(category?.children.length && !subcategorySlugRaw)
+  const shouldFetchProducts = !isCatalogRoot && !showsSubcategoriesGrid
+  const currentRouteKey = `${categorySlugRaw}|${subcategorySlugRaw}|${trimmedSearch}`
+
   useEffect(() => {
-    const requestId = ++requestSeqRef.current
-    const timeoutId = setTimeout(() => {
-      onProductsLoading(true)
-      // Drop stale list immediately when route/filter changes.
+    if (!shouldFetchProducts) {
       onProductsChange([])
+      onProductsLoading(false)
+      setProductsRouteKey(currentRouteKey)
+      return
+    }
+
+    const requestId = ++requestSeqRef.current
+    setProductsRouteKey(null)
+    onProductsChange([])
+    onProductsLoading(true)
+
+    const debounceMs = trimmedSearch ? 250 : 0
+    const timeoutId = window.setTimeout(() => {
       fetchCatalogProducts({
         category: categoryNameForQuery,
         categorySlug: category?.slug ?? (categorySlugRaw || undefined),
         subcategory: subcategoryNameForQuery,
         subcategorySlug: subcategory?.slug ?? (subcategorySlugRaw || undefined),
-        q: search || undefined,
+        q: trimmedSearch || undefined,
       })
         .then((items) => {
           if (requestSeqRef.current !== requestId) return
           onProductsChange(items)
+          setProductsRouteKey(currentRouteKey)
         })
         .catch(() => {
           if (requestSeqRef.current !== requestId) return
           onProductsChange([])
+          setProductsRouteKey(currentRouteKey)
         })
         .finally(() => {
           if (requestSeqRef.current !== requestId) return
           onProductsLoading(false)
         })
-    }, 250)
+    }, debounceMs)
 
     return () => {
-      clearTimeout(timeoutId)
+      window.clearTimeout(timeoutId)
     }
   }, [
     tree,
-    location.pathname,
+    shouldFetchProducts,
+    currentRouteKey,
     categorySlugRaw,
     subcategorySlugRaw,
     category?.slug,
     subcategory?.slug,
     categoryNameForQuery,
     subcategoryNameForQuery,
-    search,
-    isCatalogRoot,
+    trimmedSearch,
     onProductsChange,
     onProductsLoading,
   ])
+
+  const productsMatchRoute = productsRouteKey === currentRouteKey
+  const productsForRender = productsMatchRoute ? products : []
+  const isProductsLoadingForRender = isProductsLoading || !productsMatchRoute
 
   return (
     <>
@@ -153,11 +174,11 @@ const CatalogRoutes = ({
             ) : (
               <CatalogProductsPage
                 title={category?.name ?? fallbackCategoryName}
-                products={products}
+                products={productsForRender}
                 onOpenProductDetail={onOpenProductDetail}
                 onAddToCart={onAddToCart}
                 onNotifyRestock={onNotifyRestock}
-                isLoading={isProductsLoading}
+                isLoading={isProductsLoadingForRender}
               />
             )
           }
@@ -167,11 +188,11 @@ const CatalogRoutes = ({
           element={
             <CatalogProductsPage
               title={`${category?.name ?? fallbackCategoryName} / ${subcategory?.name ?? fallbackSubcategoryName}`}
-              products={products}
+              products={productsForRender}
               onOpenProductDetail={onOpenProductDetail}
               onAddToCart={onAddToCart}
               onNotifyRestock={onNotifyRestock}
-              isLoading={isProductsLoading}
+              isLoading={isProductsLoadingForRender}
             />
           }
         />
