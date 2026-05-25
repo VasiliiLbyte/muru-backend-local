@@ -128,7 +128,7 @@ export const ProfilePage = ({
 
       <div className="rounded-2xl bg-[#f5ecdc] p-4 shadow-sm">
         <div className="flex items-center gap-4">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#ff986e] to-[#ff5a6e] text-2xl font-semibold text-white shadow-sm">
+          <div className="flex size-16 shrink-0 aspect-square items-center justify-center rounded-2xl bg-gradient-to-br from-[#ff986e] to-[#ff5a6e] text-2xl font-semibold text-white shadow-sm">
             {initials}
           </div>
           <div className="text-sm text-[#4f4545]">
