@@ -1,4 +1,5 @@
 import { getViteApiBaseUrl } from './api-base-url'
+import { parseApi } from './api-response'
 
 const API_BASE_URL = getViteApiBaseUrl()
 const TOKEN_STORAGE_KEY = 'muru_auth_token'
@@ -29,12 +30,7 @@ export const authenticateWithTelegram = async (initData: string): Promise<Telegr
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ initData }),
   })
-  const payload = await response.json()
-  if (!response.ok || !payload.success) {
-    throw new Error(payload.error ?? 'Telegram auth failed')
-  }
-
-  const data = payload.data as TelegramAuthResponse
+  const data = await parseApi<TelegramAuthResponse>(response)
   storeToken(data.token)
   return data
 }

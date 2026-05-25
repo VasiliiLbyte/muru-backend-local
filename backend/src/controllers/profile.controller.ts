@@ -1,8 +1,9 @@
-import type { Request, Response } from 'express'
+import type { NextFunction, Request, Response } from 'express'
 import { z } from 'zod'
 
 import type { AuthenticatedRequest } from '../middleware/auth.middleware'
 import { getProfileByTelegramUserId, upsertProfileByTelegramUserId } from '../services/profile.service'
+import { fail, HttpError, ok, zodErrorMessage } from '../utils/api-response'
 
 const profilePayloadSchema = z.object({
   telegramUserId: z.number().int().positive().optional(),
@@ -11,44 +12,31 @@ const profilePayloadSchema = z.object({
   deliveryAddresses: z.array(z.string()).default([]),
 })
 
-export const getMyProfileHandler = async (req: Request, res: Response) => {
-  const telegramUserId = (req as AuthenticatedRequest).auth?.telegramId
-  if (!telegramUserId) return res.status(401).json({ success: false, data: null, error: 'Unauthorized' })
-
+export const getMyProfileHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const telegramUserId = (req as AuthenticatedRequest).auth?.telegramId
+    if (!telegramUserId) return fail(res, 401, 'Unauthorized', 'UNAUTHORIZED')
+
     const profile = await getProfileByTelegramUserId(telegramUserId)
-    return res.json({ success: true, data: profile, error: null })
+    return ok(res, profile)
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      data: null,
-      error: error instanceof Error ? error.message : 'Failed to load profile',
-    })
+    next(error)
   }
 }
 
-export const saveMyProfileHandler = async (req: Request, res: Response) => {
-  const telegramUserId = (req as AuthenticatedRequest).auth?.telegramId
-  if (!telegramUserId) return res.status(401).json({ success: false, data: null, error: 'Unauthorized' })
-
-  const parsed = profilePayloadSchema.safeParse(req.body)
-  if (!parsed.success) {
-    return res.status(400).json({
-      success: false,
-      data: null,
-      error: parsed.error.issues.map((issue) => issue.message).join('; '),
-    })
-  }
-
+export const saveMyProfileHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const telegramUserId = (req as AuthenticatedRequest).auth?.telegramId
+    if (!telegramUserId) return fail(res, 401, 'Unauthorized', 'UNAUTHORIZED')
+
+    const parsed = profilePayloadSchema.safeParse(req.body)
+    if (!parsed.success) {
+      throw new HttpError(400, zodErrorMessage(parsed.error.issues), 'VALIDATION', parsed.error.issues)
+    }
+
     const profile = await upsertProfileByTelegramUserId({ ...parsed.data, telegramUserId })
-    return res.json({ success: true, data: profile, error: null })
+    return ok(res, profile)
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      data: null,
-      error: error instanceof Error ? error.message : 'Failed to save profile',
-    })
+    next(error)
   }
 }
-

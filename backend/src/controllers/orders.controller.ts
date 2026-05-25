@@ -1,12 +1,13 @@
-import type { Request, Response } from 'express'
+import type { NextFunction, Request, Response } from 'express'
 import { z } from 'zod'
 
 import type { AuthenticatedRequest } from '../middleware/auth.middleware'
 import { decreaseStockInSheets } from '../services/google-sheets-write.service'
 import { env } from '../utils/env'
 import { notifyAdminsByTelegram, notifyByEmail, notifyClientByTelegram } from '../services/order-notifications.service'
-import { PromoValidationError, validatePromoCode } from '../services/promo.service'
+import { validatePromoCode } from '../services/promo.service'
 import { createOrder, getDraftOrderByTelegramUserId, getOrdersByTelegramUserId, saveDraftOrder } from '../services/orders.service'
+import { fail, HttpError, ok, zodErrorMessage } from '../utils/api-response'
 
 const itemSchema = z.object({
   sku: z.string().min(1),
@@ -35,70 +36,54 @@ const validatePromoBodySchema = z.object({
   subtotal: z.number().nonnegative(),
 })
 
-export const getDraftOrderHandler = async (req: Request, res: Response) => {
-  const telegramUserId = (req as AuthenticatedRequest).auth?.telegramId
-
-  if (!telegramUserId) return res.status(401).json({ success: false, data: null, error: 'Unauthorized' })
+export const getDraftOrderHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const telegramUserId = (req as AuthenticatedRequest).auth?.telegramId
+    if (!telegramUserId) return fail(res, 401, 'Unauthorized', 'UNAUTHORIZED')
+
     const draft = await getDraftOrderByTelegramUserId(telegramUserId)
-    return res.json({ success: true, data: draft, error: null })
+    return ok(res, draft)
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      data: null,
-      error: error instanceof Error ? error.message : 'Failed to load draft',
-    })
+    next(error)
   }
 }
 
-export const saveDraftOrderHandler = async (req: Request, res: Response) => {
-  const telegramUserId = (req as AuthenticatedRequest).auth?.telegramId
-  if (!telegramUserId) return res.status(401).json({ success: false, data: null, error: 'Unauthorized' })
-
-  const parsed = draftPayloadSchema.safeParse(req.body)
-  if (!parsed.success) {
-    return res.status(400).json({
-      success: false,
-      data: null,
-      error: parsed.error.issues.map((issue) => issue.message).join('; '),
-    })
-  }
-  if (parsed.data.deliveryMode === 'delivery' && !parsed.data.address?.trim()) {
-    return res.status(400).json({ success: false, data: null, error: 'Address is required for delivery' })
-  }
-
+export const saveDraftOrderHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const telegramUserId = (req as AuthenticatedRequest).auth?.telegramId
+    if (!telegramUserId) return fail(res, 401, 'Unauthorized', 'UNAUTHORIZED')
+
+    const parsed = draftPayloadSchema.safeParse(req.body)
+    if (!parsed.success) {
+      throw new HttpError(400, zodErrorMessage(parsed.error.issues), 'VALIDATION', parsed.error.issues)
+    }
+    if (parsed.data.deliveryMode === 'delivery' && !parsed.data.address?.trim()) {
+      return fail(res, 400, 'Address is required for delivery', 'VALIDATION')
+    }
+
     const draft = await saveDraftOrder({ ...parsed.data, telegramUserId })
-    return res.json({ success: true, data: draft, error: null })
+    return ok(res, draft)
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      data: null,
-      error: error instanceof Error ? error.message : 'Failed to save draft',
-    })
+    next(error)
   }
 }
 
-export const createOrderHandler = async (req: Request, res: Response) => {
-  const telegramUserId = (req as AuthenticatedRequest).auth?.telegramId
-  if (!telegramUserId) return res.status(401).json({ success: false, data: null, error: 'Unauthorized' })
-
-  const parsed = draftPayloadSchema.safeParse(req.body)
-  if (!parsed.success) {
-    return res.status(400).json({
-      success: false,
-      data: null,
-      error: parsed.error.issues.map((issue) => issue.message).join('; '),
-    })
-  }
-  if (parsed.data.items.length === 0) {
-    return res.status(400).json({ success: false, data: null, error: 'Order items are required' })
-  }
-  if (parsed.data.deliveryMode === 'delivery' && !parsed.data.address?.trim()) {
-    return res.status(400).json({ success: false, data: null, error: 'Address is required for delivery' })
-  }
-
+export const createOrderHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const telegramUserId = (req as AuthenticatedRequest).auth?.telegramId
+    if (!telegramUserId) return fail(res, 401, 'Unauthorized', 'UNAUTHORIZED')
+
+    const parsed = draftPayloadSchema.safeParse(req.body)
+    if (!parsed.success) {
+      throw new HttpError(400, zodErrorMessage(parsed.error.issues), 'VALIDATION', parsed.error.issues)
+    }
+    if (parsed.data.items.length === 0) {
+      return fail(res, 400, 'Order items are required', 'VALIDATION')
+    }
+    if (parsed.data.deliveryMode === 'delivery' && !parsed.data.address?.trim()) {
+      return fail(res, 400, 'Address is required for delivery', 'VALIDATION')
+    }
+
     const order = await createOrder({ ...parsed.data, telegramUserId })
     const stockUpdates = order.items.map((item) => ({
       sku: item.sku,
@@ -124,80 +109,49 @@ export const createOrderHandler = async (req: Request, res: Response) => {
     void notifyByEmail(order).catch((notifyError) => {
       console.error('[email-order-notify:error]', notifyError)
     })
-    return res.json({ success: true, data: order, error: null })
+    return ok(res, order)
   } catch (error) {
-    if (error instanceof PromoValidationError) {
-      return res.status(400).json({ success: false, data: null, error: error.message })
-    }
-    return res.status(500).json({
-      success: false,
-      data: null,
-      error: error instanceof Error ? error.message : 'Failed to create order',
-    })
+    next(error)
   }
 }
 
-export const validatePromoHandler = async (req: Request, res: Response) => {
-  const telegramUserId = (req as AuthenticatedRequest).auth?.telegramId
-  if (!telegramUserId) return res.status(401).json({ success: false, data: null, error: 'Unauthorized' })
-
-  const parsed = validatePromoBodySchema.safeParse(req.body)
-  if (!parsed.success) {
-    return res.status(400).json({
-      success: false,
-      data: null,
-      error: parsed.error.issues.map((issue) => issue.message).join('; '),
-    })
-  }
-
+export const validatePromoHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const telegramUserId = (req as AuthenticatedRequest).auth?.telegramId
+    if (!telegramUserId) return fail(res, 401, 'Unauthorized', 'UNAUTHORIZED')
+
+    const parsed = validatePromoBodySchema.safeParse(req.body)
+    if (!parsed.success) {
+      throw new HttpError(400, zodErrorMessage(parsed.error.issues), 'VALIDATION', parsed.error.issues)
+    }
+
     const result = await validatePromoCode({
       code: parsed.data.code,
       telegramUserId,
       subtotal: parsed.data.subtotal,
     })
     if (!result.valid) {
-      return res.json({
-        success: true,
-        data: { valid: false, reason: result.reason },
-        error: null,
-      })
+      return ok(res, { valid: false, reason: result.reason })
     }
-    return res.json({
-      success: true,
-      data: {
-        valid: true,
-        discountValue: result.discountValue,
-        discountType: result.discountType,
-        code: result.code,
-      },
-      error: null,
+    return ok(res, {
+      valid: true,
+      discountValue: result.discountValue,
+      discountType: result.discountType,
+      code: result.code,
     })
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      data: null,
-      error: error instanceof Error ? error.message : 'Failed to validate promo',
-    })
+    next(error)
   }
 }
 
-export const getMyOrdersHandler = async (req: Request, res: Response) => {
-  const telegramUserId = (req as AuthenticatedRequest).auth?.telegramId
-  if (!telegramUserId) return res.status(401).json({ success: false, data: null, error: 'Unauthorized' })
-
+export const getMyOrdersHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const telegramUserId = (req as AuthenticatedRequest).auth?.telegramId
+    if (!telegramUserId) return fail(res, 401, 'Unauthorized', 'UNAUTHORIZED')
+
     const orders = await getOrdersByTelegramUserId(telegramUserId)
-    return res.json({
-      success: true,
-      data: orders,
-      error: null,
-    })
+    return ok(res, orders)
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      data: null,
-      error: error instanceof Error ? error.message : 'Failed to load order history',
-    })
+    next(error)
   }
 }

@@ -2,7 +2,10 @@ import type { CatalogNode, CatalogProduct, CatalogProductDetail } from '../types
 import type { CartItem, CheckoutForm, DraftOrder, OrderHistoryItem, ProfileData } from '../types/cart'
 import type { FavoriteItem } from '../types/favorite'
 import { getViteApiBaseUrl } from './api-base-url'
+import { apiErrorMessage, parseApi } from './api-response'
 import { getStoredToken } from './auth'
+
+export type { ApiResponse } from './api-response'
 
 export type SyncErrorGroup = {
   reason: string
@@ -171,12 +174,7 @@ export const fetchCatalogSyncStatus = async (telegramUserId: number): Promise<Ca
     },
   })
 
-  const payload = await response.json()
-  if (!response.ok || !payload.success) {
-    throw new Error(payload.error ?? 'Failed to fetch sync status')
-  }
-
-  return payload.data as CatalogSyncJobState
+  return parseApi<CatalogSyncJobState>(response)
 }
 
 export const fetchCatalogSyncHistory = async (
@@ -192,12 +190,8 @@ export const fetchCatalogSyncHistory = async (
     },
   )
 
-  const payload = await response.json()
-  if (!response.ok || !payload.success) {
-    throw new Error(payload.error ?? 'Failed to load sync history')
-  }
-
-  return (payload.data as { items: CatalogSyncHistoryItem[] }).items
+  const data = await parseApi<{ items: CatalogSyncHistoryItem[] }>(response)
+  return data.items
 }
 
 const pollCatalogSyncUntilDone = async (
@@ -257,7 +251,7 @@ export const triggerCatalogSync = async (
   }
 
   if (!response.ok || !payload.success) {
-    throw new Error(payload.error ?? 'Sync request failed')
+    throw new Error(apiErrorMessage(payload, 'Sync request failed'))
   }
 
   return payload.data as SyncApiResult
@@ -402,11 +396,7 @@ export const fetchAdminOrders = async (
   const response = await safeFetch(url, {
     headers: adminTelegramHeadersGet(telegramUserId),
   })
-  const payload = await response.json()
-  if (!response.ok || !payload.success) {
-    throw new Error(payload.error ?? 'Failed to load orders')
-  }
-  return payload.data as AdminOrdersListResult
+  return parseApi<AdminOrdersListResult>(response)
 }
 
 export const fetchAdminOrderById = async (
@@ -416,11 +406,7 @@ export const fetchAdminOrderById = async (
   const response = await safeFetch(`${API_BASE_URL}/api/admin/orders/${orderId}`, {
     headers: adminTelegramHeadersGet(telegramUserId),
   })
-  const payload = await response.json()
-  if (!response.ok || !payload.success) {
-    throw new Error(payload.error ?? 'Failed to load order')
-  }
-  return payload.data as AdminOrderDetail
+  return parseApi<AdminOrderDetail>(response)
 }
 
 export const updateAdminOrder = async (
@@ -433,11 +419,7 @@ export const updateAdminOrder = async (
     headers: adminTelegramHeadersPatch(telegramUserId),
     body: JSON.stringify(body),
   })
-  const payload = await response.json()
-  if (!response.ok || !payload.success) {
-    throw new Error(payload.error ?? 'Failed to update order')
-  }
-  return payload.data as AdminOrderDetail
+  return parseApi<AdminOrderDetail>(response)
 }
 
 export const restockAdminOrder = async (
@@ -449,22 +431,14 @@ export const restockAdminOrder = async (
     headers: adminTelegramHeadersPost(telegramUserId),
     body: JSON.stringify({}),
   })
-  const payload = await response.json()
-  if (!response.ok || !payload.success) {
-    throw new Error(payload.error ?? 'Failed to restock order')
-  }
-  return payload.data as AdminOrderDetail
+  return parseApi<AdminOrderDetail>(response)
 }
 
 export const fetchAdminPromoCodes = async (telegramUserId: number): Promise<AdminPromoCode[]> => {
   const response = await safeFetch(`${API_BASE_URL}/api/admin/promo-codes`, {
     headers: adminTelegramHeadersGet(telegramUserId),
   })
-  const payload = await response.json()
-  if (!response.ok || !payload.success) {
-    throw new Error(payload.error ?? 'Failed to load promo codes')
-  }
-  return payload.data as AdminPromoCode[]
+  return parseApi<AdminPromoCode[]>(response)
 }
 
 export const createAdminPromoCode = async (
@@ -476,11 +450,7 @@ export const createAdminPromoCode = async (
     headers: adminTelegramHeadersPost(telegramUserId),
     body: JSON.stringify(body),
   })
-  const payload = await response.json()
-  if (!response.ok || !payload.success) {
-    throw new Error(payload.error ?? 'Failed to create promo code')
-  }
-  return payload.data as AdminPromoCode
+  return parseApi<AdminPromoCode>(response)
 }
 
 export const patchAdminPromoCode = async (
@@ -493,11 +463,7 @@ export const patchAdminPromoCode = async (
     headers: adminTelegramHeadersPatch(telegramUserId),
     body: JSON.stringify(body),
   })
-  const payload = await response.json()
-  if (!response.ok || !payload.success) {
-    throw new Error(payload.error ?? 'Failed to update promo code')
-  }
-  return payload.data as AdminPromoCode
+  return parseApi<AdminPromoCode>(response)
 }
 
 export const deleteAdminPromoCode = async (telegramUserId: number, id: number): Promise<void> => {
@@ -505,10 +471,7 @@ export const deleteAdminPromoCode = async (telegramUserId: number, id: number): 
     method: 'DELETE',
     headers: adminTelegramHeadersGet(telegramUserId),
   })
-  const payload = await response.json()
-  if (!response.ok || !payload.success) {
-    throw new Error(payload.error ?? 'Failed to delete promo code')
-  }
+  await parseApi<null>(response)
 }
 
 export const fetchAdminPromoCodeUsages = async (
@@ -518,11 +481,7 @@ export const fetchAdminPromoCodeUsages = async (
   const response = await safeFetch(`${API_BASE_URL}/api/admin/promo-codes/${promoCodeId}/usages`, {
     headers: adminTelegramHeadersGet(telegramUserId),
   })
-  const payload = await response.json()
-  if (!response.ok || !payload.success) {
-    throw new Error(payload.error ?? 'Failed to load promo usages')
-  }
-  return payload.data as AdminPromoCodeUsage[]
+  return parseApi<AdminPromoCodeUsage[]>(response)
 }
 
 export const validateOrderPromo = async (body: {
@@ -534,22 +493,14 @@ export const validateOrderPromo = async (body: {
     headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify(body),
   })
-  const payload = await response.json()
-  if (!response.ok || !payload.success) {
-    throw new Error(payload.error ?? 'Failed to validate promo')
-  }
-  return payload.data as ValidateOrderPromoResult
+  return parseApi<ValidateOrderPromoResult>(response)
 }
 
 export const fetchBotWelcomeSettings = async (telegramUserId: number): Promise<BotWelcomeSettings> => {
   const response = await safeFetch(`${API_BASE_URL}/api/admin/bot-welcome`, {
     headers: adminTelegramHeadersGet(telegramUserId),
   })
-  const payload = await response.json()
-  if (!response.ok || !payload.success) {
-    throw new Error(payload.error ?? 'Failed to load bot welcome settings')
-  }
-  return payload.data as BotWelcomeSettings
+  return parseApi<BotWelcomeSettings>(response)
 }
 
 export const saveBotWelcomeSettings = async (
@@ -561,22 +512,14 @@ export const saveBotWelcomeSettings = async (
     headers: adminTelegramHeadersPost(telegramUserId),
     body: JSON.stringify(body),
   })
-  const payload = await response.json()
-  if (!response.ok || !payload.success) {
-    throw new Error(payload.error ?? 'Failed to save bot welcome settings')
-  }
-  return payload.data as SaveBotWelcomeApiResult
+  return parseApi<SaveBotWelcomeApiResult>(response)
 }
 
 export const fetchAdminCategories = async (telegramUserId: number): Promise<AdminCategoryRow[]> => {
   const response = await safeFetch(`${API_BASE_URL}/api/admin/categories`, {
     headers: adminTelegramHeadersGet(telegramUserId),
   })
-  const payload = await response.json()
-  if (!response.ok || !payload.success) {
-    throw new Error(payload.error ?? 'Failed to load admin categories')
-  }
-  return payload.data as AdminCategoryRow[]
+  return parseApi<AdminCategoryRow[]>(response)
 }
 
 export const saveAdminCategoryCovers = async (
@@ -588,11 +531,7 @@ export const saveAdminCategoryCovers = async (
     headers: adminTelegramHeadersPost(telegramUserId),
     body: JSON.stringify({ items }),
   })
-  const payload = await response.json()
-  if (!response.ok || !payload.success) {
-    throw new Error(payload.error ?? 'Failed to save category covers')
-  }
-  return payload.data as SaveCategoryCoversApiResult
+  return parseApi<SaveCategoryCoversApiResult>(response)
 }
 
 export const fetchCategoryCoverSyncStatus = async (
@@ -601,11 +540,7 @@ export const fetchCategoryCoverSyncStatus = async (
   const response = await safeFetch(`${API_BASE_URL}/api/admin/sync/category-covers/status`, {
     headers: adminTelegramHeadersGet(telegramUserId),
   })
-  const payload = await response.json()
-  if (!response.ok || !payload.success) {
-    throw new Error(payload.error ?? 'Failed to fetch category cover sync status')
-  }
-  return payload.data as CategoryCoverSyncJobState
+  return parseApi<CategoryCoverSyncJobState>(response)
 }
 
 const pollCategoryCoverSyncUntilDone = async (
@@ -662,7 +597,7 @@ export const triggerCategoryCoverSync = async (
   }
 
   if (!response.ok || !payload.success) {
-    throw new Error(payload.error ?? 'Category cover sync failed')
+    throw new Error(apiErrorMessage(payload, 'Category cover sync failed'))
   }
 
   return payload.data as CategoryCoverSyncApiResult
@@ -670,11 +605,7 @@ export const triggerCategoryCoverSync = async (
 
 export const fetchCatalogTree = async (): Promise<CatalogNode[]> => {
   const response = await safeFetch(`${API_BASE_URL}/api/catalog/tree`)
-  const payload = await response.json()
-  if (!response.ok || !payload.success) {
-    throw new Error(payload.error ?? 'Failed to load catalog tree')
-  }
-  return payload.data as CatalogNode[]
+  return parseApi<CatalogNode[]>(response)
 }
 
 export const fetchCatalogProducts = async (params: {
@@ -693,20 +624,12 @@ export const fetchCatalogProducts = async (params: {
   })
   const query = searchParams.toString()
   const response = await safeFetch(`${API_BASE_URL}/api/catalog/products${query ? `?${query}` : ''}`)
-  const payload = await response.json()
-  if (!response.ok || !payload.success) {
-    throw new Error(payload.error ?? 'Failed to load catalog products')
-  }
-  return payload.data as CatalogProduct[]
+  return parseApi<CatalogProduct[]>(response)
 }
 
 export const fetchCatalogProductBySku = async (sku: string): Promise<CatalogProductDetail> => {
   const response = await safeFetch(`${API_BASE_URL}/api/catalog/products/${encodeURIComponent(sku)}`)
-  const payload = await response.json()
-  if (!response.ok || !payload.success) {
-    throw new Error(payload.error ?? 'Failed to load product detail')
-  }
-  return payload.data as CatalogProductDetail
+  return parseApi<CatalogProductDetail>(response)
 }
 
 export const notifyRestock = async (payloadBody: {
@@ -719,10 +642,7 @@ export const notifyRestock = async (payloadBody: {
     headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify(payloadBody),
   })
-  const payload = await response.json()
-  if (!response.ok || !payload.success) {
-    throw new Error(payload.error ?? 'Failed to send restock notification')
-  }
+  await parseApi<null>(response)
 }
 
 type DraftPayload = {
@@ -742,11 +662,8 @@ export const fetchOrderDraft = async (telegramUserId: number): Promise<DraftOrde
   const response = await safeFetch(`${API_BASE_URL}/api/orders/draft/${telegramUserId}`, {
     headers: getAuthHeaders(),
   })
-  const payload = await response.json()
-  if (!response.ok || !payload.success) {
-    throw new Error(payload.error ?? 'Failed to load draft order')
-  }
-  return (payload.data as DraftOrder | null) ?? null
+  const data = await parseApi<DraftOrder | null>(response)
+  return data ?? null
 }
 
 export const saveOrderDraft = async (payloadBody: DraftPayload): Promise<DraftOrder> => {
@@ -755,11 +672,7 @@ export const saveOrderDraft = async (payloadBody: DraftPayload): Promise<DraftOr
     headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify(payloadBody),
   })
-  const payload = await response.json()
-  if (!response.ok || !payload.success) {
-    throw new Error(payload.error ?? 'Failed to save draft order')
-  }
-  return payload.data as DraftOrder
+  return parseApi<DraftOrder>(response)
 }
 
 export const createOrder = async (payloadBody: DraftPayload): Promise<DraftOrder> => {
@@ -768,33 +681,21 @@ export const createOrder = async (payloadBody: DraftPayload): Promise<DraftOrder
     headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify(payloadBody),
   })
-  const payload = await response.json()
-  if (!response.ok || !payload.success) {
-    throw new Error(payload.error ?? 'Failed to create order')
-  }
-  return payload.data as DraftOrder
+  return parseApi<DraftOrder>(response)
 }
 
 export const fetchMyOrders = async (telegramUserId: number): Promise<OrderHistoryItem[]> => {
   const response = await safeFetch(`${API_BASE_URL}/api/orders/my?telegramUserId=${telegramUserId}`, {
     headers: getAuthHeaders(),
   })
-  const payload = await response.json()
-  if (!response.ok || !payload.success) {
-    throw new Error(payload.error ?? 'Failed to load order history')
-  }
-  return payload.data as OrderHistoryItem[]
+  return parseApi<OrderHistoryItem[]>(response)
 }
 
 export const fetchMyProfile = async (telegramUserId: number): Promise<ProfileData> => {
   const response = await safeFetch(`${API_BASE_URL}/api/profile/me?telegramUserId=${telegramUserId}`, {
     headers: getAuthHeaders(),
   })
-  const payload = await response.json()
-  if (!response.ok || !payload.success) {
-    throw new Error(payload.error ?? 'Failed to load profile')
-  }
-  return payload.data as ProfileData
+  return parseApi<ProfileData>(response)
 }
 
 export const saveMyProfile = async (payloadBody: ProfileData): Promise<ProfileData> => {
@@ -803,22 +704,14 @@ export const saveMyProfile = async (payloadBody: ProfileData): Promise<ProfileDa
     headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify(payloadBody),
   })
-  const payload = await response.json()
-  if (!response.ok || !payload.success) {
-    throw new Error(payload.error ?? 'Failed to save profile')
-  }
-  return payload.data as ProfileData
+  return parseApi<ProfileData>(response)
 }
 
 export const fetchMyFavorites = async (telegramUserId: number): Promise<FavoriteItem[]> => {
   const response = await safeFetch(`${API_BASE_URL}/api/favorites/my?telegramUserId=${telegramUserId}`, {
     headers: getAuthHeaders(),
   })
-  const payload = await response.json()
-  if (!response.ok || !payload.success) {
-    throw new Error(payload.error ?? 'Failed to load favorites')
-  }
-  return payload.data as FavoriteItem[]
+  return parseApi<FavoriteItem[]>(response)
 }
 
 export const addFavorite = async (telegramUserId: number, sku: string): Promise<void> => {
@@ -827,10 +720,7 @@ export const addFavorite = async (telegramUserId: number, sku: string): Promise<
     headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify({ telegramUserId, sku }),
   })
-  const payload = await response.json()
-  if (!response.ok || !payload.success) {
-    throw new Error(payload.error ?? 'Failed to add favorite')
-  }
+  await parseApi<null>(response)
 }
 
 export const removeFavorite = async (telegramUserId: number, sku: string): Promise<void> => {
@@ -839,8 +729,5 @@ export const removeFavorite = async (telegramUserId: number, sku: string): Promi
     headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify({ telegramUserId, sku }),
   })
-  const payload = await response.json()
-  if (!response.ok || !payload.success) {
-    throw new Error(payload.error ?? 'Failed to remove favorite')
-  }
+  await parseApi<null>(response)
 }

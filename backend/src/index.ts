@@ -9,7 +9,9 @@ import { catalogRouter } from './routes/catalog.routes'
 import { favoritesRouter } from './routes/favorites.routes'
 import { ordersRouter } from './routes/orders.routes'
 import { profileRouter } from './routes/profile.routes'
+import { errorHandler } from './middleware/error-handler.middleware'
 import { startTelegramBotPolling } from './services/telegram-bot.service'
+import { fail, ok } from './utils/api-response'
 import { env } from './utils/env'
 
 dotenv.config()
@@ -50,27 +52,26 @@ app.use('/api/favorites', favoritesRouter)
 app.use('/api/orders', ordersRouter)
 app.use('/api/profile', profileRouter)
 
-app.get('/api/health', async (_req, res) => {
+app.get('/api/health', async (_req, res, next) => {
   try {
     const { pool } = await import('./utils/db')
     const result = await pool.query('SELECT 1 AS ok')
-    res.json({
-      success: true,
-      data: {
-        service: 'muru-backend',
-        status: 'ok',
-        db: result.rows[0]?.ok === 1 ? 'connected' : 'error',
-        timestamp: new Date().toISOString(),
-      },
+    const dbOk = result.rows[0]?.ok === 1
+    if (!dbOk) {
+      return fail(res, 503, 'Database connection error', 'UPSTREAM')
+    }
+    return ok(res, {
+      service: 'muru-backend',
+      status: 'ok',
+      db: 'connected',
+      timestamp: new Date().toISOString(),
     })
   } catch (error) {
-    res.status(503).json({
-      success: false,
-      data: { service: 'muru-backend', status: 'error', db: 'disconnected' },
-      error: error instanceof Error ? error.message : 'Unknown',
-    })
+    next(error)
   }
 })
+
+app.use(errorHandler)
 
 app.listen(port, () => {
   if (process.env.NODE_ENV !== 'test') {

@@ -1,77 +1,57 @@
-import type { Request, Response } from 'express'
+import type { NextFunction, Request, Response } from 'express'
 import { z } from 'zod'
 
 import type { AuthenticatedRequest } from '../middleware/auth.middleware'
 import { addFavorite, getFavoritesByTelegramUserId, removeFavorite } from '../services/favorites.service'
+import { fail, HttpError, ok, zodErrorMessage } from '../utils/api-response'
 
 const favoritePayloadSchema = z.object({
   telegramUserId: z.number().int().positive().optional(),
   sku: z.string().min(1),
 })
 
-export const getMyFavoritesHandler = async (req: Request, res: Response) => {
-  const telegramUserId = (req as AuthenticatedRequest).auth?.telegramId
-  if (!telegramUserId) return res.status(401).json({ success: false, data: null, error: 'Unauthorized' })
-
+export const getMyFavoritesHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const telegramUserId = (req as AuthenticatedRequest).auth?.telegramId
+    if (!telegramUserId) return fail(res, 401, 'Unauthorized', 'UNAUTHORIZED')
+
     const favorites = await getFavoritesByTelegramUserId(telegramUserId)
-    return res.json({ success: true, data: favorites, error: null })
+    return ok(res, favorites)
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      data: null,
-      error: error instanceof Error ? error.message : 'Failed to load favorites',
-    })
+    next(error)
   }
 }
 
-export const addFavoriteHandler = async (req: Request, res: Response) => {
-  const telegramUserId = (req as AuthenticatedRequest).auth?.telegramId
-  if (!telegramUserId) return res.status(401).json({ success: false, data: null, error: 'Unauthorized' })
-
-  const parsed = favoritePayloadSchema.safeParse(req.body)
-  if (!parsed.success) {
-    return res.status(400).json({
-      success: false,
-      data: null,
-      error: parsed.error.issues.map((issue) => issue.message).join('; '),
-    })
-  }
-
+export const addFavoriteHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const telegramUserId = (req as AuthenticatedRequest).auth?.telegramId
+    if (!telegramUserId) return fail(res, 401, 'Unauthorized', 'UNAUTHORIZED')
+
+    const parsed = favoritePayloadSchema.safeParse(req.body)
+    if (!parsed.success) {
+      throw new HttpError(400, zodErrorMessage(parsed.error.issues), 'VALIDATION', parsed.error.issues)
+    }
+
     await addFavorite({ ...parsed.data, telegramUserId })
-    return res.json({ success: true, data: { sku: parsed.data.sku }, error: null })
+    return ok(res, { sku: parsed.data.sku })
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      data: null,
-      error: error instanceof Error ? error.message : 'Failed to add favorite',
-    })
+    next(error)
   }
 }
 
-export const removeFavoriteHandler = async (req: Request, res: Response) => {
-  const telegramUserId = (req as AuthenticatedRequest).auth?.telegramId
-  if (!telegramUserId) return res.status(401).json({ success: false, data: null, error: 'Unauthorized' })
-
-  const parsed = favoritePayloadSchema.safeParse(req.body)
-  if (!parsed.success) {
-    return res.status(400).json({
-      success: false,
-      data: null,
-      error: parsed.error.issues.map((issue) => issue.message).join('; '),
-    })
-  }
-
+export const removeFavoriteHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const telegramUserId = (req as AuthenticatedRequest).auth?.telegramId
+    if (!telegramUserId) return fail(res, 401, 'Unauthorized', 'UNAUTHORIZED')
+
+    const parsed = favoritePayloadSchema.safeParse(req.body)
+    if (!parsed.success) {
+      throw new HttpError(400, zodErrorMessage(parsed.error.issues), 'VALIDATION', parsed.error.issues)
+    }
+
     await removeFavorite({ ...parsed.data, telegramUserId })
-    return res.json({ success: true, data: { sku: parsed.data.sku }, error: null })
+    return ok(res, { sku: parsed.data.sku })
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      data: null,
-      error: error instanceof Error ? error.message : 'Failed to remove favorite',
-    })
+    next(error)
   }
 }
-

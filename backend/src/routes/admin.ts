@@ -1,3 +1,4 @@
+import type { Response } from 'express'
 import { Router } from 'express'
 
 import {
@@ -36,6 +37,7 @@ import {
 } from '../services/sync-job-state'
 import { syncCatalogFromGoogle } from '../services/google-sync'
 import { env } from '../utils/env'
+import { fail, ok } from '../utils/api-response'
 
 const adminRouter = Router()
 
@@ -53,56 +55,31 @@ const isAdminRequest = (req: { header: (name: string) => string | undefined; bod
   return Boolean(telegramUserId && env.adminTelegramIds.includes(telegramUserId))
 }
 
+const adminForbidden = (res: Response) =>
+  fail(res, 403, 'Forbidden: admin access required', 'FORBIDDEN')
+
 adminRouter.get('/me', (req, res) => {
-  return res.json({
-    success: true,
-    data: { isAdmin: isAdminRequest(req) },
-    error: null,
-  })
+  return ok(res, { isAdmin: isAdminRequest(req) })
 })
 
-adminRouter.get('/orders', (req, res) => {
-  if (!isAdminRequest(req)) {
-    return res.status(403).json({
-      success: false,
-      data: null,
-      error: 'Forbidden: admin access required',
-    })
-  }
-  return listAdminOrdersHandler(req, res)
+adminRouter.get('/orders', (req, res, next) => {
+  if (!isAdminRequest(req)) return adminForbidden(res)
+  return listAdminOrdersHandler(req, res, next)
 })
 
-adminRouter.get('/orders/:id', (req, res) => {
-  if (!isAdminRequest(req)) {
-    return res.status(403).json({
-      success: false,
-      data: null,
-      error: 'Forbidden: admin access required',
-    })
-  }
-  return getAdminOrderByIdHandler(req, res)
+adminRouter.get('/orders/:id', (req, res, next) => {
+  if (!isAdminRequest(req)) return adminForbidden(res)
+  return getAdminOrderByIdHandler(req, res, next)
 })
 
-adminRouter.patch('/orders/:id', (req, res) => {
-  if (!isAdminRequest(req)) {
-    return res.status(403).json({
-      success: false,
-      data: null,
-      error: 'Forbidden: admin access required',
-    })
-  }
-  return patchAdminOrderHandler(req, res)
+adminRouter.patch('/orders/:id', (req, res, next) => {
+  if (!isAdminRequest(req)) return adminForbidden(res)
+  return patchAdminOrderHandler(req, res, next)
 })
 
-adminRouter.post('/orders/:id/restock', (req, res) => {
-  if (!isAdminRequest(req)) {
-    return res.status(403).json({
-      success: false,
-      data: null,
-      error: 'Forbidden: admin access required',
-    })
-  }
-  return restockAdminOrderHandler(req, res)
+adminRouter.post('/orders/:id/restock', (req, res, next) => {
+  if (!isAdminRequest(req)) return adminForbidden(res)
+  return restockAdminOrderHandler(req, res, next)
 })
 
 adminRouter.get('/categories', getAdminCategoriesHandler)
@@ -115,200 +92,93 @@ adminRouter.post('/promo-codes', createAdminPromoCodeHandler)
 adminRouter.patch('/promo-codes/:id', patchAdminPromoCodeHandler)
 adminRouter.delete('/promo-codes/:id', deleteAdminPromoCodeHandler)
 adminRouter.get('/promo-codes/:id/usages', listAdminPromoCodeUsagesHandler)
-adminRouter.get('/sync/category-covers/status', (req, res) => {
-  if (!isAdminRequest(req)) {
-    return res.status(403).json({
-      success: false,
-      data: null,
-      error: 'Forbidden: admin access required',
-    })
-  }
 
-  return res.json({
-    success: true,
-    data: getCategoryCoverSyncJobState(),
-    error: null,
-  })
+adminRouter.get('/sync/category-covers/status', (req, res) => {
+  if (!isAdminRequest(req)) return adminForbidden(res)
+  return ok(res, getCategoryCoverSyncJobState())
 })
 
 adminRouter.post('/sync/category-covers', (req, res) => {
-  if (!isAdminRequest(req)) {
-    return res.status(403).json({
-      success: false,
-      data: null,
-      error: 'Forbidden: admin access required',
-    })
-  }
+  if (!isAdminRequest(req)) return adminForbidden(res)
 
   if (isCategoryCoverSyncRunning()) {
-    return res.status(409).json({
-      success: false,
-      data: getCategoryCoverSyncJobState(),
-      error: 'Category cover sync is already running',
-    })
+    return fail(res, 409, 'Category cover sync is already running', 'CONFLICT', getCategoryCoverSyncJobState())
   }
 
   const started = startCategoryCoverSyncJob()
   if (!started) {
-    return res.status(409).json({
-      success: false,
-      data: getCategoryCoverSyncJobState(),
-      error: 'Category cover sync is already running',
-    })
+    return fail(res, 409, 'Category cover sync is already running', 'CONFLICT', getCategoryCoverSyncJobState())
   }
 
-  return res.status(202).json({
-    success: true,
-    data: { accepted: true, status: 'running' },
-    error: null,
-  })
+  return ok(res, { accepted: true, status: 'running' }, 202)
 })
 
-adminRouter.post('/images/invalidate', async (req, res) => {
-  if (!isAdminRequest(req)) {
-    return res.status(403).json({
-      success: false,
-      data: null,
-      error: 'Forbidden: admin access required',
-    })
-  }
+adminRouter.post('/images/invalidate', async (req, res, next) => {
+  if (!isAdminRequest(req)) return adminForbidden(res)
 
   const fileIds = Array.isArray(req.body?.fileIds)
     ? req.body.fileIds.filter((id: unknown) => typeof id === 'string' && isValidDriveFileId(id))
     : []
 
   if (fileIds.length === 0) {
-    return res.status(400).json({
-      success: false,
-      data: null,
-      error: 'fileIds must be a non-empty array of valid Drive file ids',
-    })
+    return fail(res, 400, 'fileIds must be a non-empty array of valid Drive file ids', 'VALIDATION')
   }
 
   try {
     await invalidateImageCache(fileIds)
-    return res.json({
-      success: true,
-      data: { invalidated: fileIds.length },
-      error: null,
-    })
+    return ok(res, { invalidated: fileIds.length })
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      data: null,
-      error: error instanceof Error ? error.message : 'Failed to invalidate image cache',
-    })
+    next(error)
   }
 })
 
-adminRouter.get('/sync/history', async (req, res) => {
-  if (!isAdminRequest(req)) {
-    return res.status(403).json({
-      success: false,
-      data: null,
-      error: 'Forbidden: admin access required',
-    })
-  }
+adminRouter.get('/sync/history', async (req, res, next) => {
+  if (!isAdminRequest(req)) return adminForbidden(res)
 
   try {
     const items = await listCatalogSyncHistory(req.query.limit)
-    return res.json({
-      success: true,
-      data: { items },
-      error: null,
-    })
+    return ok(res, { items })
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      data: null,
-      error: error instanceof Error ? error.message : 'Failed to load sync history',
-    })
+    next(error)
   }
 })
 
 adminRouter.get('/sync/status', (req, res) => {
-  if (!isAdminRequest(req)) {
-    return res.status(403).json({
-      success: false,
-      data: null,
-      error: 'Forbidden: admin access required',
-    })
-  }
-
-  return res.json({
-    success: true,
-    data: getCatalogSyncJobState(),
-    error: null,
-  })
+  if (!isAdminRequest(req)) return adminForbidden(res)
+  return ok(res, getCatalogSyncJobState())
 })
 
-adminRouter.post('/sync', async (req, res) => {
-  if (!isAdminRequest(req)) {
-    return res.status(403).json({
-      success: false,
-      data: null,
-      error: 'Forbidden: admin access required',
-    })
-  }
+adminRouter.post('/sync', (req, res) => {
+  if (!isAdminRequest(req)) return adminForbidden(res)
 
   const telegramUserId = parseTelegramUserId(
     req.header('x-telegram-user-id'),
     req.body?.telegramUserId,
   )
   if (!telegramUserId) {
-    return res.status(400).json({
-      success: false,
-      data: null,
-      error: 'telegramUserId is required',
-    })
+    return fail(res, 400, 'telegramUserId is required', 'VALIDATION')
   }
 
   if (isCatalogSyncRunning()) {
-    return res.status(409).json({
-      success: false,
-      data: getCatalogSyncJobState(),
-      error: 'Catalog sync is already running',
-    })
+    return fail(res, 409, 'Catalog sync is already running', 'CONFLICT', getCatalogSyncJobState())
   }
 
   const started = startCatalogSyncJob(telegramUserId)
   if (!started) {
-    return res.status(409).json({
-      success: false,
-      data: getCatalogSyncJobState(),
-      error: 'Catalog sync is already running',
-    })
+    return fail(res, 409, 'Catalog sync is already running', 'CONFLICT', getCatalogSyncJobState())
   }
 
-  return res.status(202).json({
-    success: true,
-    data: { accepted: true, status: 'running' },
-    error: null,
-  })
+  return ok(res, { accepted: true, status: 'running' }, 202)
 })
 
-adminRouter.post('/sync/stock', async (req, res) => {
-  if (!isAdminRequest(req)) {
-    return res.status(403).json({
-      success: false,
-      data: null,
-      error: 'Forbidden: admin access required',
-    })
-  }
+adminRouter.post('/sync/stock', async (req, res, next) => {
+  if (!isAdminRequest(req)) return adminForbidden(res)
 
   try {
     const result = await syncCatalogFromGoogle()
-    return res.json({
-      success: true,
-      data: { message: 'Stock synced', ...result },
-      error: null,
-    })
+    return ok(res, { message: 'Stock synced', ...result })
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      data: null,
-      error: error instanceof Error ? error.message : 'Stock sync failed',
-    })
+    next(error)
   }
 })
 

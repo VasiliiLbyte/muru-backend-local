@@ -1,8 +1,9 @@
-import type { Request, Response } from 'express'
+import type { NextFunction, Request, Response } from 'express'
 
 import { listAdminCategories, saveCategoryCovers } from '../services/admin-categories.service'
 import { syncCategoryCoversFromDrive } from '../services/category-cover-sync.service'
 import { env } from '../utils/env'
+import { fail, ok } from '../utils/api-response'
 
 const parseTelegramUserId = (req: Request): number | null => {
   const headerId = req.header('x-telegram-user-id')
@@ -15,58 +16,38 @@ const parseTelegramUserId = (req: Request): number | null => {
 const assertAdmin = (req: Request, res: Response): number | null => {
   const telegramUserId = parseTelegramUserId(req)
   if (!telegramUserId || !env.adminTelegramIds.includes(telegramUserId)) {
-    res.status(403).json({
-      success: false,
-      data: null,
-      error: 'Forbidden: admin access required',
-    })
+    fail(res, 403, 'Forbidden: admin access required', 'FORBIDDEN')
     return null
   }
   return telegramUserId
 }
 
-export const getAdminCategoriesHandler = async (req: Request, res: Response) => {
-  if (!assertAdmin(req, res)) return
+export const getAdminCategoriesHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    if (!assertAdmin(req, res)) return
     const rows = await listAdminCategories()
-    res.json({ success: true, data: rows, error: null })
+    return ok(res, rows)
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      data: null,
-      error: error instanceof Error ? error.message : 'Failed to load categories',
-    })
+    next(error)
   }
 }
 
-export const putAdminCategoryCoversHandler = async (req: Request, res: Response) => {
-  if (!assertAdmin(req, res)) return
+export const putAdminCategoryCoversHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    if (!assertAdmin(req, res)) return
     const { saved, validationErrors } = await saveCategoryCovers(req.body)
-    res.json({
-      success: true,
-      data: { saved, validationErrors },
-      error: null,
-    })
+    return ok(res, { saved, validationErrors })
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      data: null,
-      error: error instanceof Error ? error.message : 'Failed to save covers',
-    })
+    next(error)
   }
 }
 
-export const postAdminCategoryCoverSyncHandler = async (req: Request, res: Response) => {
-  if (!assertAdmin(req, res)) return
+export const postAdminCategoryCoverSyncHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    if (!assertAdmin(req, res)) return
     const result = await syncCategoryCoversFromDrive()
-    res.json({ success: true, data: result, error: null })
+    return ok(res, result)
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      data: null,
-      error: error instanceof Error ? error.message : 'Category cover sync failed',
-    })
+    next(error)
   }
 }

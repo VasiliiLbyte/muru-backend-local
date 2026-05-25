@@ -1,7 +1,8 @@
-import type { Request, Response } from 'express'
+import type { NextFunction, Request, Response } from 'express'
 
 import { getBotWelcomeSettings, updateBotWelcomeCoverFilename } from '../services/bot-welcome.service'
 import { env } from '../utils/env'
+import { fail, ok } from '../utils/api-response'
 
 const parseTelegramUserId = (req: Request): number | null => {
   const headerId = req.header('x-telegram-user-id')
@@ -14,54 +15,37 @@ const parseTelegramUserId = (req: Request): number | null => {
 const assertAdmin = (req: Request, res: Response): boolean => {
   const telegramUserId = parseTelegramUserId(req)
   if (!telegramUserId || !env.adminTelegramIds.includes(telegramUserId)) {
-    res.status(403).json({
-      success: false,
-      data: null,
-      error: 'Forbidden: admin access required',
-    })
+    fail(res, 403, 'Forbidden: admin access required', 'FORBIDDEN')
     return false
   }
   return true
 }
 
-export const getAdminBotWelcomeHandler = async (req: Request, res: Response) => {
-  if (!assertAdmin(req, res)) return
+export const getAdminBotWelcomeHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    if (!assertAdmin(req, res)) return
     const settings = await getBotWelcomeSettings()
-    res.json({ success: true, data: settings, error: null })
+    return ok(res, settings)
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      data: null,
-      error: error instanceof Error ? error.message : 'Failed to load bot welcome settings',
-    })
+    next(error)
   }
 }
 
-export const putAdminBotWelcomeHandler = async (req: Request, res: Response) => {
-  if (!assertAdmin(req, res)) return
+export const putAdminBotWelcomeHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    if (!assertAdmin(req, res)) return
     const result = await updateBotWelcomeCoverFilename(req.body)
     if (result.validationError) {
-      return res.status(400).json({
-        success: false,
-        data: { settings: result.settings, resolveWarning: result.resolveWarning },
-        error: result.validationError,
-      })
-    }
-    res.json({
-      success: true,
-      data: {
+      return fail(res, 400, result.validationError, 'VALIDATION', {
         settings: result.settings,
         resolveWarning: result.resolveWarning,
-      },
-      error: null,
+      })
+    }
+    return ok(res, {
+      settings: result.settings,
+      resolveWarning: result.resolveWarning,
     })
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      data: null,
-      error: error instanceof Error ? error.message : 'Failed to save bot welcome settings',
-    })
+    next(error)
   }
 }

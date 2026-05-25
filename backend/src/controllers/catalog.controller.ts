@@ -1,8 +1,9 @@
-import type { Request, Response } from 'express'
+import type { NextFunction, Request, Response } from 'express'
 import { z } from 'zod'
 
 import { notifyRestockRequestByTelegram } from '../services/order-notifications.service'
 import { getCatalogProductBySku, getCatalogProducts, getCatalogTree } from '../services/catalog.service'
+import { fail, HttpError, ok, zodErrorMessage } from '../utils/api-response'
 
 const restockPayloadSchema = z.object({
   telegramUserId: z.number().int().positive(),
@@ -10,20 +11,16 @@ const restockPayloadSchema = z.object({
   productName: z.string().min(1),
 })
 
-export const getCatalogTreeHandler = async (_req: Request, res: Response) => {
+export const getCatalogTreeHandler = async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const tree = await getCatalogTree()
-    res.json({ success: true, data: tree })
+    return ok(res, tree)
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: 'Failed to load catalog tree',
-      details: error instanceof Error ? error.message : 'Unknown error',
-    })
+    next(error)
   }
 }
 
-export const getCatalogProductsHandler = async (req: Request, res: Response) => {
+export const getCatalogProductsHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const filters = {
       category: req.query.category ? String(req.query.category) : undefined,
@@ -50,9 +47,8 @@ export const getCatalogProductsHandler = async (req: Request, res: Response) => 
           results: products.length,
         }),
       )
-      return res.json({
-        success: true,
-        data: products,
+      return ok(res, {
+        products,
         debug: {
           filters,
           effectiveCategorySlug,
@@ -62,59 +58,39 @@ export const getCatalogProductsHandler = async (req: Request, res: Response) => 
       })
     }
 
-    res.json({ success: true, data: products })
+    return ok(res, products)
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: 'Failed to load catalog products',
-      details: error instanceof Error ? error.message : 'Unknown error',
-    })
+    next(error)
   }
 }
 
-export const getCatalogProductBySkuHandler = async (req: Request, res: Response) => {
+export const getCatalogProductBySkuHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const sku = String(req.params.sku || '').toUpperCase()
     if (!sku) {
-      return res.status(400).json({ success: false, error: 'SKU is required' })
+      return fail(res, 400, 'SKU is required', 'VALIDATION')
     }
 
     const product = await getCatalogProductBySku(sku)
     if (!product) {
-      return res.status(404).json({ success: false, error: 'Product not found' })
+      return fail(res, 404, 'Product not found', 'NOT_FOUND')
     }
-    return res.json({ success: true, data: product })
+    return ok(res, product)
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      error: 'Failed to load product details',
-      details: error instanceof Error ? error.message : 'Unknown error',
-    })
+    next(error)
   }
 }
 
-export const restockNotifyHandler = async (req: Request, res: Response) => {
-  const parsed = restockPayloadSchema.safeParse(req.body)
-  if (!parsed.success) {
-    return res.status(400).json({
-      success: false,
-      data: null,
-      error: parsed.error.issues.map((issue) => issue.message).join('; '),
-    })
-  }
-
+export const restockNotifyHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const parsed = restockPayloadSchema.safeParse(req.body)
+    if (!parsed.success) {
+      throw new HttpError(400, zodErrorMessage(parsed.error.issues), 'VALIDATION', parsed.error.issues)
+    }
+
     await notifyRestockRequestByTelegram(parsed.data)
-    return res.json({
-      success: true,
-      data: { notified: true },
-      error: null,
-    })
+    return ok(res, { notified: true })
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      data: null,
-      error: error instanceof Error ? error.message : 'Failed to send restock notification',
-    })
+    next(error)
   }
 }

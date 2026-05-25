@@ -1,4 +1,4 @@
-import type { Request, Response } from 'express'
+import type { NextFunction, Request, Response } from 'express'
 import { z } from 'zod'
 
 import {
@@ -11,6 +11,7 @@ import {
 } from '../services/admin-orders.service'
 import { notifyClientStatusChange } from '../services/order-notifications.service'
 import { env } from '../utils/env'
+import { fail, HttpError, ok, zodErrorMessage } from '../utils/api-response'
 
 const parseTelegramUserId = (req: Request): number | null => {
   const raw = req.header('x-telegram-user-id') ?? req.body?.telegramUserId
@@ -21,11 +22,7 @@ const parseTelegramUserId = (req: Request): number | null => {
 const assertAdmin = (req: Request, res: Response): number | null => {
   const telegramUserId = parseTelegramUserId(req)
   if (!telegramUserId || !env.adminTelegramIds.includes(telegramUserId)) {
-    res.status(403).json({
-      success: false,
-      data: null,
-      error: 'Forbidden: admin access required',
-    })
+    fail(res, 403, 'Forbidden: admin access required', 'FORBIDDEN')
     return null
   }
   return telegramUserId
@@ -34,7 +31,7 @@ const assertAdmin = (req: Request, res: Response): number | null => {
 const parseOrderId = (req: Request, res: Response): number | null => {
   const parsed = Number(req.params.id)
   if (!Number.isInteger(parsed) || parsed <= 0) {
-    res.status(400).json({ success: false, data: null, error: 'Invalid order id' })
+    fail(res, 400, 'Invalid order id', 'VALIDATION')
     return null
   }
   return parsed
@@ -46,10 +43,10 @@ const patchBodySchema = z.object({
   deliveryEta: z.string().nullable().optional(),
 })
 
-export const listAdminOrdersHandler = async (req: Request, res: Response) => {
-  if (!assertAdmin(req, res)) return
-
+export const listAdminOrdersHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    if (!assertAdmin(req, res)) return
+
     const data = await listAdminOrders({
       status: typeof req.query.status === 'string' ? req.query.status : undefined,
       q: typeof req.query.q === 'string' ? req.query.q : undefined,
@@ -58,64 +55,49 @@ export const listAdminOrdersHandler = async (req: Request, res: Response) => {
       page: req.query.page,
       pageSize: req.query.pageSize,
     })
-    res.json({ success: true, data, error: null })
+    return ok(res, data)
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      data: null,
-      error: error instanceof Error ? error.message : 'Failed to list orders',
-    })
+    next(error)
   }
 }
 
-export const getAdminOrderByIdHandler = async (req: Request, res: Response) => {
-  if (!assertAdmin(req, res)) return
-  const orderId = parseOrderId(req, res)
-  if (orderId == null) return
-
+export const getAdminOrderByIdHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    if (!assertAdmin(req, res)) return
+    const orderId = parseOrderId(req, res)
+    if (orderId == null) return
+
     const order = await getAdminOrderById(orderId)
     if (!order) {
-      res.status(404).json({ success: false, data: null, error: 'Order not found' })
-      return
+      return fail(res, 404, 'Order not found', 'NOT_FOUND')
     }
-    res.json({ success: true, data: order, error: null })
+    return ok(res, order)
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      data: null,
-      error: error instanceof Error ? error.message : 'Failed to load order',
-    })
+    next(error)
   }
 }
 
-export const patchAdminOrderHandler = async (req: Request, res: Response) => {
-  const managerTelegramId = assertAdmin(req, res)
-  if (managerTelegramId == null) return
-
-  const orderId = parseOrderId(req, res)
-  if (orderId == null) return
-
-  const parsed = patchBodySchema.safeParse(req.body)
-  if (!parsed.success) {
-    res.status(400).json({
-      success: false,
-      data: null,
-      error: parsed.error.issues.map((i) => i.message).join('; '),
-    })
-    return
-  }
-
-  if (
-    parsed.data.status === undefined &&
-    parsed.data.adminComment === undefined &&
-    parsed.data.deliveryEta === undefined
-  ) {
-    res.status(400).json({ success: false, data: null, error: 'No fields to update' })
-    return
-  }
-
+export const patchAdminOrderHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const managerTelegramId = assertAdmin(req, res)
+    if (managerTelegramId == null) return
+
+    const orderId = parseOrderId(req, res)
+    if (orderId == null) return
+
+    const parsed = patchBodySchema.safeParse(req.body)
+    if (!parsed.success) {
+      throw new HttpError(400, zodErrorMessage(parsed.error.issues), 'VALIDATION', parsed.error.issues)
+    }
+
+    if (
+      parsed.data.status === undefined &&
+      parsed.data.adminComment === undefined &&
+      parsed.data.deliveryEta === undefined
+    ) {
+      return fail(res, 400, 'No fields to update', 'VALIDATION')
+    }
+
     const result = await updateAdminOrder(
       orderId,
       {
@@ -127,8 +109,7 @@ export const patchAdminOrderHandler = async (req: Request, res: Response) => {
     )
 
     if (!result) {
-      res.status(404).json({ success: false, data: null, error: 'Order not found' })
-      return
+      return fail(res, 404, 'Order not found', 'NOT_FOUND')
     }
 
     const newStatus = parsed.data.status ?? result.order.status
@@ -140,33 +121,33 @@ export const patchAdminOrderHandler = async (req: Request, res: Response) => {
       )
     }
 
-    res.json({ success: true, data: result.order, error: null })
+    return ok(res, result.order)
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      data: null,
-      error: error instanceof Error ? error.message : 'Failed to update order',
-    })
+    next(error)
   }
 }
 
-export const restockAdminOrderHandler = async (req: Request, res: Response) => {
-  if (!assertAdmin(req, res)) return
-  const orderId = parseOrderId(req, res)
-  if (orderId == null) return
-
+export const restockAdminOrderHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    if (!assertAdmin(req, res)) return
+    const orderId = parseOrderId(req, res)
+    if (orderId == null) return
+
     const order = await restockAdminOrder(orderId)
-    res.json({ success: true, data: order, error: null })
+    return ok(res, order)
   } catch (error) {
     const statusCode =
       error instanceof Error && (error as Error & { statusCode?: number }).statusCode === 409
         ? 409
-        : 500
-    res.status(statusCode).json({
-      success: false,
-      data: null,
-      error: error instanceof Error ? error.message : 'Failed to restock order',
-    })
+        : undefined
+    if (statusCode === 409) {
+      return fail(
+        res,
+        409,
+        error instanceof Error ? error.message : 'Conflict',
+        'CONFLICT',
+      )
+    }
+    next(error)
   }
 }

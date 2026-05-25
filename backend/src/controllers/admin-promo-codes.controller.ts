@@ -1,4 +1,4 @@
-import type { Request, Response } from 'express'
+import type { NextFunction, Request, Response } from 'express'
 import { z } from 'zod'
 
 import {
@@ -9,6 +9,7 @@ import {
   updatePromoCode,
 } from '../services/admin-promo-codes.service'
 import { env } from '../utils/env'
+import { fail, HttpError, ok, zodErrorMessage } from '../utils/api-response'
 
 const parseTelegramUserId = (req: Request): number | null => {
   const headerId = req.header('x-telegram-user-id')
@@ -21,11 +22,7 @@ const parseTelegramUserId = (req: Request): number | null => {
 const assertAdmin = (req: Request, res: Response): boolean => {
   const telegramUserId = parseTelegramUserId(req)
   if (!telegramUserId || !env.adminTelegramIds.includes(telegramUserId)) {
-    res.status(403).json({
-      success: false,
-      data: null,
-      error: 'Forbidden: admin access required',
-    })
+    fail(res, 403, 'Forbidden: admin access required', 'FORBIDDEN')
     return false
   }
   return true
@@ -60,59 +57,50 @@ const emptyToNull = (value: string | null | undefined): string | null => {
   return value
 }
 
-export const listAdminPromoCodesHandler = async (req: Request, res: Response) => {
-  if (!assertAdmin(req, res)) return
+export const listAdminPromoCodesHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    if (!assertAdmin(req, res)) return
     const items = await listPromoCodes()
-    res.json({ success: true, data: items, error: null })
+    return ok(res, items)
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      data: null,
-      error: error instanceof Error ? error.message : 'Failed to list promo codes',
-    })
+    next(error)
   }
 }
 
-export const createAdminPromoCodeHandler = async (req: Request, res: Response) => {
-  if (!assertAdmin(req, res)) return
-  const parsed = createPromoSchema.safeParse(req.body)
-  if (!parsed.success) {
-    return res.status(400).json({
-      success: false,
-      data: null,
-      error: parsed.error.issues.map((issue) => issue.message).join('; '),
-    })
-  }
+export const createAdminPromoCodeHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    if (!assertAdmin(req, res)) return
+    const parsed = createPromoSchema.safeParse(req.body)
+    if (!parsed.success) {
+      throw new HttpError(400, zodErrorMessage(parsed.error.issues), 'VALIDATION', parsed.error.issues)
+    }
+
     const created = await createPromoCode({
       ...parsed.data,
       startsAt: emptyToNull(parsed.data.startsAt as string | null | undefined),
       expiresAt: emptyToNull(parsed.data.expiresAt as string | null | undefined),
     })
-    res.status(201).json({ success: true, data: created, error: null })
+    return ok(res, created, 201)
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to create promo code'
-    const status = message.includes('unique') || message.includes('duplicate') ? 409 : 500
-    res.status(status).json({ success: false, data: null, error: message })
+    if (message.includes('unique') || message.includes('duplicate')) {
+      return fail(res, 409, message, 'CONFLICT')
+    }
+    next(error)
   }
 }
 
-export const patchAdminPromoCodeHandler = async (req: Request, res: Response) => {
-  if (!assertAdmin(req, res)) return
-  const id = parseId(req.params.id)
-  if (!id) return res.status(400).json({ success: false, data: null, error: 'Invalid promo id' })
-
-  const parsed = patchPromoSchema.safeParse(req.body)
-  if (!parsed.success) {
-    return res.status(400).json({
-      success: false,
-      data: null,
-      error: parsed.error.issues.map((issue) => issue.message).join('; '),
-    })
-  }
-
+export const patchAdminPromoCodeHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    if (!assertAdmin(req, res)) return
+    const id = parseId(req.params.id)
+    if (!id) return fail(res, 400, 'Invalid promo id', 'VALIDATION')
+
+    const parsed = patchPromoSchema.safeParse(req.body)
+    if (!parsed.success) {
+      throw new HttpError(400, zodErrorMessage(parsed.error.issues), 'VALIDATION', parsed.error.issues)
+    }
+
     const patch = {
       ...parsed.data,
       startsAt:
@@ -126,49 +114,43 @@ export const patchAdminPromoCodeHandler = async (req: Request, res: Response) =>
     }
     const updated = await updatePromoCode(id, patch)
     if (!updated) {
-      return res.status(404).json({ success: false, data: null, error: 'Promo code not found' })
+      return fail(res, 404, 'Promo code not found', 'NOT_FOUND')
     }
-    res.json({ success: true, data: updated, error: null })
+    return ok(res, updated)
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to update promo code'
-    const status = message.includes('unique') || message.includes('duplicate') ? 409 : 500
-    res.status(status).json({ success: false, data: null, error: message })
+    if (message.includes('unique') || message.includes('duplicate')) {
+      return fail(res, 409, message, 'CONFLICT')
+    }
+    next(error)
   }
 }
 
-export const deleteAdminPromoCodeHandler = async (req: Request, res: Response) => {
-  if (!assertAdmin(req, res)) return
-  const id = parseId(req.params.id)
-  if (!id) return res.status(400).json({ success: false, data: null, error: 'Invalid promo id' })
-
+export const deleteAdminPromoCodeHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    if (!assertAdmin(req, res)) return
+    const id = parseId(req.params.id)
+    if (!id) return fail(res, 400, 'Invalid promo id', 'VALIDATION')
+
     const deleted = await deletePromoCode(id)
     if (!deleted) {
-      return res.status(404).json({ success: false, data: null, error: 'Promo code not found' })
+      return fail(res, 404, 'Promo code not found', 'NOT_FOUND')
     }
-    res.json({ success: true, data: { deleted: true }, error: null })
+    return ok(res, { deleted: true })
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      data: null,
-      error: error instanceof Error ? error.message : 'Failed to delete promo code',
-    })
+    next(error)
   }
 }
 
-export const listAdminPromoCodeUsagesHandler = async (req: Request, res: Response) => {
-  if (!assertAdmin(req, res)) return
-  const id = parseId(req.params.id)
-  if (!id) return res.status(400).json({ success: false, data: null, error: 'Invalid promo id' })
-
+export const listAdminPromoCodeUsagesHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    if (!assertAdmin(req, res)) return
+    const id = parseId(req.params.id)
+    if (!id) return fail(res, 400, 'Invalid promo id', 'VALIDATION')
+
     const usages = await listPromoCodeUsages(id)
-    res.json({ success: true, data: usages, error: null })
+    return ok(res, usages)
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      data: null,
-      error: error instanceof Error ? error.message : 'Failed to load promo usages',
-    })
+    next(error)
   }
 }
