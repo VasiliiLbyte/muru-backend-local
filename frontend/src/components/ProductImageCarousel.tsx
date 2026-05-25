@@ -1,5 +1,6 @@
-import { useMemo } from 'react'
+import { useMemo, useRef } from 'react'
 
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock'
 import { useImageCarouselSwipe } from '../hooks/useImageCarouselSwipe'
 import { pressableTight } from '../lib/uiClasses'
 import { SmartImage } from './SmartImage'
@@ -21,27 +22,43 @@ export const ProductImageCarousel = ({
   priority = false,
   onImageActivate,
 }: ProductImageCarouselProps) => {
+  const viewportRef = useRef<HTMLDivElement>(null)
+
   const slideImages = useMemo(
     () => (images.length > 0 ? images : ['https://placehold.co/600x600?text=MURU']),
     [images],
   )
 
-  const { index, setIndex, canSwipe, trackStyle, shouldSuppressClick, pointerHandlers } =
-    useImageCarouselSwipe({ count: slideImages.length })
+  const {
+    index,
+    setIndex,
+    canSwipe,
+    isInteracting,
+    trackStyle,
+    shouldSuppressClick,
+    pointerHandlers,
+  } = useImageCarouselSwipe({ count: slideImages.length, viewportRef })
+
+  useBodyScrollLock(isInteracting && canSwipe)
 
   const handleClick = () => {
     if (!onImageActivate || shouldSuppressClick()) return
     onImageActivate()
   }
 
+  const viewportStyle = canSwipe
+    ? { touchAction: 'none' as const, overscrollBehavior: 'contain' as const }
+    : undefined
+
   return (
     <div className="w-full">
       <div
+        ref={viewportRef}
         role="region"
         aria-roledescription="carousel"
         aria-label={`Фотографии: ${alt}`}
         className={`overflow-hidden rounded-xl touch-manipulation select-none ${onImageActivate ? 'cursor-pointer' : ''}`}
-        style={{ touchAction: 'pan-y' }}
+        style={viewportStyle}
         onClick={onImageActivate ? handleClick : undefined}
         {...pointerHandlers}
       >

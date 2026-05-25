@@ -31,6 +31,10 @@ export type TelegramWebApp = {
   /** Показать системное подтверждение при закрытии Mini App (крестик в Telegram). */
   enableClosingConfirmation?: () => void
   disableClosingConfirmation?: () => void
+  /** Bot API 7.7+: свайп вниз по контенту не сворачивает Mini App (только шапка TG). */
+  disableVerticalSwipes?: () => void
+  enableVerticalSwipes?: () => void
+  isVerticalSwipesEnabled?: boolean
   close?: () => void
 }
 

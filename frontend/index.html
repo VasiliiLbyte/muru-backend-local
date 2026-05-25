@@ -9,6 +9,7 @@
         try {
           tg.ready()
           tg.expand()
+          if (typeof tg.disableVerticalSwipes === 'function') tg.disableVerticalSwipes()
         } catch (e) {
           console.warn('[muru] Telegram WebApp init', e)
         }

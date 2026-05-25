@@ -1,17 +1,20 @@
-import { useCallback, useRef, useState, type CSSProperties, type PointerEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type PointerEvent, type RefObject } from 'react'
 
 const SWIPE_THRESHOLD_PX = 40
 const SUPPRESS_CLICK_MS = 300
+const GESTURE_START_PX = 6
 
 type UseImageCarouselSwipeOptions = {
   count: number
   onIndexChange?: (index: number) => void
+  viewportRef?: RefObject<HTMLElement | null>
 }
 
-export const useImageCarouselSwipe = ({ count, onIndexChange }: UseImageCarouselSwipeOptions) => {
+export const useImageCarouselSwipe = ({ count, onIndexChange, viewportRef }: UseImageCarouselSwipeOptions) => {
   const [index, setIndexState] = useState(0)
   const [dragOffsetPx, setDragOffsetPx] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
+  const [isInteracting, setIsInteracting] = useState(false)
   const draggingRef = useRef(false)
 
   const startXRef = useRef(0)
@@ -20,7 +23,6 @@ export const useImageCarouselSwipe = ({ count, onIndexChange }: UseImageCarousel
   const isHorizontalRef = useRef(false)
   const didSwipeRef = useRef(false)
   const suppressClickUntilRef = useRef(0)
-  const containerWidthRef = useRef(0)
 
   const safeCount = Math.max(count, 1)
   const safeIndex = Math.min(index, safeCount - 1)
@@ -33,6 +35,13 @@ export const useImageCarouselSwipe = ({ count, onIndexChange }: UseImageCarousel
     },
     [onIndexChange, safeCount],
   )
+
+  const endInteraction = useCallback(() => {
+    draggingRef.current = false
+    setIsDragging(false)
+    setIsInteracting(false)
+    isHorizontalRef.current = false
+  }, [])
 
   const commitDrag = useCallback(() => {
     const dx = dragXRef.current
@@ -47,18 +56,26 @@ export const useImageCarouselSwipe = ({ count, onIndexChange }: UseImageCarousel
     }
     dragXRef.current = 0
     setDragOffsetPx(0)
-    draggingRef.current = false
-    setIsDragging(false)
-    isHorizontalRef.current = false
-  }, [safeIndex, setIndex])
+    endInteraction()
+  }, [endInteraction, safeIndex, setIndex])
 
   const canSwipe = count > 1
+
+  const applyDrag = useCallback(
+    (dx: number) => {
+      const atStart = safeIndex === 0 && dx > 0
+      const atEnd = safeIndex === safeCount - 1 && dx < 0
+      const resisted = atStart || atEnd ? dx * 0.35 : dx
+      dragXRef.current = resisted
+      setDragOffsetPx(resisted)
+    },
+    [safeCount, safeIndex],
+  )
 
   const onPointerDown = useCallback(
     (event: PointerEvent<HTMLElement>) => {
       if (!canSwipe) return
       const el = event.currentTarget
-      containerWidthRef.current = el.clientWidth
       startXRef.current = event.clientX
       startYRef.current = event.clientY
       dragXRef.current = 0
@@ -66,6 +83,7 @@ export const useImageCarouselSwipe = ({ count, onIndexChange }: UseImageCarousel
       didSwipeRef.current = false
       draggingRef.current = true
       setIsDragging(true)
+      setIsInteracting(true)
       el.setPointerCapture(event.pointerId)
     },
     [canSwipe],
@@ -79,26 +97,14 @@ export const useImageCarouselSwipe = ({ count, onIndexChange }: UseImageCarousel
       const dy = event.clientY - startYRef.current
 
       if (!isHorizontalRef.current) {
-        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return
-        if (Math.abs(dx) > Math.abs(dy)) {
-          isHorizontalRef.current = true
-        } else {
-          event.currentTarget.releasePointerCapture(event.pointerId)
-          draggingRef.current = false
-          setIsDragging(false)
-          setDragOffsetPx(0)
-          return
-        }
+        if (Math.hypot(dx, dy) < GESTURE_START_PX) return
+        isHorizontalRef.current = true
       }
 
       event.preventDefault()
-      const atStart = safeIndex === 0 && dx > 0
-      const atEnd = safeIndex === safeCount - 1 && dx < 0
-      const resisted = atStart || atEnd ? dx * 0.35 : dx
-      dragXRef.current = resisted
-      setDragOffsetPx(resisted)
+      applyDrag(dx)
     },
-    [canSwipe, safeCount, safeIndex],
+    [applyDrag, canSwipe],
   )
 
   const onPointerUp = useCallback(
@@ -110,12 +116,12 @@ export const useImageCarouselSwipe = ({ count, onIndexChange }: UseImageCarousel
       if (isHorizontalRef.current) {
         commitDrag()
       } else {
-        draggingRef.current = false
-        setIsDragging(false)
+        dragXRef.current = 0
         setDragOffsetPx(0)
+        endInteraction()
       }
     },
-    [canSwipe, commitDrag],
+    [canSwipe, commitDrag, endInteraction],
   )
 
   const onPointerCancel = useCallback(
@@ -126,12 +132,23 @@ export const useImageCarouselSwipe = ({ count, onIndexChange }: UseImageCarousel
       }
       dragXRef.current = 0
       setDragOffsetPx(0)
-      draggingRef.current = false
-      setIsDragging(false)
-      isHorizontalRef.current = false
+      endInteraction()
     },
-    [canSwipe],
+    [canSwipe, endInteraction],
   )
+
+  useEffect(() => {
+    const el = viewportRef?.current
+    if (!el || !canSwipe) return
+
+    const onTouchMove = (event: TouchEvent) => {
+      if (!draggingRef.current) return
+      event.preventDefault()
+    }
+
+    el.addEventListener('touchmove', onTouchMove, { passive: false })
+    return () => el.removeEventListener('touchmove', onTouchMove)
+  }, [canSwipe, viewportRef])
 
   const shouldSuppressClick = useCallback(() => {
     if (didSwipeRef.current) return true
@@ -148,6 +165,7 @@ export const useImageCarouselSwipe = ({ count, onIndexChange }: UseImageCarousel
     setIndex,
     dragOffsetPx,
     isDragging,
+    isInteracting,
     canSwipe,
     trackStyle,
     shouldSuppressClick,

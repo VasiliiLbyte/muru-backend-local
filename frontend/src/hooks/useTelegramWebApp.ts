@@ -81,6 +81,7 @@ export const useTelegramWebApp = () => {
 
     webApp.ready()
     webApp.expand()
+    webApp.disableVerticalSwipes?.()
     webApp.BackButton.hide()
     webApp.MainButton.hide()
     webApp.enableClosingConfirmation?.()
