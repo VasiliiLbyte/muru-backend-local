@@ -47,8 +47,11 @@ const createPromoSchema = z.object({
 
 const patchPromoSchema = createPromoSchema.partial()
 
-const parseId = (raw: string | undefined): number | null => {
-  const id = Number(raw)
+const routeParam = (value: string | string[] | undefined): string | undefined =>
+  Array.isArray(value) ? value[0] : value
+
+const parseId = (raw: string | string[] | undefined): number | null => {
+  const id = Number(routeParam(raw))
   return Number.isInteger(id) && id > 0 ? id : null
 }
 

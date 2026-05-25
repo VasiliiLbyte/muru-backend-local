@@ -1,3 +1,7 @@
+-- Usage (on VPS, load DATABASE_URL from backend .env first):
+--   set -a && source /var/www/muru/backend/.env && set +a
+--   psql "$DATABASE_URL" -f backend/src/db/migrations/005_promo_codes.sql
+
 CREATE TABLE IF NOT EXISTS promo_codes (
   id SERIAL PRIMARY KEY,
   code TEXT NOT NULL UNIQUE,
