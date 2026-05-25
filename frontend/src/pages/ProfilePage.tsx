@@ -131,11 +131,8 @@ export const ProfilePage = ({
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#ff986e] to-[#ff5a6e] text-2xl font-semibold text-white shadow-sm">
             {initials}
           </div>
-          <div className="text-sm leading-6 text-[#4f4545]">
+          <div className="text-sm text-[#4f4545]">
             <p className="text-base font-semibold">{profileData.fullName || 'Пользователь Telegram'}</p>
-            <p>Баланс: 0 ₽</p>
-            <p>Бонусы: 0 ❤️</p>
-            <p className="font-medium text-[#8f2b2b]">Персональная скидка: 10%</p>
           </div>
         </div>
       </div>
