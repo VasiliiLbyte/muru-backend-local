@@ -38,12 +38,13 @@ type CartContextValue = {
 
 const defaultCheckout: CheckoutForm = {
   deliveryMode: 'delivery',
-  deliveryOption: 'Курьер CDEK',
-  deliveryPrice: 390,
-  deliveryEta: '2-4 дня',
+  deliveryOption: 'DOOR',
+  deliveryPrice: 0,
+  deliveryEta: '',
   address: '',
   comment: '',
   birthDate: '',
+  cdekExtras: undefined,
 }
 
 const CartContext = createContext<CartContextValue | null>(null)

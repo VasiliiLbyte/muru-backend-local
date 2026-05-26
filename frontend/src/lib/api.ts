@@ -632,6 +632,52 @@ export const fetchCatalogProductBySku = async (sku: string): Promise<CatalogProd
   return parseApi<CatalogProductDetail>(response)
 }
 
+export type CdekCity = { code: number; full_name: string; city: string; region: string }
+export type CdekPvz = {
+  code: string
+  name: string
+  address: string
+  workTime: string
+  phones: string[]
+  location: { latitude: number; longitude: number }
+  weightMax?: number
+  note?: string
+}
+export type CdekTariffOption = {
+  tariffCode: number
+  deliverySum: number
+  periodMin: number
+  periodMax: number
+} | null
+export type CdekCalcResult = { door: CdekTariffOption; pvz: CdekTariffOption; errors: string[] }
+
+export const fetchCdekCities = async (q: string): Promise<CdekCity[]> => {
+  if (q.trim().length < 2) return []
+  const response = await safeFetch(
+    `${API_BASE_URL}/api/cdek/cities?q=${encodeURIComponent(q)}`,
+  )
+  return parseApi<CdekCity[]>(response)
+}
+
+export const fetchCdekPvz = async (cityCode: number): Promise<CdekPvz[]> => {
+  const response = await safeFetch(
+    `${API_BASE_URL}/api/cdek/pickup-points?cityCode=${cityCode}`,
+  )
+  return parseApi<CdekPvz[]>(response)
+}
+
+export const calculateCdek = async (input: {
+  toCityCode: number
+  items: Array<{ sku: string; quantity: number }>
+}): Promise<CdekCalcResult> => {
+  const response = await safeFetch(`${API_BASE_URL}/api/cdek/calculate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify(input),
+  })
+  return parseApi<CdekCalcResult>(response)
+}
+
 export const notifyRestock = async (payloadBody: {
   telegramUserId: number
   sku: string

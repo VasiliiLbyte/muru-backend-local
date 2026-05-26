@@ -1,5 +1,13 @@
 export type DeliveryMode = 'delivery' | 'pickup'
 
+export type CdekCheckoutExtras = {
+  cdekTariffCode?: number
+  cdekCityCode?: number
+  cdekCityName?: string
+  cdekPvzCode?: string | null
+  cdekPvzAddress?: string | null
+}
+
 export type CartItem = {
   sku: string
   name: string
@@ -18,6 +26,7 @@ export type CheckoutForm = {
   address: string
   comment: string
   birthDate: string
+  cdekExtras?: CdekCheckoutExtras
 }
 
 export type DraftOrder = {
