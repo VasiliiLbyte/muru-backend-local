@@ -44,6 +44,25 @@ describe('suggestCities', () => {
     })
   })
 
+  it('derives city from full_name when CDEK omits city field', async () => {
+    cdekFetchMock.mockResolvedValue([
+      {
+        code: 137,
+        full_name: 'Санкт-Петербург, Россия',
+        country_code: 'RU',
+      },
+    ])
+
+    const result = await suggestCities('сан')
+    expect(result[0]).toEqual({
+      code: 137,
+      full_name: 'Санкт-Петербург, Россия',
+      city: 'Санкт-Петербург',
+      region: '',
+      country_code: 'RU',
+    })
+  })
+
   it('uses cache on repeated query', async () => {
     cdekFetchMock.mockResolvedValue([
       { code: 44, full_name: 'Москва', city: 'Москва', country_code: 'RU' },

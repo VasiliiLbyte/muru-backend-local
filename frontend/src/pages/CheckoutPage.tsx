@@ -23,8 +23,12 @@ const formatEta = (option: CdekTariffOption | null | undefined): string => {
   return `${option.periodMin}–${option.periodMax} дн.`
 }
 
-const formatCityLabel = (city: CdekCity) =>
-  city.region ? `${city.city} (${city.region})` : city.city
+const formatCityLabel = (city: CdekCity) => {
+  const name = (city.city || city.full_name || '').trim()
+  if (!name) return `Город ${city.code}`
+  if (city.region) return `${name} (${city.region})`
+  return city.full_name.trim() || name
+}
 
 export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
   const {
@@ -353,7 +357,7 @@ export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
               <button
                 key={`${city.code}-${city.full_name}`}
                 type="button"
-                className={`${pressable} rounded-lg bg-[#efe8d8] px-2 py-1 text-left text-xs`}
+                className={`${pressable} rounded-lg bg-[#efe8d8] px-2 py-1 text-left text-xs text-muru-text`}
                 onClick={() => selectCity(city)}
               >
                 {formatCityLabel(city)}
