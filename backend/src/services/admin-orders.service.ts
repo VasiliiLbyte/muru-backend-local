@@ -40,6 +40,12 @@ export type AdminOrderDetail = AdminOrderListItem & {
   subtotal: number
   promoCode: string | null
   promoDiscount: number
+  cdekSyncState: string
+  cdekUuid: string | null
+  cdekTrackNumber: string | null
+  cdekStatus: string | null
+  cdekStatusUpdatedAt: string | null
+  cdekCreateError: string | null
 }
 
 export type AdminOrdersListFilters = {
@@ -288,6 +294,12 @@ export const getAdminOrderById = async (orderId: number): Promise<AdminOrderDeta
     created_at: string
     customer_name: string | null
     customer_phone: string | null
+    cdek_sync_state: string
+    cdek_uuid: string | null
+    cdek_track_number: string | null
+    cdek_status: string | null
+    cdek_status_updated_at: string | null
+    cdek_create_error: string | null
   }>(
     `SELECT
        o.id,
@@ -305,6 +317,12 @@ export const getAdminOrderById = async (orderId: number): Promise<AdminOrderDeta
        o.promo_code,
        o.promo_discount::text,
        o.created_at::text,
+       o.cdek_sync_state,
+       o.cdek_uuid,
+       o.cdek_track_number,
+       o.cdek_status,
+       o.cdek_status_updated_at::text,
+       o.cdek_create_error,
        up.full_name AS customer_name,
        up.phone AS customer_phone
      FROM orders o
@@ -337,6 +355,12 @@ export const getAdminOrderById = async (orderId: number): Promise<AdminOrderDeta
     customerPhone: row.customer_phone,
     promoCode: row.promo_code,
     promoDiscount: toNumber(row.promo_discount),
+    cdekSyncState: row.cdek_sync_state,
+    cdekUuid: row.cdek_uuid,
+    cdekTrackNumber: row.cdek_track_number,
+    cdekStatus: row.cdek_status,
+    cdekStatusUpdatedAt: row.cdek_status_updated_at,
+    cdekCreateError: row.cdek_create_error,
     items,
   }
 }

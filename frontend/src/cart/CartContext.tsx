@@ -223,6 +223,11 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
           comment: checkout.comment,
           birthDate: checkout.birthDate || undefined,
           promoCode: activatedPromo?.code,
+          cdekTariffCode: checkout.cdekExtras?.cdekTariffCode,
+          cdekCityCode: checkout.cdekExtras?.cdekCityCode,
+          cdekCityName: checkout.cdekExtras?.cdekCityName,
+          cdekPvzCode: checkout.cdekExtras?.cdekPvzCode ?? null,
+          cdekPvzAddress: checkout.cdekExtras?.cdekPvzAddress ?? null,
         })
         setItems([])
         setCheckout(defaultCheckout)

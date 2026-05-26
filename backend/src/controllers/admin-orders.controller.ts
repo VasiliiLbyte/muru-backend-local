@@ -127,6 +127,26 @@ export const patchAdminOrderHandler = async (req: Request, res: Response, next: 
   }
 }
 
+export const retryCdekOrderHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (!assertAdmin(req, res)) return
+    const orderId = parseOrderId(req, res)
+    if (orderId == null) return
+
+    const { pool } = await import('../utils/db')
+    await pool.query(
+      `UPDATE orders SET cdek_sync_state = 'pending', cdek_create_error = NULL WHERE id = $1`,
+      [orderId],
+    )
+
+    const { createCdekOrder } = await import('../services/cdek/orders.service')
+    const result = await createCdekOrder(orderId)
+    return ok(res, { uuid: result?.uuid ?? null })
+  } catch (error) {
+    next(error)
+  }
+}
+
 export const restockAdminOrderHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
     if (!assertAdmin(req, res)) return

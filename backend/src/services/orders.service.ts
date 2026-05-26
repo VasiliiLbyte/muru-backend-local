@@ -259,8 +259,9 @@ export const createOrder = async (input: CheckoutDraftInput): Promise<OrderDraft
       `INSERT INTO orders (
         telegram_user_id, status, delivery_mode, delivery_option, delivery_price, delivery_eta,
         address, comment, birth_date, subtotal, total, promo_code, promo_discount,
+        cdek_tariff_code, cdek_to_city_code, cdek_to_city_name, cdek_pvz_code, cdek_pvz_address,
         is_draft, created_at, updated_at
-      ) VALUES ($1, 'Новый', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, FALSE, NOW(), NOW())
+      ) VALUES ($1, 'Новый', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, FALSE, NOW(), NOW())
       RETURNING id, telegram_user_id, status, delivery_mode, delivery_option, delivery_price::text,
                 delivery_eta, address, comment, birth_date::text, subtotal::text, total::text,
                 promo_code, promo_discount::text`,
@@ -277,6 +278,11 @@ export const createOrder = async (input: CheckoutDraftInput): Promise<OrderDraft
         total,
         promoCodeStored,
         promoDiscount,
+        input.cdekTariffCode ?? null,
+        input.cdekCityCode ?? null,
+        input.cdekCityName ?? null,
+        input.cdekPvzCode ?? null,
+        input.cdekPvzAddress ?? null,
       ],
     )
     const order = inserted.rows[0]
@@ -326,6 +332,18 @@ export const createOrder = async (input: CheckoutDraftInput): Promise<OrderDraft
        WHERE order_id = $1`,
       [order.id],
     )
+
+    if (input.cdekTariffCode && input.cdekCityCode) {
+      await pool.query(`UPDATE orders SET cdek_sync_state = 'pending' WHERE id = $1`, [order.id])
+      void (async () => {
+        try {
+          const { createCdekOrder } = await import('./cdek/orders.service')
+          await createCdekOrder(order.id)
+        } catch {
+          // logged inside createCdekOrder
+        }
+      })()
+    }
 
     return mapOrderDraft(order, itemsResult.rows)
   } catch (error) {

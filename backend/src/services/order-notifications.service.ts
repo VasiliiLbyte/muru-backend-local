@@ -107,6 +107,18 @@ export const notifyClientByTelegram = async (order: OrderDraft): Promise<void> =
   }
 }
 
+export const notifyAdminsCdekError = async (orderId: number, errMsg: string): Promise<void> => {
+  const text = `⚠️ Заказ #${orderId}: не удалось создать в СДЭК\n${errMsg}\nПовторить в админке.`
+  const targetIds = env.orderNotifyTelegramIds.length > 0 ? env.orderNotifyTelegramIds : env.adminTelegramIds
+
+  for (const chatId of targetIds) {
+    await callTelegramApi('sendMessage', {
+      chat_id: chatId,
+      text,
+    })
+  }
+}
+
 export const notifyRestockRequestByTelegram = async (payload: {
   telegramUserId: number
   sku: string

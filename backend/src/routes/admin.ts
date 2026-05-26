@@ -21,6 +21,7 @@ import {
   listAdminOrdersHandler,
   patchAdminOrderHandler,
   restockAdminOrderHandler,
+  retryCdekOrderHandler,
 } from '../controllers/admin-orders.controller'
 import {
   getCategoryCoverSyncJobState,
@@ -80,6 +81,11 @@ adminRouter.patch('/orders/:id', (req, res, next) => {
 adminRouter.post('/orders/:id/restock', (req, res, next) => {
   if (!isAdminRequest(req)) return adminForbidden(res)
   return restockAdminOrderHandler(req, res, next)
+})
+
+adminRouter.post('/orders/:id/cdek-retry', (req, res, next) => {
+  if (!isAdminRequest(req)) return adminForbidden(res)
+  return retryCdekOrderHandler(req, res, next)
 })
 
 adminRouter.get('/categories', getAdminCategoriesHandler)

@@ -20,6 +20,11 @@ export type CheckoutDraftInput = {
   comment?: string
   birthDate?: string
   promoCode?: string
+  cdekTariffCode?: number
+  cdekCityCode?: number
+  cdekCityName?: string
+  cdekPvzCode?: string | null
+  cdekPvzAddress?: string | null
 }
 
 export type OrderDraft = {

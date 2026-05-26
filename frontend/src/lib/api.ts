@@ -317,6 +317,12 @@ export type AdminOrderDetail = AdminOrderListItem & {
   subtotal: number
   promoCode: string | null
   promoDiscount: number
+  cdekSyncState: string
+  cdekUuid: string | null
+  cdekTrackNumber: string | null
+  cdekStatus: string | null
+  cdekStatusUpdatedAt: string | null
+  cdekCreateError: string | null
 }
 
 export type PromoDiscountType = 'percent' | 'fixed'
@@ -432,6 +438,18 @@ export const restockAdminOrder = async (
     body: JSON.stringify({}),
   })
   return parseApi<AdminOrderDetail>(response)
+}
+
+export const retryCdekForOrder = async (
+  telegramUserId: number,
+  orderId: number,
+): Promise<{ uuid: string | null }> => {
+  const response = await safeFetch(`${API_BASE_URL}/api/admin/orders/${orderId}/cdek-retry`, {
+    method: 'POST',
+    headers: adminTelegramHeadersPost(telegramUserId),
+    body: JSON.stringify({}),
+  })
+  return parseApi<{ uuid: string | null }>(response)
 }
 
 export const fetchAdminPromoCodes = async (telegramUserId: number): Promise<AdminPromoCode[]> => {
@@ -702,6 +720,11 @@ type DraftPayload = {
   comment?: string
   birthDate?: string
   promoCode?: string
+  cdekTariffCode?: number
+  cdekCityCode?: number
+  cdekCityName?: string
+  cdekPvzCode?: string | null
+  cdekPvzAddress?: string | null
 }
 
 export const fetchOrderDraft = async (telegramUserId: number): Promise<DraftOrder | null> => {

@@ -29,6 +29,11 @@ const draftPayloadSchema = z.object({
   comment: z.string().optional(),
   birthDate: z.string().optional(),
   promoCode: z.string().optional(),
+  cdekTariffCode: z.number().int().positive().optional(),
+  cdekCityCode: z.number().int().positive().optional(),
+  cdekCityName: z.string().optional(),
+  cdekPvzCode: z.string().nullable().optional(),
+  cdekPvzAddress: z.string().nullable().optional(),
 })
 
 const validatePromoBodySchema = z.object({

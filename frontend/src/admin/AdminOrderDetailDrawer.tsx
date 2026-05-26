@@ -4,6 +4,7 @@ import { SmartImage } from '../components/SmartImage'
 import {
   fetchAdminOrderById,
   restockAdminOrder,
+  retryCdekForOrder,
   updateAdminOrder,
   type AdminOrderDetail,
 } from '../lib/api'
@@ -194,6 +195,56 @@ export const AdminOrderDetailDrawer = ({
                   </p>
                 </div>
               ) : null}
+
+              <div className="rounded-xl bg-[#efe8d8] p-3">
+                <p className="font-medium text-muru-olive">СДЭК</p>
+                <p className="mt-1 text-sm">
+                  Статус интеграции:{' '}
+                  <span className="font-medium">
+                    {order.cdekSyncState && order.cdekSyncState !== 'none'
+                      ? order.cdekSyncState
+                      : '—'}
+                  </span>
+                </p>
+                <p className="mt-1 text-xs text-[#5c5346]">UUID: {order.cdekUuid ?? '—'}</p>
+                <p className="mt-1 text-xs text-[#5c5346]">Трек: {order.cdekTrackNumber ?? '—'}</p>
+                <p className="mt-1 text-xs text-[#5c5346]">
+                  Последнее обновление:{' '}
+                  {order.cdekStatusUpdatedAt
+                    ? new Date(order.cdekStatusUpdatedAt).toLocaleString('ru-RU')
+                    : '—'}
+                </p>
+                {order.cdekStatus ? (
+                  <p className="mt-1 text-xs text-[#5c5346]">Статус СДЭК: {order.cdekStatus}</p>
+                ) : null}
+                {order.cdekCreateError ? (
+                  <p className="mt-2 text-xs text-red-700">Ошибка: {order.cdekCreateError}</p>
+                ) : null}
+                {order.cdekSyncState === 'error' || order.cdekSyncState === 'pending' ? (
+                  <button
+                    type="button"
+                    className={`${pressableDisabled} mt-3 rounded-xl bg-[#e3dccd] px-3 py-2 text-xs font-medium`}
+                    disabled={busy}
+                    onClick={async () => {
+                      if (orderId == null) return
+                      setBusy(true)
+                      setError(null)
+                      try {
+                        await retryCdekForOrder(userId, orderId)
+                        await load()
+                      } catch (e) {
+                        setError(
+                          e instanceof Error ? e.message : 'Не удалось повторить создание в СДЭК',
+                        )
+                      } finally {
+                        setBusy(false)
+                      }
+                    }}
+                  >
+                    Повторить создание в СДЭК
+                  </button>
+                ) : null}
+              </div>
 
               <div className="rounded-xl bg-[#efe8d8] p-3">
                 <p className="font-medium text-muru-olive">Доставка</p>
