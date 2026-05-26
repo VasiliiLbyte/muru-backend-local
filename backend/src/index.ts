@@ -5,6 +5,7 @@ import express from 'express'
 import { adminRouter } from './routes/admin'
 import { imageRouter } from './routes/images'
 import { authRouter } from './routes/auth.routes'
+import { cdekRouter } from './routes/cdek.routes'
 import { catalogRouter } from './routes/catalog.routes'
 import { favoritesRouter } from './routes/favorites.routes'
 import { ordersRouter } from './routes/orders.routes'
@@ -51,6 +52,7 @@ app.use('/api/catalog', catalogRouter)
 app.use('/api/favorites', favoritesRouter)
 app.use('/api/orders', ordersRouter)
 app.use('/api/profile', profileRouter)
+app.use('/api/cdek', cdekRouter)
 
 app.get('/api/health', async (_req, res, next) => {
   try {

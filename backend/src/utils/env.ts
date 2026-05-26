@@ -48,6 +48,16 @@ const envSchema = z.object({
   GOOGLE_SHEET_ID: z.string().default('13oevOsZad_qZ6K8LvCy0Xa-MnALX1dBChS9jMajvaWo'),
   GOOGLE_DRIVE_FOLDER_ID: z.string().min(1, 'GOOGLE_DRIVE_FOLDER_ID is required'),
   IMAGE_CACHE_DIR: z.string().optional(),
+  CDEK_ENV: z.enum(['test', 'production']).default('test'),
+  CDEK_CLIENT_ID: z.string().optional(),
+  CDEK_CLIENT_SECRET: z.string().optional(),
+  CDEK_SENDER_CITY_CODE: z.string().default('44'),
+  CDEK_SENDER_ADDRESS: z.string().optional(),
+  CDEK_SENDER_NAME: z.string().optional(),
+  CDEK_SENDER_PHONE: z.string().optional(),
+  CDEK_TARIFF_DOOR: z.string().default('138'),
+  CDEK_TARIFF_PVZ: z.string().default('139'),
+  CDEK_WEBHOOK_SECRET: z.string().optional(),
 })
 
 const parsed = envSchema.safeParse(process.env)
@@ -55,6 +65,15 @@ const parsed = envSchema.safeParse(process.env)
 if (!parsed.success) {
   const details = parsed.error.issues.map((issue) => issue.message).join('; ')
   throw new Error(`Invalid environment: ${details}`)
+}
+
+if (parsed.data.CDEK_ENV === 'production') {
+  const cdekClientId = parsed.data.CDEK_CLIENT_ID?.trim()
+  const cdekClientSecret = parsed.data.CDEK_CLIENT_SECRET?.trim()
+  if (!cdekClientId || !cdekClientSecret) {
+    console.error('[env] CDEK_ENV=production requires CDEK_CLIENT_ID and CDEK_CLIENT_SECRET')
+    process.exit(1)
+  }
 }
 
 const rawAdminIds = parsed.data.ADMIN_TELEGRAM_IDS
@@ -127,4 +146,16 @@ export const env = {
   enableSheetsStockWrite,
   googleSheetId: parsed.data.GOOGLE_SHEET_ID,
   googleDriveFolderId: parsed.data.GOOGLE_DRIVE_FOLDER_ID,
+  cdek: {
+    env: parsed.data.CDEK_ENV === 'production' ? ('production' as const) : ('test' as const),
+    clientId: parsed.data.CDEK_CLIENT_ID?.trim() ?? '',
+    clientSecret: parsed.data.CDEK_CLIENT_SECRET?.trim() ?? '',
+    senderCityCode: Number(parsed.data.CDEK_SENDER_CITY_CODE) || 44,
+    senderAddress: parsed.data.CDEK_SENDER_ADDRESS?.trim() ?? '',
+    senderName: parsed.data.CDEK_SENDER_NAME?.trim() ?? '',
+    senderPhone: parsed.data.CDEK_SENDER_PHONE?.trim() ?? '',
+    tariffDoor: Number(parsed.data.CDEK_TARIFF_DOOR) || 138,
+    tariffPvz: Number(parsed.data.CDEK_TARIFF_PVZ) || 139,
+    webhookSecret: parsed.data.CDEK_WEBHOOK_SECRET?.trim() ?? '',
+  },
 }

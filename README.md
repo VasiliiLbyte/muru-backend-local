@@ -55,6 +55,12 @@ psql "$DATABASE_URL" -f backend/src/db/schema.sql
 psql "$DATABASE_URL" -f backend/src/db/migrations/001_category_cover_columns.sql
 ```
 
+CDEK (после `005_promo_codes.sql`):
+
+```bash
+psql "$DATABASE_URL" -f backend/src/db/migrations/006_cdek_orders.sql
+```
+
 Проверка: `psql "$DATABASE_URL" -c "\d categories"` — в списке колонок должны быть `cover_drive_filename` и `cover_image_url`.
 
 ## Run Frontend
