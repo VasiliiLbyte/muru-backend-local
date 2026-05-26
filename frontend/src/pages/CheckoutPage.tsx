@@ -5,6 +5,7 @@ import {
   calculateCdek,
   fetchCdekCities,
   fetchCdekPvz,
+  fetchMyProfile,
   type CdekCalcResult,
   type CdekCity,
   type CdekPvz,
@@ -56,6 +57,9 @@ export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
   const [calc, setCalc] = useState<CdekCalcResult | null>(null)
   const [calcLoading, setCalcLoading] = useState(false)
   const [houseAddress, setHouseAddress] = useState('')
+  const [recipientName, setRecipientName] = useState('')
+  const [recipientPhone, setRecipientPhone] = useState('')
+  const [draftHydrated, setDraftHydrated] = useState(false)
 
   const hasItems = useMemo(() => items.length > 0, [items.length])
 
@@ -64,10 +68,73 @@ export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
   const checkoutReady = useMemo(() => {
     if (!hasItems || calcLoading || !selectedCity) return false
     if (!selectedTariff) return false
+    if (recipientName.trim().length < 2) return false
+    const phoneDigits = recipientPhone.replace(/\D/g, '')
+    if (phoneDigits.length !== 10 && phoneDigits.length !== 11) return false
     if (deliveryType === 'door' && !houseAddress.trim()) return false
     if (deliveryType === 'pvz' && !selectedPvz) return false
     return true
-  }, [hasItems, calcLoading, selectedCity, selectedTariff, deliveryType, houseAddress, selectedPvz])
+  }, [
+    hasItems,
+    calcLoading,
+    selectedCity,
+    selectedTariff,
+    deliveryType,
+    houseAddress,
+    selectedPvz,
+    recipientName,
+    recipientPhone,
+  ])
+
+  useEffect(() => {
+    if (!userId) return
+    fetchMyProfile(userId)
+      .then((profile) => {
+        setRecipientName((prev) => (prev.trim() ? prev : profile.fullName))
+        setRecipientPhone((prev) => (prev.trim() ? prev : profile.phone))
+      })
+      .catch(() => undefined)
+  }, [userId])
+
+  useEffect(() => {
+    if (draftHydrated) return
+    const extras = checkout.cdekExtras
+    if (!extras?.cdekCityCode) return
+
+    const city: CdekCity = {
+      code: extras.cdekCityCode,
+      full_name: extras.cdekCityName ?? '',
+      city: extras.cdekCityName ?? '',
+      region: '',
+    }
+    setSelectedCity(city)
+    setCityQuery(city.full_name)
+
+    const isPvz = checkout.deliveryOption.startsWith('PVZ:')
+    setDeliveryType(isPvz ? 'pvz' : 'door')
+
+    if (checkout.recipientName) setRecipientName(checkout.recipientName)
+    if (checkout.recipientPhone) setRecipientPhone(checkout.recipientPhone)
+
+    if (!isPvz && checkout.address.includes(',')) {
+      const parts = checkout.address.split(',').slice(1).join(',').trim()
+      if (parts.startsWith('ПВЗ:')) {
+        // skip
+      } else if (parts) {
+        setHouseAddress(parts)
+      }
+    }
+
+    if (isPvz && extras.cdekPvzCode) {
+      void fetchCdekPvz(extras.cdekCityCode).then((list) => {
+        setPvzList(list)
+        const found = list.find((p) => p.code === extras.cdekPvzCode)
+        if (found) setSelectedPvz(found)
+      })
+    }
+
+    setDraftHydrated(true)
+  }, [checkout, draftHydrated])
 
   useEffect(() => {
     if (selectedCity && selectedCity.full_name === cityQuery) return
@@ -153,6 +220,8 @@ export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
       deliveryPrice,
       deliveryEta,
       address,
+      recipientName: recipientName.trim(),
+      recipientPhone: recipientPhone.trim(),
       cdekExtras: {
         cdekTariffCode:
           deliveryType === 'pvz' ? calc?.pvz?.tariffCode : calc?.door?.tariffCode,
@@ -162,7 +231,16 @@ export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
         cdekPvzAddress: deliveryType === 'pvz' ? (selectedPvz?.address ?? null) : null,
       },
     })
-  }, [selectedCity, deliveryType, selectedPvz, houseAddress, calc, updateCheckout])
+  }, [
+    selectedCity,
+    deliveryType,
+    selectedPvz,
+    houseAddress,
+    calc,
+    updateCheckout,
+    recipientName,
+    recipientPhone,
+  ])
 
   const handleConfirm = useCallback(async () => {
     if (isSubmitting || !checkoutReady) return
@@ -214,6 +292,23 @@ export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
       <div className="rounded-2xl border border-muru-accent bg-[#fff9ed] p-4">
         <h1 className="text-xl font-semibold text-muru-olive">Оформление заказа</h1>
         <p className="mt-2 text-sm">Заполните данные доставки и подтвердите заказ.</p>
+      </div>
+
+      <div className="rounded-2xl border border-muru-accent bg-[#fff9ed] p-4">
+        <h2 className="text-sm font-semibold text-muru-olive">Получатель</h2>
+        <input
+          value={recipientName}
+          onChange={(event) => setRecipientName(event.target.value)}
+          placeholder="ФИО полностью"
+          className="mt-2 w-full rounded-xl border border-muru-accent bg-white px-3 py-2 text-sm"
+        />
+        <input
+          value={recipientPhone}
+          onChange={(event) => setRecipientPhone(event.target.value)}
+          placeholder="+7 (___) ___-__-__"
+          inputMode="tel"
+          className="mt-2 w-full rounded-xl border border-muru-accent bg-white px-3 py-2 text-sm"
+        />
       </div>
 
       <div className="rounded-2xl border border-muru-accent bg-[#fff9ed] p-4">

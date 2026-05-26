@@ -16,23 +16,42 @@ const normalizeMoney = (value: number | undefined) => {
 const calculateSubtotal = (items: OrderItemInput[]) =>
   items.reduce((acc, item) => acc + item.price * item.quantity, 0)
 
+type OrderRowForDraft = {
+  id: number
+  telegram_user_id: string
+  status: string
+  delivery_mode: 'delivery' | 'pickup'
+  delivery_option: string | null
+  delivery_price: string
+  delivery_eta: string | null
+  address: string
+  comment: string
+  birth_date: string | null
+  subtotal: string
+  total: string
+  promo_code: string | null
+  promo_discount: string
+  cdek_tariff_code: number | null
+  cdek_to_city_code: number | null
+  cdek_to_city_name: string | null
+  cdek_pvz_code: string | null
+  cdek_pvz_address: string | null
+  cdek_recipient_name: string | null
+  cdek_recipient_phone: string | null
+}
+
+const cdekDraftSqlParams = (input: CheckoutDraftInput) => [
+  input.cdekTariffCode ?? null,
+  input.cdekCityCode ?? null,
+  input.cdekCityName ?? null,
+  input.cdekPvzCode ?? null,
+  input.cdekPvzAddress ?? null,
+  input.recipientName ?? null,
+  input.recipientPhone ?? null,
+]
+
 const mapOrderDraft = (
-  orderRow: {
-    id: number
-    telegram_user_id: string
-    status: string
-    delivery_mode: 'delivery' | 'pickup'
-    delivery_option: string | null
-    delivery_price: string
-    delivery_eta: string | null
-    address: string
-    comment: string
-    birth_date: string | null
-    subtotal: string
-    total: string
-    promo_code: string | null
-    promo_discount: string
-  },
+  orderRow: OrderRowForDraft,
   items: Array<{
     product_sku: string
     product_name: string
@@ -56,6 +75,13 @@ const mapOrderDraft = (
   total: Number(orderRow.total),
   promoCode: orderRow.promo_code,
   promoDiscount: Number(orderRow.promo_discount),
+  cdekTariffCode: orderRow.cdek_tariff_code,
+  cdekCityCode: orderRow.cdek_to_city_code,
+  cdekCityName: orderRow.cdek_to_city_name,
+  cdekPvzCode: orderRow.cdek_pvz_code,
+  cdekPvzAddress: orderRow.cdek_pvz_address,
+  recipientName: orderRow.cdek_recipient_name,
+  recipientPhone: orderRow.cdek_recipient_phone,
   items: items.map((item) => ({
     sku: item.product_sku,
     name: item.product_name,
@@ -80,25 +106,12 @@ const replaceOrderItems = async (client: PoolClient, orderId: number, items: Ord
 export const getDraftOrderByTelegramUserId = async (
   telegramUserId: number,
 ): Promise<OrderDraft | null> => {
-  const orderResult = await pool.query<{
-    id: number
-    telegram_user_id: string
-    status: string
-    delivery_mode: 'delivery' | 'pickup'
-    delivery_option: string | null
-    delivery_price: string
-    delivery_eta: string | null
-    address: string
-    comment: string
-    birth_date: string | null
-    subtotal: string
-    total: string
-    promo_code: string | null
-    promo_discount: string
-  }>(
+  const orderResult = await pool.query<OrderRowForDraft>(
     `SELECT id, telegram_user_id, status, delivery_mode, delivery_option, delivery_price::text,
             delivery_eta, address, comment, birth_date::text, subtotal::text, total::text,
-            promo_code, promo_discount::text
+            promo_code, promo_discount::text,
+            cdek_tariff_code, cdek_to_city_code, cdek_to_city_name,
+            cdek_pvz_code, cdek_pvz_address, cdek_recipient_name, cdek_recipient_phone
      FROM orders
      WHERE telegram_user_id = $1 AND is_draft = TRUE
      ORDER BY updated_at DESC
@@ -152,6 +165,13 @@ export const saveDraftOrder = async (input: CheckoutDraftInput): Promise<OrderDr
              birth_date = $8,
              subtotal = $9,
              total = $10,
+             cdek_tariff_code = $11,
+             cdek_to_city_code = $12,
+             cdek_to_city_name = $13,
+             cdek_pvz_code = $14,
+             cdek_pvz_address = $15,
+             cdek_recipient_name = $16,
+             cdek_recipient_phone = $17,
              updated_at = NOW()
          WHERE id = $1`,
         [
@@ -165,14 +185,18 @@ export const saveDraftOrder = async (input: CheckoutDraftInput): Promise<OrderDr
           input.birthDate ?? null,
           subtotal,
           total,
+          ...cdekDraftSqlParams(input),
         ],
       )
     } else {
       const inserted = await client.query<{ id: number }>(
         `INSERT INTO orders (
           telegram_user_id, status, delivery_mode, delivery_option, delivery_price, delivery_eta,
-          address, comment, birth_date, subtotal, total, is_draft, created_at, updated_at
-        ) VALUES ($1, 'Черновик', $2, $3, $4, $5, $6, $7, $8, $9, $10, TRUE, NOW(), NOW())
+          address, comment, birth_date, subtotal, total,
+          cdek_tariff_code, cdek_to_city_code, cdek_to_city_name, cdek_pvz_code, cdek_pvz_address,
+          cdek_recipient_name, cdek_recipient_phone,
+          is_draft, created_at, updated_at
+        ) VALUES ($1, 'Черновик', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, TRUE, NOW(), NOW())
         RETURNING id`,
         [
           input.telegramUserId,
@@ -185,6 +209,7 @@ export const saveDraftOrder = async (input: CheckoutDraftInput): Promise<OrderDr
           input.birthDate ?? null,
           subtotal,
           total,
+          ...cdekDraftSqlParams(input),
         ],
       )
       orderId = inserted.rows[0].id
@@ -240,31 +265,19 @@ export const createOrder = async (input: CheckoutDraftInput): Promise<OrderDraft
 
   try {
     await client.query('BEGIN')
-    const inserted = await client.query<{
-      id: number
-      telegram_user_id: string
-      status: string
-      delivery_mode: 'delivery' | 'pickup'
-      delivery_option: string | null
-      delivery_price: string
-      delivery_eta: string | null
-      address: string
-      comment: string
-      birth_date: string | null
-      subtotal: string
-      total: string
-      promo_code: string | null
-      promo_discount: string
-    }>(
+    const inserted = await client.query<OrderRowForDraft>(
       `INSERT INTO orders (
         telegram_user_id, status, delivery_mode, delivery_option, delivery_price, delivery_eta,
         address, comment, birth_date, subtotal, total, promo_code, promo_discount,
         cdek_tariff_code, cdek_to_city_code, cdek_to_city_name, cdek_pvz_code, cdek_pvz_address,
+        cdek_recipient_name, cdek_recipient_phone,
         is_draft, created_at, updated_at
-      ) VALUES ($1, 'Новый', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, FALSE, NOW(), NOW())
+      ) VALUES ($1, 'Новый', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, FALSE, NOW(), NOW())
       RETURNING id, telegram_user_id, status, delivery_mode, delivery_option, delivery_price::text,
                 delivery_eta, address, comment, birth_date::text, subtotal::text, total::text,
-                promo_code, promo_discount::text`,
+                promo_code, promo_discount::text,
+                cdek_tariff_code, cdek_to_city_code, cdek_to_city_name,
+                cdek_pvz_code, cdek_pvz_address, cdek_recipient_name, cdek_recipient_phone`,
       [
         input.telegramUserId,
         input.deliveryMode,
@@ -283,6 +296,8 @@ export const createOrder = async (input: CheckoutDraftInput): Promise<OrderDraft
         input.cdekCityName ?? null,
         input.cdekPvzCode ?? null,
         input.cdekPvzAddress ?? null,
+        input.recipientName ?? null,
+        input.recipientPhone ?? null,
       ],
     )
     const order = inserted.rows[0]

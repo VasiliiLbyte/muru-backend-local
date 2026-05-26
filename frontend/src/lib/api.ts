@@ -452,6 +452,18 @@ export const retryCdekForOrder = async (
   return parseApi<{ uuid: string | null }>(response)
 }
 
+export const refreshCdekTrack = async (
+  telegramUserId: number,
+  orderId: number,
+): Promise<{ scheduled: boolean; trackNumber: string | null }> => {
+  const response = await safeFetch(`${API_BASE_URL}/api/admin/orders/${orderId}/cdek-refresh`, {
+    method: 'POST',
+    headers: adminTelegramHeadersPost(telegramUserId),
+    body: JSON.stringify({}),
+  })
+  return parseApi<{ scheduled: boolean; trackNumber: string | null }>(response)
+}
+
 export const fetchAdminPromoCodes = async (telegramUserId: number): Promise<AdminPromoCode[]> => {
   const response = await safeFetch(`${API_BASE_URL}/api/admin/promo-codes`, {
     headers: adminTelegramHeadersGet(telegramUserId),
@@ -725,6 +737,8 @@ type DraftPayload = {
   cdekCityName?: string
   cdekPvzCode?: string | null
   cdekPvzAddress?: string | null
+  recipientName?: string
+  recipientPhone?: string
 }
 
 export const fetchOrderDraft = async (telegramUserId: number): Promise<DraftOrder | null> => {

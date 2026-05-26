@@ -66,4 +66,33 @@ describe('cdekFetch token cache', () => {
     const oauthCalls = fetchMock.mock.calls.filter((c) => String(c[0]).includes('/oauth/token'))
     expect(oauthCalls).toHaveLength(1)
   })
+
+  it('retries once on 503', async () => {
+    let regionsCalls = 0
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/oauth/token')) {
+        return new Response(
+          JSON.stringify({ access_token: 'tok', expires_in: 3600, token_type: 'bearer' }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+      if (url.includes('/location/regions')) {
+        regionsCalls += 1
+        if (regionsCalls === 1) {
+          return new Response('bad gateway', { status: 503 })
+        }
+        return new Response(JSON.stringify([{ region: 'RU' }]), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+      return new Response('not found', { status: 404 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await cdekFetch<unknown[]>('/location/regions', { query: { size: 1 } })
+    expect(result).toHaveLength(1)
+    expect(regionsCalls).toBe(2)
+  })
 })

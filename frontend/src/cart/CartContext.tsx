@@ -97,6 +97,18 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         address: draft.address,
         comment: draft.comment,
         birthDate: draft.birthDate ?? '',
+        recipientName: draft.recipientName ?? '',
+        recipientPhone: draft.recipientPhone ?? '',
+        cdekExtras:
+          draft.cdekCityCode != null
+            ? {
+                cdekTariffCode: draft.cdekTariffCode ?? undefined,
+                cdekCityCode: draft.cdekCityCode,
+                cdekCityName: draft.cdekCityName ?? undefined,
+                cdekPvzCode: draft.cdekPvzCode ?? null,
+                cdekPvzAddress: draft.cdekPvzAddress ?? null,
+              }
+            : undefined,
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось загрузить корзину')
@@ -195,6 +207,13 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
           address: checkout.address,
           comment: checkout.comment,
           birthDate: checkout.birthDate || undefined,
+          cdekTariffCode: checkout.cdekExtras?.cdekTariffCode,
+          cdekCityCode: checkout.cdekExtras?.cdekCityCode,
+          cdekCityName: checkout.cdekExtras?.cdekCityName,
+          cdekPvzCode: checkout.cdekExtras?.cdekPvzCode ?? null,
+          cdekPvzAddress: checkout.cdekExtras?.cdekPvzAddress ?? null,
+          recipientName: checkout.recipientName,
+          recipientPhone: checkout.recipientPhone,
         })
         setItems(draft.items)
       } catch (err) {
@@ -228,6 +247,8 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
           cdekCityName: checkout.cdekExtras?.cdekCityName,
           cdekPvzCode: checkout.cdekExtras?.cdekPvzCode ?? null,
           cdekPvzAddress: checkout.cdekExtras?.cdekPvzAddress ?? null,
+          recipientName: checkout.recipientName,
+          recipientPhone: checkout.recipientPhone,
         })
         setItems([])
         setCheckout(defaultCheckout)

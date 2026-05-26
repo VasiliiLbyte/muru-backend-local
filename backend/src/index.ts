@@ -80,6 +80,14 @@ app.listen(port, () => {
     console.log(`[muru-backend] Listening on port ${port}`)
   }
   startTelegramBotPolling()
+
+  if (process.env.NODE_ENV !== 'test' && env.cdek.clientId && env.cdek.clientSecret) {
+    setTimeout(() => {
+      void import('./services/cdek/track-poll.service')
+        .then((m) => m.recoverPendingCdekTracks())
+        .catch((e) => console.warn('[cdek-poll] recover failed', e))
+    }, 30_000)
+  }
 })
 
 process.on('SIGTERM', () => {

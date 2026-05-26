@@ -27,6 +27,8 @@ export type CheckoutForm = {
   comment: string
   birthDate: string
   cdekExtras?: CdekCheckoutExtras
+  recipientName?: string
+  recipientPhone?: string
 }
 
 export type DraftOrder = {
@@ -42,6 +44,13 @@ export type DraftOrder = {
   birthDate: string | null
   subtotal: number
   total: number
+  cdekTariffCode?: number | null
+  cdekCityCode?: number | null
+  cdekCityName?: string | null
+  cdekPvzCode?: string | null
+  cdekPvzAddress?: string | null
+  recipientName?: string | null
+  recipientPhone?: string | null
   items: CartItem[]
 }
 

@@ -8,6 +8,8 @@ const BASE_URLS = {
   production: 'https://api.cdek.ru/v2',
 } as const
 
+const DEFAULT_TIMEOUT_MS = 15_000
+
 type Token = { access_token: string; expires_at: number }
 
 let tokenCache: Token | null = null
@@ -52,6 +54,7 @@ const getToken = async (): Promise<string> => {
 export type CdekRequestInit = Omit<RequestInit, 'headers'> & {
   query?: Record<string, string | number | boolean | undefined>
   headers?: Record<string, string>
+  timeoutMs?: number
 }
 
 export class CdekApiError extends Error {
@@ -84,17 +87,34 @@ export const cdekFetch = async <T>(path: string, init: CdekRequestInit = {}): Pr
     ...(init.headers ?? {}),
   }
 
-  let attempt = 0
-  while (true) {
-    const { query: _query, headers: _headers, ...fetchInit } = init
-    const r = await fetch(url.toString(), { ...fetchInit, headers })
+  const timeoutMs = init.timeoutMs ?? DEFAULT_TIMEOUT_MS
+  const { query: _query, headers: _headers, timeoutMs: _timeoutMs, ...fetchInit } = init
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const ac = new AbortController()
+    const timer = setTimeout(() => ac.abort(), timeoutMs)
+    let r: Response
+    try {
+      r = await fetch(url.toString(), { ...fetchInit, headers, signal: ac.signal })
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'network error'
+      throw new CdekApiError(0, path, null, message)
+    } finally {
+      clearTimeout(timer)
+    }
+
     if (r.status === 401 && attempt === 0) {
       tokenCache = null
       const fresh = await getToken()
       headers.Authorization = `Bearer ${fresh}`
-      attempt += 1
       continue
     }
+
+    if ((r.status === 502 || r.status === 503 || r.status === 504) && attempt === 0) {
+      await new Promise((res) => setTimeout(res, 800))
+      continue
+    }
+
     const text = await r.text()
     let payload: unknown = null
     try {
@@ -109,6 +129,8 @@ export const cdekFetch = async <T>(path: string, init: CdekRequestInit = {}): Pr
     }
     return payload as T
   }
+
+  throw new CdekApiError(0, path, null, 'retry budget exhausted')
 }
 
 /** @internal Reset token cache between tests */

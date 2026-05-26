@@ -127,6 +127,37 @@ export const patchAdminOrderHandler = async (req: Request, res: Response, next: 
   }
 }
 
+export const refreshCdekTrackHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (!assertAdmin(req, res)) return
+    const orderId = parseOrderId(req, res)
+    if (orderId == null) return
+
+    const { pool } = await import('../utils/db')
+    const order = await pool.query<{ cdek_uuid: string | null; cdek_track_number: string | null }>(
+      `SELECT cdek_uuid, cdek_track_number FROM orders WHERE id = $1`,
+      [orderId],
+    )
+    const uuid = order.rows[0]?.cdek_uuid
+    if (!uuid) {
+      return fail(res, 400, 'No cdek_uuid for this order', 'VALIDATION')
+    }
+
+    const { pollTrackNumberNow } = await import('../services/cdek/track-poll.service')
+    const got = await pollTrackNumberNow(orderId, uuid)
+    const refreshed = await pool.query<{ cdek_track_number: string | null }>(
+      `SELECT cdek_track_number FROM orders WHERE id = $1`,
+      [orderId],
+    )
+    return ok(res, {
+      scheduled: !got,
+      trackNumber: refreshed.rows[0]?.cdek_track_number ?? null,
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
 export const retryCdekOrderHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
     if (!assertAdmin(req, res)) return

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { SmartImage } from '../components/SmartImage'
 import {
   fetchAdminOrderById,
+  refreshCdekTrack,
   restockAdminOrder,
   retryCdekForOrder,
   updateAdminOrder,
@@ -207,7 +208,20 @@ export const AdminOrderDetailDrawer = ({
                   </span>
                 </p>
                 <p className="mt-1 text-xs text-[#5c5346]">UUID: {order.cdekUuid ?? '—'}</p>
-                <p className="mt-1 text-xs text-[#5c5346]">Трек: {order.cdekTrackNumber ?? '—'}</p>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-semibold text-muru-olive">
+                    Трек: {order.cdekTrackNumber ?? '—'}
+                  </p>
+                  {order.cdekTrackNumber ? (
+                    <button
+                      type="button"
+                      className={`${pressable} rounded-lg bg-white px-2 py-1 text-xs`}
+                      onClick={() => void navigator.clipboard.writeText(order.cdekTrackNumber!)}
+                    >
+                      Скопировать
+                    </button>
+                  ) : null}
+                </div>
                 <p className="mt-1 text-xs text-[#5c5346]">
                   Последнее обновление:{' '}
                   {order.cdekStatusUpdatedAt
@@ -219,6 +233,33 @@ export const AdminOrderDetailDrawer = ({
                 ) : null}
                 {order.cdekCreateError ? (
                   <p className="mt-2 text-xs text-red-700">Ошибка: {order.cdekCreateError}</p>
+                ) : null}
+                {order.cdekUuid &&
+                !order.cdekTrackNumber &&
+                order.cdekSyncState === 'created' ? (
+                  <button
+                    type="button"
+                    className={`${pressableDisabled} mt-3 rounded-xl bg-[#e3dccd] px-3 py-2 text-xs font-medium`}
+                    disabled={busy}
+                    onClick={async () => {
+                      if (orderId == null) return
+                      setBusy(true)
+                      setError(null)
+                      try {
+                        await refreshCdekTrack(userId, orderId)
+                        await new Promise((r) => setTimeout(r, 5000))
+                        await load()
+                      } catch (e) {
+                        setError(
+                          e instanceof Error ? e.message : 'Не удалось обновить трек-номер',
+                        )
+                      } finally {
+                        setBusy(false)
+                      }
+                    }}
+                  >
+                    Обновить трек-номер
+                  </button>
                 ) : null}
                 {order.cdekSyncState === 'error' || order.cdekSyncState === 'pending' ? (
                   <button

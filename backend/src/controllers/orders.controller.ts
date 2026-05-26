@@ -34,6 +34,8 @@ const draftPayloadSchema = z.object({
   cdekCityName: z.string().optional(),
   cdekPvzCode: z.string().nullable().optional(),
   cdekPvzAddress: z.string().nullable().optional(),
+  recipientName: z.string().trim().min(2).max(100).optional(),
+  recipientPhone: z.string().trim().min(10).max(20).optional(),
 })
 
 const validatePromoBodySchema = z.object({

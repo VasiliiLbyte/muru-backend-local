@@ -21,6 +21,7 @@ import {
   listAdminOrdersHandler,
   patchAdminOrderHandler,
   restockAdminOrderHandler,
+  refreshCdekTrackHandler,
   retryCdekOrderHandler,
 } from '../controllers/admin-orders.controller'
 import {
@@ -86,6 +87,11 @@ adminRouter.post('/orders/:id/restock', (req, res, next) => {
 adminRouter.post('/orders/:id/cdek-retry', (req, res, next) => {
   if (!isAdminRequest(req)) return adminForbidden(res)
   return retryCdekOrderHandler(req, res, next)
+})
+
+adminRouter.post('/orders/:id/cdek-refresh', (req, res, next) => {
+  if (!isAdminRequest(req)) return adminForbidden(res)
+  return refreshCdekTrackHandler(req, res, next)
 })
 
 adminRouter.get('/categories', getAdminCategoriesHandler)

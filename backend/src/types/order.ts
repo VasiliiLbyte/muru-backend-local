@@ -25,6 +25,8 @@ export type CheckoutDraftInput = {
   cdekCityName?: string
   cdekPvzCode?: string | null
   cdekPvzAddress?: string | null
+  recipientName?: string
+  recipientPhone?: string
 }
 
 export type OrderDraft = {
@@ -42,6 +44,13 @@ export type OrderDraft = {
   total: number
   promoCode?: string | null
   promoDiscount?: number
+  cdekTariffCode?: number | null
+  cdekCityCode?: number | null
+  cdekCityName?: string | null
+  cdekPvzCode?: string | null
+  cdekPvzAddress?: string | null
+  recipientName?: string | null
+  recipientPhone?: string | null
   items: OrderItemInput[]
 }
 

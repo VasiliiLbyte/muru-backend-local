@@ -2,11 +2,17 @@ import { pool } from '../../utils/db'
 import { env } from '../../utils/env'
 import { notifyAdminsCdekError } from '../order-notifications.service'
 import { cdekFetch, CdekApiError } from './client'
+import { normalizeRussianPhone } from './phone'
 
 const log = {
   warn: (payload: unknown, msg?: string) => console.warn('[cdek-orders]', msg ?? '', payload),
   info: (payload: unknown, msg?: string) => console.log('[cdek-orders]', msg ?? '', payload),
   error: (payload: unknown, msg?: string) => console.error('[cdek-orders]', msg ?? '', payload),
+}
+
+const normalizedSenderPhone = normalizeRussianPhone(env.cdek.senderPhone)
+if (env.cdek.senderPhone && !normalizedSenderPhone) {
+  console.warn('[cdek-orders] CDEK_SENDER_PHONE is invalid:', env.cdek.senderPhone)
 }
 
 type OrderRow = {
@@ -60,10 +66,20 @@ export const createCdekOrder = async (orderId: number): Promise<{ uuid: string }
     [order.telegram_user_id],
   )
   const recipientName = order.cdek_recipient_name ?? prof.rows[0]?.full_name?.trim() ?? 'Клиент MURU'
-  const recipientPhone = order.cdek_recipient_phone ?? prof.rows[0]?.phone?.trim() ?? ''
+  const rawRecipientPhone = order.cdek_recipient_phone ?? prof.rows[0]?.phone?.trim() ?? ''
+  const recipientPhone = normalizeRussianPhone(rawRecipientPhone)
   if (!recipientPhone) {
-    log.warn({ orderId }, 'recipient phone missing')
-    await markCdekError(orderId, 'recipient phone missing')
+    log.warn({ orderId }, 'recipient phone missing or invalid')
+    await markCdekError(
+      orderId,
+      rawRecipientPhone ? `recipient phone invalid: ${rawRecipientPhone}` : 'recipient phone missing',
+    )
+    return null
+  }
+
+  const senderPhone = normalizedSenderPhone ?? env.cdek.senderPhone
+  if (!normalizeRussianPhone(senderPhone)) {
+    await markCdekError(orderId, 'sender phone invalid or missing in env')
     return null
   }
 
@@ -124,7 +140,7 @@ export const createCdekOrder = async (orderId: number): Promise<{ uuid: string }
     },
     sender: {
       name: env.cdek.senderName,
-      phones: [{ number: env.cdek.senderPhone }],
+      phones: [{ number: normalizedSenderPhone! }],
     },
     recipient: {
       name: recipientName,
@@ -173,6 +189,10 @@ export const createCdekOrder = async (orderId: number): Promise<{ uuid: string }
       [orderId, uuid, JSON.stringify(resp ?? null)],
     )
     log.info({ orderId, uuid }, 'cdek order created')
+    if (uuid) {
+      const { schedulePullTrackNumber } = await import('./track-poll.service')
+      schedulePullTrackNumber(orderId, uuid)
+    }
     return uuid ? { uuid } : null
   } catch (e) {
     const apiErr =
