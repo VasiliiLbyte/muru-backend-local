@@ -55,8 +55,8 @@ const envSchema = z.object({
   CDEK_SENDER_ADDRESS: z.string().optional(),
   CDEK_SENDER_NAME: z.string().optional(),
   CDEK_SENDER_PHONE: z.string().optional(),
-  CDEK_TARIFF_DOOR: z.string().default('138'),
-  CDEK_TARIFF_PVZ: z.string().default('139'),
+  CDEK_TARIFF_DOOR: z.string().default('137'),
+  CDEK_TARIFF_PVZ: z.string().default('136'),
   CDEK_WEBHOOK_SECRET: z.string().optional(),
 })
 
@@ -154,8 +154,8 @@ export const env = {
     senderAddress: parsed.data.CDEK_SENDER_ADDRESS?.trim() ?? '',
     senderName: parsed.data.CDEK_SENDER_NAME?.trim() ?? '',
     senderPhone: parsed.data.CDEK_SENDER_PHONE?.trim() ?? '',
-    tariffDoor: Number(parsed.data.CDEK_TARIFF_DOOR) || 138,
-    tariffPvz: Number(parsed.data.CDEK_TARIFF_PVZ) || 139,
+    tariffDoor: Number(parsed.data.CDEK_TARIFF_DOOR) || 137,
+    tariffPvz: Number(parsed.data.CDEK_TARIFF_PVZ) || 136,
     webhookSecret: parsed.data.CDEK_WEBHOOK_SECRET?.trim() ?? '',
   },
 }

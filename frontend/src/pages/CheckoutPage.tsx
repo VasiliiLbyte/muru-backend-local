@@ -403,6 +403,9 @@ export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
                 placeholder="Например: Невский пр., 1, кв. 10"
                 className="mt-1 w-full rounded-xl border border-muru-accent bg-white px-3 py-2 text-sm"
               />
+              <p className="mt-1 text-xs text-[#6b6b4a]">
+                Адрес вводится вручную (подсказки по улице пока не подключены).
+              </p>
             </div>
           ) : (
             <div className="mt-3 grid max-h-56 gap-2 overflow-y-auto">
