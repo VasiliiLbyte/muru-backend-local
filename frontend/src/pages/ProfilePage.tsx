@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 
+import { clearCartSnapshot } from '../cart/cartStorage'
 import { fetchMyOrders, fetchMyProfile, saveMyProfile } from '../lib/api'
 import { ExitConfirmModal } from '../components/ExitConfirmModal'
 import { pressable, pressableDisabled } from '../lib/uiClasses'
@@ -91,6 +92,7 @@ export const ProfilePage = ({
     }
     sessionStorage.clear()
     localStorage.removeItem('muru-profile-cache')
+    if (userId) clearCartSnapshot(userId)
     window.location.reload()
   }
 
@@ -98,6 +100,7 @@ export const ProfilePage = ({
     setExitConfirmOpen(false)
     sessionStorage.clear()
     localStorage.removeItem('muru-profile-cache')
+    if (userId) clearCartSnapshot(userId)
     webAppClose?.()
   }
 

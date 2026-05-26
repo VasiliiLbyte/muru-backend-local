@@ -1,9 +1,20 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
 
 import { createOrder, fetchOrderDraft, saveOrderDraft, validateOrderPromo } from '../lib/api'
 import type { CartItem, CheckoutForm, DraftOrder } from '../types/cart'
 import type { CatalogProduct, CatalogProductDetail } from '../types/catalog'
 import type { PromoDiscountType } from '../lib/api'
+
+import { clearCartSnapshot, readCartSnapshot, writeCartSnapshot } from './cartStorage'
 
 export type ActivatedPromo = {
   code: string
@@ -47,9 +58,38 @@ const defaultCheckout: CheckoutForm = {
   cdekExtras: undefined,
 }
 
+const AUTOSAVE_MS = 2000
+
+const checkoutFromDraft = (draft: DraftOrder): CheckoutForm => ({
+  deliveryMode: draft.deliveryMode,
+  deliveryOption: draft.deliveryOption ?? '',
+  deliveryPrice: draft.deliveryPrice,
+  deliveryEta: draft.deliveryEta ?? '',
+  address: draft.address,
+  comment: draft.comment,
+  birthDate: draft.birthDate ?? '',
+  recipientName: draft.recipientName ?? '',
+  recipientPhone: draft.recipientPhone ?? '',
+  cdekExtras:
+    draft.cdekCityCode != null
+      ? {
+          cdekTariffCode: draft.cdekTariffCode ?? undefined,
+          cdekCityCode: draft.cdekCityCode,
+          cdekCityName: draft.cdekCityName ?? undefined,
+          cdekPvzCode: draft.cdekPvzCode ?? null,
+          cdekPvzAddress: draft.cdekPvzAddress ?? null,
+        }
+      : undefined,
+})
+
 const CartContext = createContext<CartContextValue | null>(null)
 
-export const CartProvider = ({ children }: { children: ReactNode }) => {
+type CartProviderProps = {
+  children: ReactNode
+  telegramUserId?: number
+}
+
+export const CartProvider = ({ children, telegramUserId }: CartProviderProps) => {
   const [items, setItems] = useState<CartItem[]>([])
   const [checkout, setCheckout] = useState<CheckoutForm>(defaultCheckout)
   const [isLoading, setIsLoading] = useState(false)
@@ -57,6 +97,9 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [promoInput, setPromoInput] = useState('')
   const [activatedPromo, setActivatedPromo] = useState<ActivatedPromo | null>(null)
   const [promoError, setPromoError] = useState<string | null>(null)
+
+  const hydratedUserIdRef = useRef<number | null>(null)
+  const skipAutosaveRef = useRef(false)
 
   const subtotal = useMemo(() => items.reduce((sum, item) => sum + item.price * item.quantity, 0), [items])
   const discount = activatedPromo?.discount ?? 0
@@ -79,44 +122,89 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [items.length, clearPromoState])
 
-  const loadDraft = useCallback(async (telegramUserId?: number) => {
+  const buildDraftPayload = useCallback(
+    (userId: number) => ({
+      telegramUserId: userId,
+      items,
+      deliveryMode: checkout.deliveryMode,
+      deliveryOption: checkout.deliveryOption,
+      deliveryPrice: checkout.deliveryMode === 'pickup' ? 0 : checkout.deliveryPrice,
+      deliveryEta: checkout.deliveryMode === 'pickup' ? 'Самовывоз сегодня' : checkout.deliveryEta,
+      address: checkout.address,
+      comment: checkout.comment,
+      birthDate: checkout.birthDate || undefined,
+      cdekTariffCode: checkout.cdekExtras?.cdekTariffCode,
+      cdekCityCode: checkout.cdekExtras?.cdekCityCode,
+      cdekCityName: checkout.cdekExtras?.cdekCityName,
+      cdekPvzCode: checkout.cdekExtras?.cdekPvzCode ?? null,
+      cdekPvzAddress: checkout.cdekExtras?.cdekPvzAddress ?? null,
+      recipientName: checkout.recipientName,
+      recipientPhone: checkout.recipientPhone,
+    }),
+    [items, checkout],
+  )
+
+  const loadDraft = useCallback(
+    async (userId?: number) => {
+      const id = userId ?? telegramUserId
+      if (!id) return
+      setIsLoading(true)
+      setError(null)
+      try {
+        const draft = await fetchOrderDraft(id)
+        if (!draft) return
+        const nextCheckout = checkoutFromDraft(draft)
+        setItems((prev) => (prev.length === 0 ? draft.items : prev))
+        clearPromoState()
+        setPromoInput('')
+        setCheckout(nextCheckout)
+        writeCartSnapshot(id, { items: draft.items, checkout: nextCheckout })
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Не удалось загрузить корзину')
+      } finally {
+        setIsLoading(false)
+      }
+    },
+    [telegramUserId, clearPromoState],
+  )
+
+  useEffect(() => {
     if (!telegramUserId) return
-    setIsLoading(true)
-    setError(null)
-    try {
-      const draft = await fetchOrderDraft(telegramUserId)
-      if (!draft) return
-      // Do not overwrite items the user added while the draft request was in flight.
-      setItems((prev) => (prev.length === 0 ? draft.items : prev))
-      clearPromoState()
-      setPromoInput('')
-      setCheckout({
-        deliveryMode: draft.deliveryMode,
-        deliveryOption: draft.deliveryOption ?? '',
-        deliveryPrice: draft.deliveryPrice,
-        deliveryEta: draft.deliveryEta ?? '',
-        address: draft.address,
-        comment: draft.comment,
-        birthDate: draft.birthDate ?? '',
-        recipientName: draft.recipientName ?? '',
-        recipientPhone: draft.recipientPhone ?? '',
-        cdekExtras:
-          draft.cdekCityCode != null
-            ? {
-                cdekTariffCode: draft.cdekTariffCode ?? undefined,
-                cdekCityCode: draft.cdekCityCode,
-                cdekCityName: draft.cdekCityName ?? undefined,
-                cdekPvzCode: draft.cdekPvzCode ?? null,
-                cdekPvzAddress: draft.cdekPvzAddress ?? null,
-              }
-            : undefined,
-      })
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось загрузить корзину')
-    } finally {
-      setIsLoading(false)
+    if (hydratedUserIdRef.current === telegramUserId) return
+
+    hydratedUserIdRef.current = telegramUserId
+    skipAutosaveRef.current = true
+
+    const local = readCartSnapshot(telegramUserId)
+    if (local && local.items.length > 0) {
+      setItems(local.items)
+      setCheckout(local.checkout)
+      skipAutosaveRef.current = false
+      return
     }
-  }, [clearPromoState])
+
+    void loadDraft(telegramUserId).finally(() => {
+      skipAutosaveRef.current = false
+    })
+  }, [telegramUserId, loadDraft])
+
+  useEffect(() => {
+    if (!telegramUserId || skipAutosaveRef.current) return
+
+    if (items.length === 0) {
+      clearCartSnapshot(telegramUserId)
+    } else {
+      writeCartSnapshot(telegramUserId, { items, checkout })
+    }
+
+    const timer = window.setTimeout(() => {
+      void saveOrderDraft(buildDraftPayload(telegramUserId)).catch((err) => {
+        console.warn('[cart-autosave] draft save failed', err)
+      })
+    }, AUTOSAVE_MS)
+
+    return () => window.clearTimeout(timer)
+  }, [telegramUserId, items, checkout, buildDraftPayload])
 
   const addProduct = useCallback((product: CatalogProduct | CatalogProductDetail) => {
     setItems((prev) => {
@@ -193,66 +281,39 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   }, [promoInput, subtotal])
 
   const persistDraft = useCallback(
-    async (telegramUserId?: number) => {
-      if (!telegramUserId) return
+    async (userId?: number) => {
+      const id = userId ?? telegramUserId
+      if (!id) return
       setIsLoading(true)
       setError(null)
       try {
-        const draft = await saveOrderDraft({
-          telegramUserId,
-          items,
-          deliveryMode: checkout.deliveryMode,
-          deliveryOption: checkout.deliveryOption,
-          deliveryPrice: checkout.deliveryMode === 'pickup' ? 0 : checkout.deliveryPrice,
-          deliveryEta: checkout.deliveryMode === 'pickup' ? 'Самовывоз сегодня' : checkout.deliveryEta,
-          address: checkout.address,
-          comment: checkout.comment,
-          birthDate: checkout.birthDate || undefined,
-          cdekTariffCode: checkout.cdekExtras?.cdekTariffCode,
-          cdekCityCode: checkout.cdekExtras?.cdekCityCode,
-          cdekCityName: checkout.cdekExtras?.cdekCityName,
-          cdekPvzCode: checkout.cdekExtras?.cdekPvzCode ?? null,
-          cdekPvzAddress: checkout.cdekExtras?.cdekPvzAddress ?? null,
-          recipientName: checkout.recipientName,
-          recipientPhone: checkout.recipientPhone,
-        })
+        const draft = await saveOrderDraft(buildDraftPayload(id))
         setItems(draft.items)
+        setCheckout(checkoutFromDraft(draft))
+        writeCartSnapshot(id, { items: draft.items, checkout: checkoutFromDraft(draft) })
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Не удалось сохранить черновик')
       } finally {
         setIsLoading(false)
       }
     },
-    [items, checkout],
+    [telegramUserId, buildDraftPayload],
   )
 
   const submitOrder = useCallback(
-    async (telegramUserId?: number) => {
-      if (!telegramUserId) throw new Error('Не удалось определить Telegram user ID')
+    async (userId?: number) => {
+      const id = userId ?? telegramUserId
+      if (!id) throw new Error('Не удалось определить Telegram user ID')
       setIsLoading(true)
       setError(null)
       try {
         const createdOrder = await createOrder({
-          telegramUserId,
-          items,
-          deliveryMode: checkout.deliveryMode,
-          deliveryOption: checkout.deliveryOption,
-          deliveryPrice: checkout.deliveryMode === 'pickup' ? 0 : checkout.deliveryPrice,
-          deliveryEta: checkout.deliveryMode === 'pickup' ? 'Самовывоз сегодня' : checkout.deliveryEta,
-          address: checkout.address,
-          comment: checkout.comment,
-          birthDate: checkout.birthDate || undefined,
+          ...buildDraftPayload(id),
           promoCode: activatedPromo?.code,
-          cdekTariffCode: checkout.cdekExtras?.cdekTariffCode,
-          cdekCityCode: checkout.cdekExtras?.cdekCityCode,
-          cdekCityName: checkout.cdekExtras?.cdekCityName,
-          cdekPvzCode: checkout.cdekExtras?.cdekPvzCode ?? null,
-          cdekPvzAddress: checkout.cdekExtras?.cdekPvzAddress ?? null,
-          recipientName: checkout.recipientName,
-          recipientPhone: checkout.recipientPhone,
         })
         setItems([])
         setCheckout(defaultCheckout)
+        clearCartSnapshot(id)
         clearPromo()
         return createdOrder
       } catch (err) {
@@ -263,7 +324,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         setIsLoading(false)
       }
     },
-    [items, checkout, activatedPromo, clearPromo],
+    [telegramUserId, buildDraftPayload, activatedPromo, clearPromo],
   )
 
   const value = useMemo<CartContextValue>(

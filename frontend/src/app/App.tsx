@@ -213,7 +213,7 @@ const AppShell = () => {
   const [selectedProduct, setSelectedProduct] = useState<CatalogProductDetail | null>(null)
   const [search, setSearch] = useState('')
   const { userId, isAdmin, webApp } = useTelegramWebApp()
-  const { addProduct, loadDraft, items: cartItems } = useCart()
+  const { addProduct, items: cartItems } = useCart()
   const cartItemCount = useMemo(() => cartItems.reduce((n, i) => n + i.quantity, 0), [cartItems])
   const { favorites, favoriteSkus, isLoading: favoritesLoading, loadFavorites, toggleFavorite } = useFavorites()
 
@@ -236,13 +236,6 @@ const AppShell = () => {
       navigate({ pathname: '/catalog', search: location.search, hash: location.hash }, { replace: true })
     }
   }, [navigate, location.search, location.hash])
-
-  const draftBootstrappedRef = useRef(false)
-  useEffect(() => {
-    if (!userId || draftBootstrappedRef.current) return
-    draftBootstrappedRef.current = true
-    loadDraft(userId).catch(() => undefined)
-  }, [userId, loadDraft])
 
   useEffect(() => {
     const app = webApp
@@ -449,14 +442,21 @@ const AppShell = () => {
   )
 }
 
+const AppWithCart = () => {
+  const { userId } = useTelegramWebApp()
+  return (
+    <CartProvider telegramUserId={userId}>
+      <FavoritesProvider>
+        <AppShell />
+      </FavoritesProvider>
+    </CartProvider>
+  )
+}
+
 function App() {
   return (
     <BrowserRouter>
-      <CartProvider>
-        <FavoritesProvider>
-          <AppShell />
-        </FavoritesProvider>
-      </CartProvider>
+      <AppWithCart />
     </BrowserRouter>
   )
 }
