@@ -70,7 +70,15 @@ export class CdekApiError extends Error {
 }
 
 type CdekErrorPayload = {
-  errors?: Array<{ message?: string }>
+  errors?: Array<{ code?: string; message?: string }>
+}
+
+const safeJsonParse = (raw: string): unknown => {
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return raw
+  }
 }
 
 export const cdekFetch = async <T>(path: string, init: CdekRequestInit = {}): Promise<T> => {
@@ -89,10 +97,20 @@ export const cdekFetch = async <T>(path: string, init: CdekRequestInit = {}): Pr
 
   const timeoutMs = init.timeoutMs ?? DEFAULT_TIMEOUT_MS
   const { query: _query, headers: _headers, timeoutMs: _timeoutMs, ...fetchInit } = init
+  const debug = process.env.LOG_CDEK_DEBUG === '1'
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const ac = new AbortController()
     const timer = setTimeout(() => ac.abort(), timeoutMs)
+    if (debug) {
+      console.log('[cdek-req]', {
+        method: fetchInit.method ?? 'GET',
+        url: url.toString(),
+        body:
+          typeof fetchInit.body === 'string' ? safeJsonParse(fetchInit.body) : fetchInit.body,
+      })
+    }
+
     let r: Response
     try {
       r = await fetch(url.toString(), { ...fetchInit, headers, signal: ac.signal })
@@ -121,6 +139,9 @@ export const cdekFetch = async <T>(path: string, init: CdekRequestInit = {}): Pr
       payload = text ? JSON.parse(text) : null
     } catch {
       payload = text
+    }
+    if (debug) {
+      console.log('[cdek-resp]', { status: r.status, payload })
     }
     if (!r.ok) {
       const errPayload = payload as CdekErrorPayload

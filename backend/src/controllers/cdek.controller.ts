@@ -2,7 +2,7 @@ import type { NextFunction, Request, Response } from 'express'
 import { z } from 'zod'
 
 import { suggestCities } from '../services/cdek/cities.service'
-import { calculateBothTariffs } from '../services/cdek/calc.service'
+import { calculateBothTariffs, fetchAvailableTariffs } from '../services/cdek/calc.service'
 import { cdekFetch } from '../services/cdek/client'
 import { buildPackagesFromCart } from '../services/cdek/packaging.service'
 import { getPvzList } from '../services/cdek/pvz.service'
@@ -55,6 +55,20 @@ const calcSchema = z.object({
     )
     .min(1),
 })
+
+export const listTariffsHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const toCityCode = Number(req.query.toCityCode)
+    if (!Number.isInteger(toCityCode) || toCityCode <= 0) {
+      return ok(res, [])
+    }
+    const weight = Number(req.query.weight) || 500
+    const list = await fetchAvailableTariffs(toCityCode, [{ weight }])
+    return ok(res, list)
+  } catch (error) {
+    next(error)
+  }
+}
 
 export const calculateHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {

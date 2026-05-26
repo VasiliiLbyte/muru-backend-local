@@ -95,4 +95,39 @@ describe('cdekFetch token cache', () => {
     expect(result).toHaveLength(1)
     expect(regionsCalls).toBe(2)
   })
+
+  it('logs [cdek-req] and [cdek-resp] when LOG_CDEK_DEBUG=1 on failed request', async () => {
+    vi.stubEnv('LOG_CDEK_DEBUG', '1')
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/oauth/token')) {
+        return new Response(
+          JSON.stringify({ access_token: 'tok', expires_in: 3600, token_type: 'bearer' }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+      if (url.includes('/calculator/tariff')) {
+        return new Response(
+          JSON.stringify({
+            errors: [{ code: 'err', message: 'fail' }],
+          }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+      return new Response('not found', { status: 404 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(
+      cdekFetch('/calculator/tariff', { method: 'POST', body: JSON.stringify({ type: 1 }) }),
+    ).rejects.toThrow()
+
+    const tags = logSpy.mock.calls.map((c) => c[0])
+    expect(tags).toContain('[cdek-req]')
+    expect(tags).toContain('[cdek-resp]')
+    logSpy.mockRestore()
+    vi.unstubAllEnvs()
+  })
 })

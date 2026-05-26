@@ -50,6 +50,9 @@ export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
   const [promoBusy, setPromoBusy] = useState(false)
   const [cityQuery, setCityQuery] = useState('')
   const [citySuggestions, setCitySuggestions] = useState<CdekCity[]>([])
+  const [cityLookupState, setCityLookupState] = useState<
+    'idle' | 'loading' | 'empty' | 'error'
+  >('idle')
   const [selectedCity, setSelectedCity] = useState<CdekCity | null>(null)
   const [deliveryType, setDeliveryType] = useState<'door' | 'pvz'>('door')
   const [pvzList, setPvzList] = useState<CdekPvz[]>([])
@@ -141,12 +144,20 @@ export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
     const q = cityQuery.trim()
     if (q.length < 2) {
       setCitySuggestions([])
+      setCityLookupState('idle')
       return
     }
+    setCityLookupState('loading')
     const timer = setTimeout(() => {
       fetchCdekCities(q)
-        .then(setCitySuggestions)
-        .catch(() => setCitySuggestions([]))
+        .then((list) => {
+          setCitySuggestions(list)
+          setCityLookupState(list.length === 0 ? 'empty' : 'idle')
+        })
+        .catch(() => {
+          setCitySuggestions([])
+          setCityLookupState('error')
+        })
     }, 350)
     return () => clearTimeout(timer)
   }, [cityQuery, selectedCity])
@@ -283,6 +294,7 @@ export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
     setSelectedCity(city)
     setCityQuery(city.full_name)
     setCitySuggestions([])
+    setCityLookupState('idle')
     setSelectedPvz(null)
     setCalc(null)
   }
@@ -324,7 +336,18 @@ export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
           placeholder="Начните вводить город"
           className="mt-2 w-full rounded-xl border border-muru-accent bg-white px-3 py-2 text-sm"
         />
-        {citySuggestions.length > 0 ? (
+        {cityLookupState === 'loading' ? (
+          <p className="mt-2 text-xs text-[#6b6b4a]">Ищем город…</p>
+        ) : null}
+        {cityLookupState === 'empty' ? (
+          <p className="mt-2 text-xs text-[#6b6b4a]">Город не найден. Проверьте написание.</p>
+        ) : null}
+        {cityLookupState === 'error' ? (
+          <p className="mt-2 text-xs text-red-700">
+            Не удалось загрузить города. Проверьте сеть и попробуйте снова.
+          </p>
+        ) : null}
+        {cityLookupState === 'idle' && citySuggestions.length > 0 ? (
           <div className="mt-2 grid max-h-48 gap-1 overflow-y-auto">
             {citySuggestions.map((city) => (
               <button
@@ -408,7 +431,15 @@ export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
             <p className="mt-3 text-xs text-[#6b6b4a]">Расчёт стоимости доставки…</p>
           ) : null}
           {calc?.errors && calc.errors.length > 0 ? (
-            <p className="mt-2 text-xs text-red-700">{calc.errors.join('; ')}</p>
+            <div className="mt-2 space-y-1">
+              <p className="text-xs text-red-700">{calc.errors.join('; ')}</p>
+              {!calc.door && !calc.pvz ? (
+                <p className="text-xs text-[#6b6b4a]">
+                  Доставка временно недоступна для этого города. Напишите менеджеру или попробуйте
+                  другой город.
+                </p>
+              ) : null}
+            </div>
           ) : null}
         </div>
       ) : null}
