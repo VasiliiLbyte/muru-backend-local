@@ -86,7 +86,8 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     try {
       const draft = await fetchOrderDraft(telegramUserId)
       if (!draft) return
-      setItems(draft.items)
+      // Do not overwrite items the user added while the draft request was in flight.
+      setItems((prev) => (prev.length === 0 ? draft.items : prev))
       clearPromoState()
       setPromoInput('')
       setCheckout({

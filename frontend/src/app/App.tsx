@@ -237,11 +237,12 @@ const AppShell = () => {
     }
   }, [navigate, location.search, location.hash])
 
+  const draftBootstrappedRef = useRef(false)
   useEffect(() => {
-    if (activeTab === 'Корзина') {
-      loadDraft(userId).catch(() => undefined)
-    }
-  }, [activeTab, loadDraft, userId])
+    if (!userId || draftBootstrappedRef.current) return
+    draftBootstrappedRef.current = true
+    loadDraft(userId).catch(() => undefined)
+  }, [userId, loadDraft])
 
   useEffect(() => {
     const app = webApp
