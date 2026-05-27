@@ -75,7 +75,7 @@ export const patchAdminProductDimsHandler = async (
 
     const parsed = patchDimsSchema.safeParse(req.body ?? {})
     if (!parsed.success) {
-      return fail(res, 400, zodErrorMessage(parsed.error), 'VALIDATION')
+      return fail(res, 400, zodErrorMessage(parsed.error.issues), 'VALIDATION')
     }
 
     if ('resetToAuto' in parsed.data) {
