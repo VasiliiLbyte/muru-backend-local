@@ -5,6 +5,7 @@ export type AdminSectionId =
   | 'customers'
   | 'promos'
   | 'sync'
+  | 'dims'
   | 'settings'
 
 export type AdminNavItem = {
@@ -19,6 +20,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { id: 'customers', label: 'Клиенты' },
   { id: 'promos', label: 'Промокоды' },
   { id: 'sync', label: 'Синхронизация' },
+  { id: 'dims', label: 'Габариты товаров' },
   { id: 'settings', label: 'Настройки' },
 ]
 

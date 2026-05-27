@@ -17,6 +17,10 @@ import {
   putAdminCategoryCoversHandler,
 } from '../controllers/admin-categories.controller'
 import {
+  listAdminProductDimsHandler,
+  patchAdminProductDimsHandler,
+} from '../controllers/admin-product-dims.controller'
+import {
   getAdminOrderByIdHandler,
   listAdminOrdersHandler,
   patchAdminOrderHandler,
@@ -98,6 +102,9 @@ adminRouter.get('/categories', getAdminCategoriesHandler)
 adminRouter.put('/categories/covers', putAdminCategoryCoversHandler)
 adminRouter.get('/bot-welcome', getAdminBotWelcomeHandler)
 adminRouter.put('/bot-welcome', putAdminBotWelcomeHandler)
+
+adminRouter.get('/products/dims', listAdminProductDimsHandler)
+adminRouter.patch('/products/:sku/dims', patchAdminProductDimsHandler)
 
 adminRouter.get('/promo-codes', listAdminPromoCodesHandler)
 adminRouter.post('/promo-codes', createAdminPromoCodeHandler)

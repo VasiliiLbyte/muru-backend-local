@@ -5,6 +5,7 @@ import { AdminPromoCodesSection } from './AdminPromoCodesSection'
 import { AdminCategoriesSection } from './AdminCategoriesSection'
 import { AdminOrdersSection } from './AdminOrdersSection'
 import { AdminLayout } from './AdminLayout'
+import { AdminProductDimsSection } from './AdminProductDimsSection'
 import { AdminSyncSection } from './AdminSyncSection'
 import { PlaceholderSection } from './PlaceholderSection'
 import type { AdminSectionId } from './admin-sections'
@@ -20,6 +21,7 @@ const needsUserId = (section: AdminSectionId): boolean =>
   section === 'categories' ||
   section === 'orders' ||
   section === 'promos' ||
+  section === 'dims' ||
   section === 'settings'
 
 export const AdminPage = ({ userId, onBack }: AdminPageProps) => {
@@ -52,6 +54,8 @@ export const AdminPage = ({ userId, onBack }: AdminPageProps) => {
         return <PlaceholderSection title="Клиенты" />
       case 'promos':
         return <AdminPromoCodesSection userId={userId!} />
+      case 'dims':
+        return <AdminProductDimsSection userId={userId!} />
       case 'settings':
         return <AdminBotWelcomeSection userId={userId!} />
       default:

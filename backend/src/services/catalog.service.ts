@@ -27,6 +27,7 @@ type ProductRow = {
   product_color: string | null
   dimensions_label: string | null
   color_tags: string[] | null
+  weight_grams: number
   variant_color: string | null
   variant_size: string | null
 }
@@ -177,6 +178,7 @@ export const getCatalogProducts = async (params: {
        p.color AS product_color,
        p.dimensions_label,
        p.color_tags,
+       p.weight_grams,
        v.color AS variant_color,
        v.size AS variant_size
      FROM products p
@@ -208,19 +210,25 @@ export const getCatalogProducts = async (params: {
       }
       if (row.product_color) {
         item.color = row.product_color
-        item.colors.push(row.product_color)
       }
       if (row.dimensions_label?.trim()) {
         item.dimensionsLabel = row.dimensions_label.trim()
       }
       if (row.color_tags?.length) {
         item.colorTags = row.color_tags
+        item.colors = [...row.color_tags]
+      } else if (row.product_color) {
+        item.colors = [row.product_color]
       }
       grouped.set(row.sku, item)
     }
 
     const product = grouped.get(row.sku)!
-    if (row.variant_color && !product.colors.includes(row.variant_color)) {
+    if (
+      row.variant_color &&
+      !product.colors.includes(row.variant_color) &&
+      !product.colorTags?.length
+    ) {
       product.colors.push(row.variant_color)
     }
     if (row.variant_size && !product.sizes.includes(row.variant_size)) {
@@ -247,6 +255,7 @@ export const getCatalogProductBySku = async (sku: string): Promise<CatalogProduc
        p.color AS product_color,
        p.dimensions_label,
        p.color_tags,
+       p.weight_grams,
        v.color AS variant_color,
        v.size AS variant_size
      FROM products p
@@ -281,13 +290,18 @@ export const getCatalogProductBySku = async (sku: string): Promise<CatalogProduc
 
   if (first.product_color) colors.add(first.product_color)
 
+  const dotColors =
+    first.color_tags && first.color_tags.length > 0
+      ? [...first.color_tags]
+      : Array.from(colors)
+
   const detail: CatalogProductDetail = {
     sku: first.sku,
     name: first.name,
     price: Number(first.price),
     inStock: first.in_stock,
     imageUrls: normalizeImageUrls(first.image_urls, first.image_url_1, first.image_url_2),
-    colors: Array.from(colors),
+    colors: dotColors,
     sizes: Array.from(sizes),
     category,
     subcategory,
@@ -299,6 +313,7 @@ export const getCatalogProductBySku = async (sku: string): Promise<CatalogProduc
   if (first.product_color) detail.color = first.product_color
   if (first.dimensions_label?.trim()) detail.dimensionsLabel = first.dimensions_label.trim()
   if (first.color_tags?.length) detail.colorTags = first.color_tags
+  detail.weightGrams = first.weight_grams
 
   return detail
 }

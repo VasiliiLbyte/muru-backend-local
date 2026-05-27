@@ -112,4 +112,5 @@ export type CatalogProductDetail = CatalogProductListItem & {
   description: string
   specs: Record<string, string>
   variants: Variant[]
+  weightGrams?: number
 }

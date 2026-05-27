@@ -464,6 +464,66 @@ export const refreshCdekTrack = async (
   return parseApi<{ scheduled: boolean; trackNumber: string | null }>(response)
 }
 
+export type AdminProductDimsRow = {
+  sku: string
+  name: string
+  dimensions_label: string
+  weight_grams: number
+  weight_source: 'auto' | 'manual'
+  dim_length_cm: number
+  dim_width_cm: number
+  dim_height_cm: number
+  dims_source: 'auto' | 'manual'
+  image_url_1: string
+}
+
+export const fetchAdminProductDims = async (
+  telegramUserId: number,
+  q: string,
+  filter: string,
+): Promise<AdminProductDimsRow[]> => {
+  const params = new URLSearchParams()
+  if (q) params.set('q', q)
+  if (filter) params.set('filter', filter)
+  const qs = params.toString()
+  const response = await safeFetch(
+    `${API_BASE_URL}/api/admin/products/dims${qs ? `?${qs}` : ''}`,
+    { headers: adminTelegramHeadersGet(telegramUserId) },
+  )
+  return parseApi<AdminProductDimsRow[]>(response)
+}
+
+export const updateAdminProductDims = async (
+  telegramUserId: number,
+  sku: string,
+  data: { weightGrams: number; lengthCm: number; widthCm: number; heightCm: number },
+): Promise<{ sku: string; weightGrams: number; lengthCm: number; widthCm: number; heightCm: number }> => {
+  const response = await safeFetch(
+    `${API_BASE_URL}/api/admin/products/${encodeURIComponent(sku)}/dims`,
+    {
+      method: 'PATCH',
+      headers: adminTelegramHeadersPatch(telegramUserId),
+      body: JSON.stringify(data),
+    },
+  )
+  return parseApi(response)
+}
+
+export const resetAdminProductDims = async (
+  telegramUserId: number,
+  sku: string,
+): Promise<{ sku: string; reset: boolean }> => {
+  const response = await safeFetch(
+    `${API_BASE_URL}/api/admin/products/${encodeURIComponent(sku)}/dims`,
+    {
+      method: 'PATCH',
+      headers: adminTelegramHeadersPatch(telegramUserId),
+      body: JSON.stringify({ resetToAuto: true }),
+    },
+  )
+  return parseApi(response)
+}
+
 export const fetchAdminPromoCodes = async (telegramUserId: number): Promise<AdminPromoCode[]> => {
   const response = await safeFetch(`${API_BASE_URL}/api/admin/promo-codes`, {
     headers: adminTelegramHeadersGet(telegramUserId),

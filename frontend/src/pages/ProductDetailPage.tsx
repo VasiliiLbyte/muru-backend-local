@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 
 import type { CatalogProductDetail } from '../types/catalog'
+import { ColorDots } from '../components/ColorDots'
 import { ProductImageCarousel } from '../components/ProductImageCarousel'
 import { pressable } from '../lib/uiClasses'
 
@@ -13,6 +14,9 @@ type ProductDetailPageProps = {
   isAuthorized: boolean
 }
 
+const dotColors = (product: CatalogProductDetail) =>
+  product.colorTags?.length ? product.colorTags : product.colors
+
 export const ProductDetailPage = ({
   product,
   onAddToCart,
@@ -22,14 +26,7 @@ export const ProductDetailPage = ({
   isAuthorized,
 }: ProductDetailPageProps) => {
   const specEntries = useMemo(() => Object.entries(product.specs || {}), [product.specs])
-  const hasSizeInSpecs = useMemo(
-    () => specEntries.some(([key]) => key.toLowerCase().includes('размер')),
-    [specEntries],
-  )
-  const hasColorInSpecs = useMemo(
-    () => specEntries.some(([key]) => key.toLowerCase().includes('цвет')),
-    [specEntries],
-  )
+  const colors = dotColors(product)
 
   return (
     <section className="space-y-4">
@@ -61,22 +58,28 @@ export const ProductDetailPage = ({
         </p>
         <p className="mt-3 text-sm">{product.description || 'Описание будет добавлено позже.'}</p>
 
-        {specEntries.length > 0 ||
-        (product.dimensionsLabel && !hasSizeInSpecs) ||
-        (product.color && !hasColorInSpecs) ? (
+        {product.color || product.dimensionsLabel ? (
+          <div className="mt-3 grid gap-2">
+            {product.color ? (
+              <div className="flex items-center gap-2 text-sm">
+                <span className="font-medium text-muru-olive">Цвет:</span>
+                <span>{product.color}</span>
+                <ColorDots colors={colors} />
+              </div>
+            ) : null}
+            {product.dimensionsLabel ? (
+              <div className="flex items-baseline gap-2 text-sm">
+                <span className="font-medium text-muru-olive">Размер:</span>
+                <span>{product.dimensionsLabel} см</span>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {specEntries.length > 0 ? (
           <div className="mt-4">
             <h2 className="text-sm font-semibold text-muru-olive">Характеристики</h2>
             <ul className="mt-2 space-y-1 text-sm">
-              {product.color && !hasColorInSpecs ? (
-                <li>
-                  <span className="font-medium">Цвет:</span> {product.color}
-                </li>
-              ) : null}
-              {product.dimensionsLabel && !hasSizeInSpecs ? (
-                <li>
-                  <span className="font-medium">Размер:</span> {product.dimensionsLabel}
-                </li>
-              ) : null}
               {specEntries.map(([key, value]) => (
                 <li key={key}>
                   <span className="font-medium">{key}:</span> {String(value)}
