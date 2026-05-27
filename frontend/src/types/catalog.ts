@@ -15,6 +15,9 @@ export type CatalogProduct = {
   sizes: string[]
   category: string
   subcategory: string
+  color?: string
+  dimensionsLabel?: string
+  colorTags?: string[]
 }
 
 export type CatalogVariant = {

@@ -20,7 +20,11 @@ export type Product = {
   variants: Variant[]
   imageUrls: string[]
   color?: string
+  colorTags?: string[]
   size?: string
+  dimensionsLabel?: string
+  parsedDims?: { lengthCm: number; widthCm: number; heightCm: number } | null
+  weightGramsEstimated?: number | null
 }
 
 export type SyncError = {
@@ -99,6 +103,9 @@ export type CatalogProductListItem = {
   sizes: string[]
   category: string
   subcategory: string
+  color?: string
+  dimensionsLabel?: string
+  colorTags?: string[]
 }
 
 export type CatalogProductDetail = CatalogProductListItem & {

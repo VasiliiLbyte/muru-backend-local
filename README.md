@@ -60,6 +60,26 @@ CDEK (после `005_promo_codes.sql`):
 ```bash
 psql "$DATABASE_URL" -f backend/src/db/migrations/006_cdek_orders.sql
 psql "$DATABASE_URL" -f backend/src/db/migrations/007_product_shipping_dims.sql
+psql "$DATABASE_URL" -f backend/src/db/migrations/008_product_dims_parsed.sql
+```
+
+После синка каталога габариты и оценочный вес заполняются из колонки «Размер» и «Материал» в xlsx. Ручные правки не перезаписываются, если выставить `dims_source='manual'` и/или `weight_source='manual'`:
+
+```sql
+UPDATE products
+SET dim_length_cm=35, dim_width_cm=35, dim_height_cm=40, weight_grams=1200,
+    dims_source='manual', weight_source='manual'
+WHERE sku = 'MU0123';
+```
+
+Проверка после синка:
+
+```sql
+SELECT sku, dimensions_label, dim_length_cm, dim_width_cm, dim_height_cm, weight_grams, color, color_tags
+FROM products WHERE sku IN ('MU0001', 'MU0002') LIMIT 5;
+
+SELECT COUNT(*) FILTER (WHERE dim_length_cm = 20 AND dim_width_cm = 20 AND dim_height_cm = 20) AS still_default,
+       COUNT(*) AS total FROM products;
 ```
 
 Диагностика СДЭК на VPS: временно `LOG_CDEK_DEBUG=1` в `.env`, затем `pm2 reload ecosystem.config.js --update-env` и `pm2 logs muru-backend --raw`. Список доступных тарифов для города: `curl 'https://murushop.online/api/cdek/tariff-list?toCityCode=137&weight=500'`. Для отправки со склада: `CDEK_TARIFF_DOOR=137` (склад→дверь), `CDEK_TARIFF_PVZ=136` (склад→ПВЗ); коды 138/139 дают `v2_internal_error`, если отправитель не «с двери».

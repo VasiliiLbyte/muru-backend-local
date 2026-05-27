@@ -35,6 +35,13 @@ ALTER TABLE products ADD COLUMN IF NOT EXISTS weight_grams INTEGER NOT NULL DEFA
 ALTER TABLE products ADD COLUMN IF NOT EXISTS dim_length_cm INTEGER NOT NULL DEFAULT 20;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS dim_width_cm INTEGER NOT NULL DEFAULT 20;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS dim_height_cm INTEGER NOT NULL DEFAULT 20;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS dimensions_label TEXT NOT NULL DEFAULT '';
+ALTER TABLE products ADD COLUMN IF NOT EXISTS dims_source TEXT NOT NULL DEFAULT 'auto'
+  CHECK (dims_source IN ('auto', 'manual'));
+ALTER TABLE products ADD COLUMN IF NOT EXISTS weight_source TEXT NOT NULL DEFAULT 'auto'
+  CHECK (weight_source IN ('auto', 'manual'));
+ALTER TABLE products ADD COLUMN IF NOT EXISTS color_tags TEXT[] NOT NULL DEFAULT '{}';
+CREATE INDEX IF NOT EXISTS idx_products_color_tags ON products USING gin(color_tags);
 
 UPDATE products
 SET image_urls = (

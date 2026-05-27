@@ -26,6 +26,11 @@ import {
 } from './google-sync-errors'
 import { invalidateImageCache } from './image-proxy.service'
 import { buildTwoSlotImageUrls } from './google-sync-image-urls'
+import {
+  estimateWeightGrams,
+  parseColorTags,
+  parseDimensionsLabel,
+} from './google-sync-dimensions'
 import { extractDriveFileId } from '../utils/drive-file-id'
 
 const rowSchema = z.object({
@@ -145,6 +150,13 @@ const normalizeProduct = (
   const productUrls = orderedRefs.map((ref) => buildDriveThumbnailUrl(ref.fileId))
   const imageUrls = buildTwoSlotImageUrls(productUrls, placeholderThumbnailUrl)
 
+  const dimsLabel = (source['размер'] ?? '').trim()
+  const parsedDims = parseDimensionsLabel(dimsLabel)
+  const material = finalSpecs['Материал']
+  const weightGramsEstimated = parsedDims ? estimateWeightGrams(parsedDims, material) : null
+  const colorRaw = (source['цвет'] ?? '').trim()
+  const colorTags = parseColorTags(colorRaw)
+
   return {
     sku,
     name: parsed.data.name,
@@ -155,8 +167,12 @@ const normalizeProduct = (
     specs: finalSpecs,
     variants: parseVariants(parsed.data.variants),
     imageUrls,
-    color: source['цвет']?.trim() || undefined,
-    size: source['размер']?.trim() || undefined,
+    color: colorRaw || undefined,
+    colorTags,
+    size: dimsLabel || undefined,
+    dimensionsLabel: dimsLabel,
+    parsedDims,
+    weightGramsEstimated,
   }
 }
 
@@ -187,11 +203,18 @@ const upsertProductWithClient = async (
   product: Product,
   categoryId: number,
 ): Promise<void> => {
+  const existing = await client.query<{ dims_source: string; weight_source: string }>(
+    `SELECT dims_source, weight_source FROM products WHERE sku = $1`,
+    [product.sku],
+  )
+  const dimsManual = existing.rows[0]?.dims_source === 'manual'
+  const weightManual = existing.rows[0]?.weight_source === 'manual'
+
   const imageUrl1 = product.imageUrls[0] ?? DEFAULT_IMAGE_URL
   const imageUrl2 = product.imageUrls[1] ?? imageUrl1
   const productResult = await client.query<{ id: number }>(
-    `INSERT INTO products (sku, name, description, price, in_stock, specs, image_url_1, image_url_2, image_urls, category_id, color, size, updated_at)
-     VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9::jsonb,$10,$11,$12,NOW())
+    `INSERT INTO products (sku, name, description, price, in_stock, specs, image_url_1, image_url_2, image_urls, category_id, color, color_tags, size, dimensions_label, updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9::jsonb,$10,$11,$12,$13,$14,NOW())
      ON CONFLICT (sku)
      DO UPDATE SET
        name = EXCLUDED.name,
@@ -204,7 +227,9 @@ const upsertProductWithClient = async (
        image_urls = EXCLUDED.image_urls,
        category_id = EXCLUDED.category_id,
        color = EXCLUDED.color,
+       color_tags = EXCLUDED.color_tags,
        size = EXCLUDED.size,
+       dimensions_label = EXCLUDED.dimensions_label,
        updated_at = NOW()
      RETURNING id`,
     [
@@ -219,9 +244,33 @@ const upsertProductWithClient = async (
       JSON.stringify(product.imageUrls),
       categoryId,
       product.color ?? null,
+      product.colorTags ?? [],
       product.size ?? null,
+      product.dimensionsLabel ?? '',
     ],
   )
+
+  if (product.parsedDims && !dimsManual) {
+    await client.query(
+      `UPDATE products
+       SET dim_length_cm = $1, dim_width_cm = $2, dim_height_cm = $3, dims_source = 'auto'
+       WHERE sku = $4 AND dims_source = 'auto'`,
+      [
+        product.parsedDims.lengthCm,
+        product.parsedDims.widthCm,
+        product.parsedDims.heightCm,
+        product.sku,
+      ],
+    )
+  }
+
+  if (product.weightGramsEstimated != null && !weightManual) {
+    await client.query(
+      `UPDATE products SET weight_grams = $1, weight_source = 'auto'
+       WHERE sku = $2 AND weight_source = 'auto'`,
+      [product.weightGramsEstimated, product.sku],
+    )
+  }
 
   const productId = productResult.rows[0].id
   await client.query('DELETE FROM variants WHERE product_id = $1', [productId])

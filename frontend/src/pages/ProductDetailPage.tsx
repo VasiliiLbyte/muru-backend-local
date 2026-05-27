@@ -22,6 +22,14 @@ export const ProductDetailPage = ({
   isAuthorized,
 }: ProductDetailPageProps) => {
   const specEntries = useMemo(() => Object.entries(product.specs || {}), [product.specs])
+  const hasSizeInSpecs = useMemo(
+    () => specEntries.some(([key]) => key.toLowerCase().includes('размер')),
+    [specEntries],
+  )
+  const hasColorInSpecs = useMemo(
+    () => specEntries.some(([key]) => key.toLowerCase().includes('цвет')),
+    [specEntries],
+  )
 
   return (
     <section className="space-y-4">
@@ -53,10 +61,22 @@ export const ProductDetailPage = ({
         </p>
         <p className="mt-3 text-sm">{product.description || 'Описание будет добавлено позже.'}</p>
 
-        {specEntries.length > 0 ? (
+        {specEntries.length > 0 ||
+        (product.dimensionsLabel && !hasSizeInSpecs) ||
+        (product.color && !hasColorInSpecs) ? (
           <div className="mt-4">
             <h2 className="text-sm font-semibold text-muru-olive">Характеристики</h2>
             <ul className="mt-2 space-y-1 text-sm">
+              {product.color && !hasColorInSpecs ? (
+                <li>
+                  <span className="font-medium">Цвет:</span> {product.color}
+                </li>
+              ) : null}
+              {product.dimensionsLabel && !hasSizeInSpecs ? (
+                <li>
+                  <span className="font-medium">Размер:</span> {product.dimensionsLabel}
+                </li>
+              ) : null}
               {specEntries.map(([key, value]) => (
                 <li key={key}>
                   <span className="font-medium">{key}:</span> {String(value)}

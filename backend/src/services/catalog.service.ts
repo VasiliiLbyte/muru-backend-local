@@ -24,23 +24,16 @@ type ProductRow = {
   image_url_2: string
   image_urls: string[] | null
   category_name: string | null
-  color: string | null
-  size: string | null
+  product_color: string | null
+  dimensions_label: string | null
+  color_tags: string[] | null
+  variant_color: string | null
+  variant_size: string | null
 }
 
-type ProductDetailRow = {
-  sku: string
-  name: string
-  price: string
-  in_stock: number
-  image_url_1: string
-  image_url_2: string
-  image_urls: string[] | null
-  category_name: string | null
+type ProductDetailRow = ProductRow & {
   description: string
   specs: Record<string, string> | null
-  color: string | null
-  size: string | null
 }
 
 const normalizeImageUrls = (
@@ -154,7 +147,12 @@ export const getCatalogProducts = async (params: {
   }
   if (color) {
     values.push(`%${color}%`)
-    conditions.push(`v.color ILIKE $${values.length}`)
+    const likeIdx = values.length
+    values.push(color.toLowerCase().trim())
+    const tagIdx = values.length
+    conditions.push(
+      `(v.color ILIKE $${likeIdx} OR p.color ILIKE $${likeIdx} OR EXISTS (SELECT 1 FROM unnest(p.color_tags) AS t(tag) WHERE tag ILIKE $${likeIdx}) OR $${tagIdx} = ANY(p.color_tags))`,
+    )
   }
   if (size) {
     values.push(`%${size}%`)
@@ -176,8 +174,11 @@ export const getCatalogProducts = async (params: {
        p.image_url_2,
        p.image_urls,
        c.name AS category_name,
-       v.color,
-       v.size
+       p.color AS product_color,
+       p.dimensions_label,
+       p.color_tags,
+       v.color AS variant_color,
+       v.size AS variant_size
      FROM products p
      LEFT JOIN categories c ON c.id = p.category_id
      LEFT JOIN variants v ON v.product_id = p.id
@@ -194,7 +195,7 @@ export const getCatalogProducts = async (params: {
     const subcategoryName = pathParts[1] ?? 'Общее'
 
     if (!grouped.has(row.sku)) {
-      grouped.set(row.sku, {
+      const item: CatalogProductListItem = {
         sku: row.sku,
         name: row.name,
         price: Number(row.price),
@@ -204,12 +205,27 @@ export const getCatalogProducts = async (params: {
         sizes: [],
         category: categoryName,
         subcategory: subcategoryName,
-      })
+      }
+      if (row.product_color) {
+        item.color = row.product_color
+        item.colors.push(row.product_color)
+      }
+      if (row.dimensions_label?.trim()) {
+        item.dimensionsLabel = row.dimensions_label.trim()
+      }
+      if (row.color_tags?.length) {
+        item.colorTags = row.color_tags
+      }
+      grouped.set(row.sku, item)
     }
 
     const product = grouped.get(row.sku)!
-    if (row.color && !product.colors.includes(row.color)) product.colors.push(row.color)
-    if (row.size && !product.sizes.includes(row.size)) product.sizes.push(row.size)
+    if (row.variant_color && !product.colors.includes(row.variant_color)) {
+      product.colors.push(row.variant_color)
+    }
+    if (row.variant_size && !product.sizes.includes(row.variant_size)) {
+      product.sizes.push(row.variant_size)
+    }
   }
 
   return Array.from(grouped.values())
@@ -228,8 +244,11 @@ export const getCatalogProductBySku = async (sku: string): Promise<CatalogProduc
        p.description,
        p.specs,
        c.name AS category_name,
-       v.color,
-       v.size
+       p.color AS product_color,
+       p.dimensions_label,
+       p.color_tags,
+       v.color AS variant_color,
+       v.size AS variant_size
      FROM products p
      LEFT JOIN categories c ON c.id = p.category_id
      LEFT JOIN variants v ON v.product_id = p.id
@@ -248,16 +267,21 @@ export const getCatalogProductBySku = async (sku: string): Promise<CatalogProduc
   const sizes = new Set<string>()
 
   for (const row of result.rows) {
-    if (row.color) colors.add(row.color)
-    if (row.size) sizes.add(row.size)
-    const key = `${row.color ?? ''}|${row.size ?? ''}`
-    if (!variantSet.has(key) && (row.color || row.size)) {
+    if (row.variant_color) colors.add(row.variant_color)
+    if (row.variant_size) sizes.add(row.variant_size)
+    const key = `${row.variant_color ?? ''}|${row.variant_size ?? ''}`
+    if (!variantSet.has(key) && (row.variant_color || row.variant_size)) {
       variantSet.add(key)
-      variants.push({ color: row.color ?? undefined, size: row.size ?? undefined })
+      variants.push({
+        color: row.variant_color ?? undefined,
+        size: row.variant_size ?? undefined,
+      })
     }
   }
 
-  return {
+  if (first.product_color) colors.add(first.product_color)
+
+  const detail: CatalogProductDetail = {
     sku: first.sku,
     name: first.name,
     price: Number(first.price),
@@ -271,4 +295,10 @@ export const getCatalogProductBySku = async (sku: string): Promise<CatalogProduc
     specs: first.specs ?? {},
     variants,
   }
+
+  if (first.product_color) detail.color = first.product_color
+  if (first.dimensions_label?.trim()) detail.dimensionsLabel = first.dimensions_label.trim()
+  if (first.color_tags?.length) detail.colorTags = first.color_tags
+
+  return detail
 }
