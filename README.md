@@ -64,6 +64,59 @@ psql "$DATABASE_URL" -f backend/src/db/migrations/007_product_shipping_dims.sql
 
 Диагностика СДЭК на VPS: временно `LOG_CDEK_DEBUG=1` в `.env`, затем `pm2 reload ecosystem.config.js --update-env` и `pm2 logs muru-backend --raw`. Список доступных тарифов для города: `curl 'https://murushop.online/api/cdek/tariff-list?toCityCode=137&weight=500'`. Для отправки со склада: `CDEK_TARIFF_DOOR=137` (склад→дверь), `CDEK_TARIFF_PVZ=136` (склад→ПВЗ); коды 138/139 дают `v2_internal_error`, если отправитель не «с двери».
 
+### Подсказки адреса (DaData)
+
+Подсказки улицы/дома работают через прокси `GET /api/cdek/address-suggest?q=...&city=...` к DaData. Нужен `DADATA_API_KEY` в `.env` (free 10k req/день, https://dadata.ru). Без ключа поле адреса остаётся ручным — никаких ошибок не будет.
+
+Проверка после деплоя: `curl 'https://murushop.online/api/cdek/address-suggest?q=Невский&city=Санкт-Петербург'` — массив подсказок с полем `value` (готовая строка для CDEK).
+
+### Тестирование заказа на тестовых ключах CDEK
+
+```mermaid
+sequenceDiagram
+  participant U as Mini-app
+  participant API as backend
+  participant CDEK as api.edu.cdek.ru
+
+  U->>API: POST /api/orders/create
+  API->>API: orders insert (is_draft=false)
+  API->>CDEK: POST /orders (test creds)
+  CDEK-->>API: entity.uuid
+  Note over API: schedulePullTrackNumber 1m, 5m, 30m
+  API->>CDEK: GET /orders/{uuid}
+  CDEK-->>API: entity.cdek_number
+  API->>U: Telegram-сообщение с трек-номером
+```
+
+Пошаговая проверка на песочнице:
+
+1. В `.env` на VPS: `CDEK_ENV=test`, тестовые `CDEK_CLIENT_ID`/`CDEK_CLIENT_SECRET`, отправитель `CDEK_SENDER_CITY_CODE=137`, `CDEK_SENDER_ADDRESS="Ординарная 16, кв 104, г. Санкт-Петербург"`, `CDEK_SENDER_NAME`, `CDEK_SENDER_PHONE`. Тарифы `CDEK_TARIFF_DOOR=137`, `CDEK_TARIFF_PVZ=136`. `DADATA_API_KEY=<токен>`. Временно `LOG_CDEK_DEBUG=1`.
+2. `pm2 reload ecosystem.config.js --update-env`.
+3. Health-check: `curl https://murushop.online/api/cdek/health` → `status=ok`.
+4. `curl 'https://murushop.online/api/cdek/tariff-list?toCityCode=137&weight=500'` — в списке должны быть 137 и 136.
+5. `curl 'https://murushop.online/api/cdek/address-suggest?q=Невский&city=Санкт-Петербург'` — массив подсказок.
+6. Через мини-апп оформить два заказа (door и ПВЗ): добавить товар → выбрать СПб → выбрать улицу/ПВЗ → корректный телефон `+7…`. В логах `pm2 logs muru-backend --raw` ожидаем `[cdek-orders] cdek order created { orderId, uuid }`.
+7. Проверка в БД:
+   ```sql
+   SELECT id, cdek_sync_state, cdek_uuid, cdek_track_number, cdek_create_error
+   FROM orders ORDER BY id DESC LIMIT 5;
+   ```
+   `cdek_sync_state='created'`, через 1–6 минут — заполнен `cdek_track_number`.
+8. Проверка в СДЭК:
+   ```bash
+   TOKEN=$(curl -s -X POST 'https://api.edu.cdek.ru/v2/oauth/token?parameters' \
+     -d "grant_type=client_credentials&client_id=$CDEK_CLIENT_ID&client_secret=$CDEK_CLIENT_SECRET" \
+     | jq -r .access_token)
+   curl -s "https://api.edu.cdek.ru/v2/orders/$UUID" \
+     -H "Authorization: Bearer $TOKEN" | jq .entity.statuses
+   ```
+9. Negative-сценарии: город не найден → пустая подсказка в UI; невалидный телефон → `cdek_create_error` в БД + уведомление админам в Telegram; недоступный вес → читаемая ошибка в чекауте.
+10. Чистка тестовых заказов:
+    ```bash
+    curl -X DELETE "https://api.edu.cdek.ru/v2/orders/$UUID" -H "Authorization: Bearer $TOKEN"
+    ```
+11. После окончания диагностики убрать `LOG_CDEK_DEBUG=1` и `pm2 reload`.
+
 Проверка: `psql "$DATABASE_URL" -c "\d categories"` — в списке колонок должны быть `cover_drive_filename` и `cover_image_url`.
 
 ## Run Frontend

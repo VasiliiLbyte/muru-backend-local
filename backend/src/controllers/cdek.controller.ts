@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { suggestCities } from '../services/cdek/cities.service'
 import { calculateBothTariffs, fetchAvailableTariffs } from '../services/cdek/calc.service'
 import { cdekFetch } from '../services/cdek/client'
+import { suggestAddresses } from '../services/cdek/dadata.service'
 import { buildPackagesFromCart } from '../services/cdek/packaging.service'
 import { getPvzList } from '../services/cdek/pvz.service'
 import { ok } from '../utils/api-response'
@@ -65,6 +66,23 @@ export const listTariffsHandler = async (req: Request, res: Response, next: Next
     const weight = Number(req.query.weight) || 500
     const list = await fetchAvailableTariffs(toCityCode, [{ weight }])
     return ok(res, list)
+  } catch (error) {
+    next(error)
+  }
+}
+
+export const getAddressSuggestionsHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const q = String(req.query.q ?? '').trim()
+    if (q.length < 2) return ok(res, [])
+    const cityRaw = req.query.city
+    const city = typeof cityRaw === 'string' ? cityRaw.trim() : ''
+    const rows = await suggestAddresses(q, city || undefined)
+    return ok(res, rows)
   } catch (error) {
     next(error)
   }

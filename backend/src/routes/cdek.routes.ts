@@ -2,6 +2,7 @@ import { Router } from 'express'
 
 import {
   calculateHandler,
+  getAddressSuggestionsHandler,
   getCdekHealthHandler,
   getCitiesHandler,
   getPvzHandler,
@@ -15,6 +16,11 @@ const cdekRouter = Router()
 cdekRouter.get('/health', getCdekHealthHandler)
 cdekRouter.get('/cities', rateLimitByIp('cdek:cities', 60), getCitiesHandler)
 cdekRouter.get('/tariff-list', rateLimitByIp('cdek:tariff-list', 30), listTariffsHandler)
+cdekRouter.get(
+  '/address-suggest',
+  rateLimitByIp('cdek:address-suggest', 60),
+  getAddressSuggestionsHandler,
+)
 cdekRouter.get('/pickup-points', getPvzHandler)
 cdekRouter.post(
   '/calculate',

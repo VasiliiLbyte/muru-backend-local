@@ -58,6 +58,8 @@ const envSchema = z.object({
   CDEK_TARIFF_DOOR: z.string().default('137'),
   CDEK_TARIFF_PVZ: z.string().default('136'),
   CDEK_WEBHOOK_SECRET: z.string().optional(),
+  DADATA_API_KEY: z.string().optional(),
+  DADATA_SECRET_KEY: z.string().optional(),
 })
 
 const parsed = envSchema.safeParse(process.env)
@@ -157,5 +159,9 @@ export const env = {
     tariffDoor: Number(parsed.data.CDEK_TARIFF_DOOR) || 137,
     tariffPvz: Number(parsed.data.CDEK_TARIFF_PVZ) || 136,
     webhookSecret: parsed.data.CDEK_WEBHOOK_SECRET?.trim() ?? '',
+  },
+  dadata: {
+    apiKey: parsed.data.DADATA_API_KEY?.trim() ?? '',
+    secretKey: parsed.data.DADATA_SECRET_KEY?.trim() ?? '',
   },
 }

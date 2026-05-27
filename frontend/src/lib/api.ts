@@ -689,6 +689,27 @@ export const fetchCdekCities = async (q: string): Promise<CdekCity[]> => {
   return parseApi<CdekCity[]>(response)
 }
 
+export type AddressSuggestion = {
+  value: string
+  street?: string
+  house?: string
+  block?: string
+  flat?: string
+  postalCode?: string
+  cityFiasId?: string
+}
+
+export const fetchAddressSuggestions = async (
+  q: string,
+  city?: string,
+): Promise<AddressSuggestion[]> => {
+  if (q.trim().length < 2) return []
+  const params = new URLSearchParams({ q })
+  if (city) params.set('city', city)
+  const response = await safeFetch(`${API_BASE_URL}/api/cdek/address-suggest?${params.toString()}`)
+  return parseApi<AddressSuggestion[]>(response)
+}
+
 export const fetchCdekPvz = async (cityCode: number): Promise<CdekPvz[]> => {
   const response = await safeFetch(
     `${API_BASE_URL}/api/cdek/pickup-points?cityCode=${cityCode}`,

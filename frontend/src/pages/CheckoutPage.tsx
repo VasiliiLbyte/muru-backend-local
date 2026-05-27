@@ -3,9 +3,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useCart } from '../cart/CartContext'
 import {
   calculateCdek,
+  fetchAddressSuggestions,
   fetchCdekCities,
   fetchCdekPvz,
   fetchMyProfile,
+  type AddressSuggestion,
   type CdekCalcResult,
   type CdekCity,
   type CdekPvz,
@@ -63,10 +65,23 @@ export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
   const [selectedPvz, setSelectedPvz] = useState<CdekPvz | null>(null)
   const [calc, setCalc] = useState<CdekCalcResult | null>(null)
   const [calcLoading, setCalcLoading] = useState(false)
-  const [houseAddress, setHouseAddress] = useState('')
+  const [streetQuery, setStreetQuery] = useState('')
+  const [streetSuggestions, setStreetSuggestions] = useState<AddressSuggestion[]>([])
+  const [streetLookupState, setStreetLookupState] = useState<
+    'idle' | 'loading' | 'empty' | 'error' | 'disabled'
+  >('idle')
+  const [selectedStreetValue, setSelectedStreetValue] = useState('')
+  const [flat, setFlat] = useState('')
   const [recipientName, setRecipientName] = useState('')
   const [recipientPhone, setRecipientPhone] = useState('')
   const [draftHydrated, setDraftHydrated] = useState(false)
+
+  const houseAddress = useMemo(() => {
+    const street = selectedStreetValue.trim() || streetQuery.trim()
+    if (!street) return ''
+    const flatTrimmed = flat.trim()
+    return flatTrimmed ? `${street}, кв ${flatTrimmed}` : street
+  }, [selectedStreetValue, streetQuery, flat])
 
   const hasItems = useMemo(() => items.length > 0, [items.length])
 
@@ -78,7 +93,10 @@ export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
     if (recipientName.trim().length < 2) return false
     const phoneDigits = recipientPhone.replace(/\D/g, '')
     if (phoneDigits.length !== 10 && phoneDigits.length !== 11) return false
-    if (deliveryType === 'door' && !houseAddress.trim()) return false
+    if (deliveryType === 'door') {
+      const street = selectedStreetValue.trim() || streetQuery.trim()
+      if (street.length < 3) return false
+    }
     if (deliveryType === 'pvz' && !selectedPvz) return false
     return true
   }, [
@@ -87,7 +105,8 @@ export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
     selectedCity,
     selectedTariff,
     deliveryType,
-    houseAddress,
+    selectedStreetValue,
+    streetQuery,
     selectedPvz,
     recipientName,
     recipientPhone,
@@ -128,7 +147,16 @@ export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
       if (parts.startsWith('ПВЗ:')) {
         // skip
       } else if (parts) {
-        setHouseAddress(parts)
+        const flatMatch = parts.match(/,\s*кв\s*([^,]+)\s*$/i)
+        if (flatMatch) {
+          const streetPart = parts.slice(0, flatMatch.index).trim()
+          setSelectedStreetValue(streetPart)
+          setStreetQuery(streetPart)
+          setFlat(flatMatch[1].trim())
+        } else {
+          setSelectedStreetValue(parts)
+          setStreetQuery(parts)
+        }
       }
     }
 
@@ -165,6 +193,47 @@ export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
     }, 350)
     return () => clearTimeout(timer)
   }, [cityQuery, selectedCity])
+
+  useEffect(() => {
+    if (deliveryType !== 'door') {
+      setStreetSuggestions([])
+      setStreetLookupState('idle')
+      return
+    }
+    if (!selectedCity) {
+      setStreetSuggestions([])
+      setStreetLookupState('idle')
+      return
+    }
+    if (selectedStreetValue && selectedStreetValue === streetQuery) {
+      setStreetSuggestions([])
+      setStreetLookupState('idle')
+      return
+    }
+    const q = streetQuery.trim()
+    if (q.length < 3) {
+      setStreetSuggestions([])
+      setStreetLookupState('idle')
+      return
+    }
+    setStreetLookupState('loading')
+    const timer = setTimeout(() => {
+      fetchAddressSuggestions(q, selectedCity.city || selectedCity.full_name)
+        .then((list) => {
+          setStreetSuggestions(list)
+          if (list.length === 0) {
+            setStreetLookupState('disabled')
+          } else {
+            setStreetLookupState('idle')
+          }
+        })
+        .catch(() => {
+          setStreetSuggestions([])
+          setStreetLookupState('error')
+        })
+    }, 350)
+    return () => clearTimeout(timer)
+  }, [deliveryType, selectedCity, streetQuery, selectedStreetValue])
 
   useEffect(() => {
     if (!selectedCity) {
@@ -220,13 +289,14 @@ export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
       deliveryType === 'pvz' ? (calc?.pvz?.deliverySum ?? 0) : (calc?.door?.deliverySum ?? 0)
     const deliveryEta =
       deliveryType === 'pvz' ? formatEta(calc?.pvz) : formatEta(calc?.door)
+    const street = houseAddress.trim()
     const address =
       deliveryType === 'pvz'
         ? selectedPvz
           ? `${selectedCity.full_name}, ПВЗ: ${selectedPvz.address}`
           : selectedCity.full_name
-        : houseAddress.trim()
-          ? `${selectedCity.full_name}, ${houseAddress.trim()}`
+        : street
+          ? `${selectedCity.full_name}, ${street}`
           : selectedCity.full_name
 
     updateCheckout({
@@ -256,6 +326,16 @@ export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
     recipientName,
     recipientPhone,
   ])
+
+  const selectStreetSuggestion = useCallback((suggestion: AddressSuggestion) => {
+    setSelectedStreetValue(suggestion.value)
+    setStreetQuery(suggestion.value)
+    setStreetSuggestions([])
+    setStreetLookupState('idle')
+    if (suggestion.flat) {
+      setFlat(suggestion.flat)
+    }
+  }, [])
 
   const handleConfirm = useCallback(async () => {
     if (isSubmitting || !checkoutReady) return
@@ -392,20 +472,66 @@ export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
           </div>
 
           {deliveryType === 'door' ? (
-            <div className="mt-3">
-              <label className="text-xs font-medium text-muru-olive" htmlFor="house-address">
-                Улица, дом, квартира
-              </label>
-              <input
-                id="house-address"
-                value={houseAddress}
-                onChange={(event) => setHouseAddress(event.target.value)}
-                placeholder="Например: Невский пр., 1, кв. 10"
-                className="mt-1 w-full rounded-xl border border-muru-accent bg-white px-3 py-2 text-sm"
-              />
-              <p className="mt-1 text-xs text-[#6b6b4a]">
-                Адрес вводится вручную (подсказки по улице пока не подключены).
-              </p>
+            <div className="mt-3 space-y-2">
+              <div>
+                <label className="text-xs font-medium text-muru-olive" htmlFor="house-address">
+                  Улица и дом
+                </label>
+                <input
+                  id="house-address"
+                  value={streetQuery}
+                  onChange={(event) => {
+                    setStreetQuery(event.target.value)
+                    if (selectedStreetValue && event.target.value !== selectedStreetValue) {
+                      setSelectedStreetValue('')
+                    }
+                  }}
+                  placeholder="Например: Невский пр., 1"
+                  className="mt-1 w-full rounded-xl border border-muru-accent bg-white px-3 py-2 text-sm"
+                />
+                {streetLookupState === 'loading' ? (
+                  <p className="mt-1 text-xs text-[#6b6b4a]">Ищем адрес…</p>
+                ) : null}
+                {streetLookupState === 'disabled' ? (
+                  <p className="mt-1 text-xs text-[#6b6b4a]">
+                    Подсказки недоступны — введите улицу и дом вручную.
+                  </p>
+                ) : null}
+                {streetLookupState === 'empty' ? (
+                  <p className="mt-1 text-xs text-[#6b6b4a]">Адрес не найден. Проверьте написание.</p>
+                ) : null}
+                {streetLookupState === 'error' ? (
+                  <p className="mt-1 text-xs text-red-700">
+                    Не удалось загрузить адрес. Попробуйте ещё раз.
+                  </p>
+                ) : null}
+                {streetLookupState === 'idle' && streetSuggestions.length > 0 ? (
+                  <div className="mt-2 grid max-h-48 gap-1 overflow-y-auto">
+                    {streetSuggestions.map((suggestion) => (
+                      <button
+                        key={suggestion.value}
+                        type="button"
+                        className={`${pressable} rounded-lg bg-[#efe8d8] px-2 py-1 text-left text-xs text-muru-text`}
+                        onClick={() => selectStreetSuggestion(suggestion)}
+                      >
+                        {suggestion.value}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muru-olive" htmlFor="flat-number">
+                  Квартира / офис (если есть)
+                </label>
+                <input
+                  id="flat-number"
+                  value={flat}
+                  onChange={(event) => setFlat(event.target.value)}
+                  placeholder="Например: 10"
+                  className="mt-1 w-full rounded-xl border border-muru-accent bg-white px-3 py-2 text-sm"
+                />
+              </div>
             </div>
           ) : (
             <div className="mt-3 grid max-h-56 gap-2 overflow-y-auto">
