@@ -4,6 +4,7 @@ import type { CatalogProductDetail } from '../types/catalog'
 import { ColorDots } from '../components/ColorDots'
 import { ProductImageCarousel } from '../components/ProductImageCarousel'
 import { formatPrice } from '../lib/format'
+import { hapticImpact } from '../lib/haptics'
 import { pressable, cardSurface } from '../lib/uiClasses'
 
 type ProductDetailPageProps = {
@@ -48,11 +49,27 @@ export const ProductDetailPage = ({
           </h1>
           <button
             type="button"
-            className={`${pressable} rounded-full px-3 py-2 text-2xl ${isFavorite ? 'bg-[#fde2e2]' : 'bg-[#efe8d8]'}`}
-            onClick={() => onToggleFavorite(product)}
-            aria-label="Добавить в избранное"
+            className={`${pressable} rounded-full bg-[#efe8d8] p-2.5`}
+            onClick={() => {
+              hapticImpact('light')
+              onToggleFavorite(product)
+            }}
+            aria-label={isFavorite ? 'Убрать из избранного' : 'Добавить в избранное'}
+            aria-pressed={isFavorite}
           >
-            {isFavorite ? '❤️' : '🤍'}
+            <svg
+              className="h-6 w-6 text-muru-olive"
+              viewBox="0 0 24 24"
+              fill={isFavorite ? 'currentColor' : 'none'}
+              stroke="currentColor"
+              strokeWidth="1.5"
+              aria-hidden
+            >
+              <path
+                d="M12 21s-7-4.35-7-10a5 5 0 0 1 9.5-2 5 5 0 0 1 9.5 2c0 5.65-7 10-7 10z"
+                strokeLinejoin="round"
+              />
+            </svg>
           </button>
         </div>
         <p className="mt-2 text-lg font-semibold">{formatPrice(product.price)}</p>
