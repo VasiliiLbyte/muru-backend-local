@@ -45,7 +45,7 @@ export const ProductCard = ({
       {product.dimensionsLabel ? (
         <p className="text-[11px] text-[#6b6b4a]">{product.dimensionsLabel} см</p>
       ) : null}
-      <p className="mt-1 text-sm font-semibold">{formatPrice(product.price)}</p>
+      <p className="mt-1 text-sm font-semibold tabular-nums">{formatPrice(product.price)}</p>
       {product.inStock > 0 ? null : (
         <span className="mt-1 inline-block rounded-full bg-[#efe8d8] px-2 py-0.5 text-[11px] tracking-wide text-[#8a7a52]">
           Под заказ

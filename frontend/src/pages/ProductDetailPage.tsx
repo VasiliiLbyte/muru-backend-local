@@ -72,7 +72,7 @@ export const ProductDetailPage = ({
             </svg>
           </button>
         </div>
-        <p className="mt-2 text-lg font-semibold">{formatPrice(product.price)}</p>
+        <p className="mt-2 text-lg font-semibold tabular-nums">{formatPrice(product.price)}</p>
         {product.inStock > 0 ? null : (
           <span className="mt-1 inline-block rounded-full bg-[#efe8d8] px-2.5 py-1 text-xs tracking-wide text-[#8a7a52]">
             Под заказ

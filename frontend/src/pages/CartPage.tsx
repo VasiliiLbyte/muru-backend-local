@@ -108,7 +108,7 @@ export const CartPage = ({ userId, onGoCatalog, onCheckout }: CartPageProps) => 
             <div className="flex-1">
               <h2 className="text-sm font-semibold text-[#3f3636]">{item.name}</h2>
               <p className="mt-1 text-xs text-[#6f6666]">Цена/шт</p>
-              <p className="text-xl font-semibold text-[#3f3636]">{formatPrice(item.price)}</p>
+              <p className="text-xl font-semibold text-[#3f3636] tabular-nums">{formatPrice(item.price)}</p>
             </div>
           </div>
           <div className="mt-2 flex items-center gap-1">
@@ -144,17 +144,17 @@ export const CartPage = ({ userId, onGoCatalog, onCheckout }: CartPageProps) => 
         <div className="space-y-1 text-sm">
           <div className="flex items-center justify-between">
             <span>Товары</span>
-            <span>{formatPrice(subtotal)}</span>
+            <span className="tabular-nums">{formatPrice(subtotal)}</span>
           </div>
           {discount > 0 ? (
             <div className="flex items-center justify-between text-[#8f2b2b]">
               <span>Скидка</span>
-              <span>− {formatPrice(discount)}</span>
+              <span className="tabular-nums">− {formatPrice(discount)}</span>
             </div>
           ) : null}
           <div className="flex items-center justify-between font-semibold text-lg">
             <span>Итого</span>
-            <span>{formatPrice(total)}</span>
+            <span className="tabular-nums">{formatPrice(total)}</span>
           </div>
         </div>
         <div className="mt-3 grid gap-2">

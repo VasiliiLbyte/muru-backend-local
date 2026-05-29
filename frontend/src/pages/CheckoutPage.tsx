@@ -645,11 +645,11 @@ export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
       </div>
 
       <div className="rounded-2xl border border-muru-accent bg-[#fff9ed] p-4 text-sm">
-        <p>Товары: {formatPrice(subtotal)}</p>
-        <p>Скидка: - {formatPrice(discount)}</p>
-        <p>Доставка: {formatPrice(checkout.deliveryPrice)}</p>
+        <p className="tabular-nums">Товары: {formatPrice(subtotal)}</p>
+        <p className="tabular-nums">Скидка: - {formatPrice(discount)}</p>
+        <p className="tabular-nums">Доставка: {formatPrice(checkout.deliveryPrice)}</p>
         {checkout.deliveryEta ? <p className="text-xs text-[#6b6b4a]">Срок: {checkout.deliveryEta}</p> : null}
-        <p className="mt-1 font-semibold">Итого: {formatPrice(total)}</p>
+        <p className="mt-1 font-semibold tabular-nums">Итого: {formatPrice(total)}</p>
       </div>
 
       {selectedCity && calc ? (
