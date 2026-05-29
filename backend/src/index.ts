@@ -19,27 +19,37 @@ dotenv.config()
 
 const app = express()
 const port = env.port
-const ALLOWED_ORIGINS = [
+const isProd = env.nodeEnv === 'production'
+
+// Точный allowlist. Никаких wildcard (например https://*.vercel.app): иначе любой
+// проект на *.vercel.app смог бы дёргать API с credentials. Новые домены добавляются
+// через переменную окружения ALLOWED_ORIGINS (точные origin'ы через запятую).
+const PRODUCTION_ORIGINS = [
+  'https://murushop.online',
+  'https://www.murushop.online',
   'https://muru-blue.vercel.app',
-  'https://*.vercel.app',
-  'http://localhost:5173',
-  'http://localhost:4173',
-  ...env.allowedOrigins,
 ]
+
+const DEV_ORIGINS = ['http://localhost:5173', 'http://localhost:4173']
+
+const ALLOWED_ORIGINS = Array.from(
+  new Set([
+    ...PRODUCTION_ORIGINS,
+    ...(isProd ? [] : DEV_ORIGINS),
+    ...env.allowedOrigins,
+  ]),
+)
 
 app.use(
   cors({
     origin: (origin, callback) => {
+      // Same-origin / server-to-server / Telegram webview часто шлют запрос без Origin — пропускаем.
       if (!origin) return callback(null, true)
-      const isAllowed = ALLOWED_ORIGINS.some((pattern) => {
-        if (pattern.includes('*')) {
-          const regex = new RegExp(`^${pattern.replace('*', '.*')}$`)
-          return regex.test(origin)
-        }
-        return pattern === origin
-      })
-      if (isAllowed) return callback(null, true)
-      return callback(new Error(`CORS blocked: ${origin}`))
+      if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true)
+      if (!isProd) console.warn(`[cors] blocked origin: ${origin}`)
+      // Не бросаем ошибку (иначе уходит в error-handler как 500 и шумит в логах) —
+      // просто не выставляем CORS-заголовки, браузер сам заблокирует ответ.
+      return callback(null, false)
     },
     credentials: true,
   }),
