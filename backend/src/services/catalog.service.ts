@@ -1,4 +1,5 @@
 import { TOP_LEVEL_CATEGORIES } from '../constants/catalog-top-level'
+import { buildProductTextSearchCondition } from './catalog-product-search'
 import { pool } from '../utils/db'
 import type { CatalogNode, CatalogProductDetail, CatalogProductListItem, Variant } from '../types/catalog'
 
@@ -137,14 +138,8 @@ export const getCatalogProducts = async (params: {
     conditions.push(`c.name ILIKE $${values.length}`)
   }
   if (q) {
-    values.push(`%${q}%`)
-    const idx = values.length
-    const isGlobalProductSearch = !effectiveCategorySlug && !effectiveCategoryName
-    if (isGlobalProductSearch) {
-      conditions.push(`p.name ILIKE $${idx}`)
-    } else {
-      conditions.push(`(p.name ILIKE $${idx} OR p.sku ILIKE $${idx})`)
-    }
+    const textSearch = buildProductTextSearchCondition(values, q)
+    if (textSearch) conditions.push(textSearch)
   }
   if (color) {
     values.push(`%${color}%`)

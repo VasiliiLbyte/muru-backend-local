@@ -36,6 +36,7 @@ export const ProductCard = ({
         onImageActivate={() => onOpenDetail(product.sku)}
       />
       <h3 className="mt-2 line-clamp-2 min-h-10 text-sm font-medium">{product.name}</h3>
+      <p className="mt-0.5 text-[11px] tracking-wide text-[#7a7165]">{product.sku}</p>
       {colors.length > 0 ? (
         <div className="mt-1 flex items-center gap-1">
           <ColorDots colors={colors} />

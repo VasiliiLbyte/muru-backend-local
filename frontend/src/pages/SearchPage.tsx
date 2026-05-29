@@ -80,14 +80,14 @@ export const SearchPage = ({
         <input
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
-          placeholder="Поиск по названию"
+          placeholder="Поиск по названию или артикулу"
           className={catalogSearchInputClassName}
           autoComplete="off"
         />
       </div>
 
       {!trimmed ? (
-        <p className="text-center text-sm text-[#6f6666]">Введите название товара</p>
+        <p className="text-center text-sm text-[#6f6666]">Введите название или артикул (MUxxxx)</p>
       ) : null}
 
       {isLoading && trimmed ? (
