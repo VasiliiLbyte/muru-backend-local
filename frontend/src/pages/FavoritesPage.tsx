@@ -1,4 +1,5 @@
 import { SmartImage } from '../components/SmartImage'
+import { formatPrice } from '../lib/format'
 import { pressable } from '../lib/uiClasses'
 import type { FavoriteItem } from '../types/favorite'
 
@@ -65,7 +66,7 @@ export const FavoritesPage = ({
               <SmartImage src={item.imageUrl} alt={item.name} className="h-16 w-16 shrink-0 rounded-lg" />
               <div className="min-w-0 flex-1">
                 <h2 className="text-sm font-semibold leading-snug">{item.name}</h2>
-                <p className="text-sm">{item.price.toFixed(2)} ₽</p>
+                <p className="text-sm">{formatPrice(item.price)}</p>
               </div>
             </button>
             {userId && onRemoveFavorite ? (

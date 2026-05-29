@@ -117,9 +117,10 @@ export const SearchPage = ({
 
       {showResults ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {products.map((product) => (
+          {products.map((product, i) => (
             <ProductCard
               key={product.sku}
+              index={i}
               product={product}
               onOpenDetail={onOpenProductDetail}
               onAddToCart={onAddToCart}

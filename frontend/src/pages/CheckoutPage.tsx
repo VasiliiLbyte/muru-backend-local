@@ -13,6 +13,7 @@ import {
   type CdekPvz,
   type CdekTariffOption,
 } from '../lib/api'
+import { formatPrice } from '../lib/format'
 import { pressable, pressableDisabled } from '../lib/uiClasses'
 
 type CheckoutPageProps = {
@@ -610,7 +611,7 @@ export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
         {activatedPromo ? (
           <div className="mt-2 flex items-center justify-between text-xs text-[#8f2b2b]">
             <span>
-              {activatedPromo.code}: −{activatedPromo.discount.toFixed(2)} ₽
+              {activatedPromo.code}: −{formatPrice(activatedPromo.discount)}
             </span>
             <button type="button" className={`${pressable} underline`} onClick={clearPromo}>
               Сбросить
@@ -644,11 +645,11 @@ export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
       </div>
 
       <div className="rounded-2xl border border-muru-accent bg-[#fff9ed] p-4 text-sm">
-        <p>Товары: {subtotal.toFixed(2)} ₽</p>
-        <p>Скидка: - {discount.toFixed(2)} ₽</p>
-        <p>Доставка: {checkout.deliveryPrice.toFixed(2)} ₽</p>
+        <p>Товары: {formatPrice(subtotal)}</p>
+        <p>Скидка: - {formatPrice(discount)}</p>
+        <p>Доставка: {formatPrice(checkout.deliveryPrice)}</p>
         {checkout.deliveryEta ? <p className="text-xs text-[#6b6b4a]">Срок: {checkout.deliveryEta}</p> : null}
-        <p className="mt-1 font-semibold">Итого: {total.toFixed(2)} ₽</p>
+        <p className="mt-1 font-semibold">Итого: {formatPrice(total)}</p>
       </div>
 
       {selectedCity && calc ? (
@@ -660,7 +661,7 @@ export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
           >
             До двери:{' '}
             {calc.door
-              ? `${calc.door.deliverySum.toFixed(0)} ₽, ${formatEta(calc.door)}`
+              ? `${formatPrice(calc.door.deliverySum)}, ${formatEta(calc.door)}`
               : 'недоступно'}
           </p>
           <p
@@ -670,7 +671,7 @@ export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
           >
             До ПВЗ:{' '}
             {calc.pvz
-              ? `${calc.pvz.deliverySum.toFixed(0)} ₽, ${formatEta(calc.pvz)}`
+              ? `${formatPrice(calc.pvz.deliverySum)}, ${formatEta(calc.pvz)}`
               : 'недоступно'}
           </p>
         </div>

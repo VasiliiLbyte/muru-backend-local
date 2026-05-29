@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { sortCatalogNodes } from '../constants/catalog-category-order'
-import { pressable } from '../lib/uiClasses'
+import { pressable, cardSurface } from '../lib/uiClasses'
 import type { CatalogNode } from '../types/catalog'
 import { SmartImage } from '../components/SmartImage'
 
@@ -15,10 +15,12 @@ export const CatalogHomePage = ({ tree }: CatalogHomePageProps) => {
   const sorted = useMemo(() => sortCatalogNodes(tree), [tree])
 
   return (
-    <section className="space-y-4">
-      <div className="rounded-3xl bg-muru-olive p-5 text-muru-ivory">
+    <section className="space-y-5">
+      <div className="rounded-3xl bg-muru-olive p-6 text-muru-ivory">
         <p className="text-xs uppercase tracking-widest opacity-90">MURU Home Design</p>
-        <h1 className="mt-2 text-2xl font-semibold">Каталог MURU</h1>
+        <h1 className="mt-2 font-muru-display text-[2.05rem] font-medium leading-tight tracking-[0.01em]">
+          Каталог MURU
+        </h1>
         <p className="mt-1 text-sm">Выберите категорию и перейдите к подборке товаров.</p>
       </div>
 
@@ -27,7 +29,8 @@ export const CatalogHomePage = ({ tree }: CatalogHomePageProps) => {
           <button
             key={category.slug}
             type="button"
-            className={`${pressable} block rounded-2xl border border-muru-accent bg-[#fff9ed] p-3 hover:bg-[#f5efdf]`}
+            className={`${pressable} ${cardSurface} muru-rise block p-3 transition-shadow hover:shadow-[0_4px_16px_rgba(60,55,40,0.09)]`}
+            style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
             onClick={() => navigate(`/catalog/${encodeURIComponent(category.slug)}`)}
           >
             <div className="mb-3 aspect-[4/3] overflow-hidden rounded-xl bg-[#efe8d8]">
@@ -40,7 +43,7 @@ export const CatalogHomePage = ({ tree }: CatalogHomePageProps) => {
                 />
               ) : null}
             </div>
-            <h2 className="text-sm font-semibold text-muru-olive">{category.name}</h2>
+            <h2 className="text-sm font-medium tracking-wide text-muru-olive">{category.name}</h2>
           </button>
         ))}
       </div>

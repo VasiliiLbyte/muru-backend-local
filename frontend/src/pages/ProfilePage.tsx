@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { clearCartSnapshot } from '../cart/cartStorage'
 import { fetchMyOrders, fetchMyProfile, saveMyProfile } from '../lib/api'
 import { ExitConfirmModal } from '../components/ExitConfirmModal'
+import { formatPrice } from '../lib/format'
 import { pressable, pressableDisabled } from '../lib/uiClasses'
 import type { OrderHistoryItem, ProfileData } from '../types/cart'
 
@@ -221,7 +222,7 @@ export const ProfilePage = ({
                 <td className="px-2 py-1">{order.id}</td>
                 <td className="px-2 py-1">{new Date(order.createdAt).toLocaleDateString('ru-RU')}</td>
                 <td className="px-2 py-1">{order.status}</td>
-                <td className="px-2 py-1">{order.total.toFixed(2)} ₽</td>
+                <td className="px-2 py-1">{formatPrice(order.total)}</td>
               </tr>
             ))}
           </tbody>

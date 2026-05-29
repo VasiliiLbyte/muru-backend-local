@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 
 import { useCart } from '../cart/CartContext'
 import { SmartImage } from '../components/SmartImage'
+import { formatPrice } from '../lib/format'
 import { pressable, pressableDisabled } from '../lib/uiClasses'
 
 type CartPageProps = {
@@ -84,7 +85,7 @@ export const CartPage = ({ userId, onGoCatalog, onCheckout }: CartPageProps) => 
         {activatedPromo ? (
           <div className="mt-2 flex items-center justify-between gap-2 text-xs text-[#8f2b2b]">
             <span>
-              Промокод {activatedPromo.code}: −{activatedPromo.discount.toFixed(2)} ₽
+              Промокод {activatedPromo.code}: −{formatPrice(activatedPromo.discount)}
             </span>
             <button type="button" className={`${pressable} underline`} onClick={clearPromo}>
               Сбросить
@@ -104,7 +105,7 @@ export const CartPage = ({ userId, onGoCatalog, onCheckout }: CartPageProps) => 
             <div className="flex-1">
               <h2 className="text-sm font-semibold text-[#3f3636]">{item.name}</h2>
               <p className="mt-1 text-xs text-[#6f6666]">Цена/шт</p>
-              <p className="text-xl font-semibold text-[#3f3636]">{item.price.toFixed(1)} ₽</p>
+              <p className="text-xl font-semibold text-[#3f3636]">{formatPrice(item.price)}</p>
             </div>
           </div>
           <div className="mt-2 flex items-center gap-1">
@@ -140,17 +141,17 @@ export const CartPage = ({ userId, onGoCatalog, onCheckout }: CartPageProps) => 
         <div className="space-y-1 text-sm">
           <div className="flex items-center justify-between">
             <span>Товары</span>
-            <span>{subtotal.toFixed(1)} ₽</span>
+            <span>{formatPrice(subtotal)}</span>
           </div>
           {discount > 0 ? (
             <div className="flex items-center justify-between text-[#8f2b2b]">
               <span>Скидка</span>
-              <span>− {discount.toFixed(1)} ₽</span>
+              <span>− {formatPrice(discount)}</span>
             </div>
           ) : null}
           <div className="flex items-center justify-between font-semibold text-lg">
             <span>Итого</span>
-            <span>{total.toFixed(1)} ₽</span>
+            <span>{formatPrice(total)}</span>
           </div>
         </div>
         <div className="mt-3 grid gap-2">

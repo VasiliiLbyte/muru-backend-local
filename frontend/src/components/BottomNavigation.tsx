@@ -12,11 +12,11 @@ const tabs = ['Каталог', 'Поиск', 'Корзина', 'Избранн�
 
 const IconCatalog: FC<{ active: boolean }> = ({ active }) => (
   <svg
-    className={`h-5 w-5 shrink-0 ${active ? 'text-muru-olive' : 'text-muru-text'}`}
+    className={`h-[18px] w-[18px] shrink-0 ${active ? 'text-muru-olive' : 'text-muru-text'}`}
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
-    strokeWidth="1.75"
+    strokeWidth="1.5"
     aria-hidden
   >
     <rect x="3" y="3" width="7" height="7" rx="1" />
@@ -28,11 +28,11 @@ const IconCatalog: FC<{ active: boolean }> = ({ active }) => (
 
 const IconSearch: FC<{ active: boolean }> = ({ active }) => (
   <svg
-    className={`h-5 w-5 shrink-0 ${active ? 'text-muru-olive' : 'text-muru-text'}`}
+    className={`h-[18px] w-[18px] shrink-0 ${active ? 'text-muru-olive' : 'text-muru-text'}`}
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
-    strokeWidth="1.75"
+    strokeWidth="1.5"
     aria-hidden
   >
     <circle cx="11" cy="11" r="6" />
@@ -42,11 +42,11 @@ const IconSearch: FC<{ active: boolean }> = ({ active }) => (
 
 const IconCart: FC<{ active: boolean }> = ({ active }) => (
   <svg
-    className={`h-5 w-5 shrink-0 ${active ? 'text-muru-olive' : 'text-muru-text'}`}
+    className={`h-[18px] w-[18px] shrink-0 ${active ? 'text-muru-olive' : 'text-muru-text'}`}
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
-    strokeWidth="1.75"
+    strokeWidth="1.5"
     aria-hidden
   >
     <path d="M6 6h15l-1.5 9H7.5L6 6zm0 0L5 3H2" strokeLinecap="round" strokeLinejoin="round" />
@@ -57,11 +57,11 @@ const IconCart: FC<{ active: boolean }> = ({ active }) => (
 
 const IconHeart: FC<{ active: boolean }> = ({ active }) => (
   <svg
-    className={`h-5 w-5 shrink-0 ${active ? 'text-muru-olive' : 'text-muru-text'}`}
+    className={`h-[18px] w-[18px] shrink-0 ${active ? 'text-muru-olive' : 'text-muru-text'}`}
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
-    strokeWidth="1.75"
+    strokeWidth="1.5"
     aria-hidden
   >
     <path
@@ -73,11 +73,11 @@ const IconHeart: FC<{ active: boolean }> = ({ active }) => (
 
 const IconProfile: FC<{ active: boolean }> = ({ active }) => (
   <svg
-    className={`h-5 w-5 shrink-0 ${active ? 'text-muru-olive' : 'text-muru-text'}`}
+    className={`h-[18px] w-[18px] shrink-0 ${active ? 'text-muru-olive' : 'text-muru-text'}`}
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
-    strokeWidth="1.75"
+    strokeWidth="1.5"
     aria-hidden
   >
     <circle cx="12" cy="8" r="3.5" />
@@ -104,7 +104,7 @@ export const BottomNavigation = ({ activeTab, onSelectTab, cartItemCount = 0 }: 
       className="pointer-events-none fixed bottom-0 left-1/2 z-30 w-[min(560px,calc(100%-1rem))] -translate-x-1/2 px-0 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] pt-2"
     >
       <nav
-        className="pointer-events-auto mx-auto rounded-[2rem] border border-muru-accent/40 bg-muru-ivory/95 p-1.5 shadow-[0_-4px_24px_rgba(94,82,82,0.12)] backdrop-blur-sm"
+        className="pointer-events-auto mx-auto rounded-[1.75rem] border border-muru-accent/25 bg-muru-ivory/80 p-1 shadow-[0_-2px_14px_rgba(94,82,82,0.07)] backdrop-blur-md"
         aria-label="Основная навигация"
       >
         <div className="relative">
@@ -123,11 +123,11 @@ export const BottomNavigation = ({ activeTab, onSelectTab, cartItemCount = 0 }: 
                 <button
                   key={tab}
                   type="button"
-                  className={`${pressable} flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-full py-2`}
+                  className={`${pressable} flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-full py-1.5`}
                   onClick={() => onSelectTab(tab)}
                   aria-current={active ? 'page' : undefined}
                 >
-                  <span className="relative flex h-5 w-5 items-center justify-center">
+                  <span className="relative flex h-[18px] w-[18px] items-center justify-center">
                     <Icon active={active} />
                     {tab === 'Корзина' && cartItemCount > 0 ? (
                       <span className="absolute -right-1.5 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-muru-text px-0.5 text-[10px] font-semibold leading-none text-muru-ivory">
@@ -136,7 +136,7 @@ export const BottomNavigation = ({ activeTab, onSelectTab, cartItemCount = 0 }: 
                     ) : null}
                   </span>
                   <span
-                    className={`max-w-full truncate px-0.5 text-[10px] font-medium leading-tight sm:text-[11px] ${
+                    className={`max-w-full truncate px-0.5 text-[9px] font-normal tracking-wide leading-tight sm:text-[10px] ${
                       active ? 'text-muru-olive' : 'text-muru-text'
                     }`}
                   >
