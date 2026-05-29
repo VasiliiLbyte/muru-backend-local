@@ -11,6 +11,7 @@ import {
 
 import { createOrder, fetchOrderDraft, saveOrderDraft, validateOrderPromo } from '../lib/api'
 import type { CartItem, CheckoutForm, DraftOrder } from '../types/cart'
+import { hapticImpact } from '../lib/haptics'
 import type { CatalogProduct, CatalogProductDetail } from '../types/catalog'
 import type { PromoDiscountType } from '../lib/api'
 
@@ -207,6 +208,7 @@ export const CartProvider = ({ children, telegramUserId }: CartProviderProps) =>
   }, [telegramUserId, items, checkout, buildDraftPayload])
 
   const addProduct = useCallback((product: CatalogProduct | CatalogProductDetail) => {
+    hapticImpact('light')
     setItems((prev) => {
       const existing = prev.find((item) => item.sku === product.sku)
       if (existing) {

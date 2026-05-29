@@ -8,6 +8,7 @@ import { BottomNavigation } from '../components/BottomNavigation'
 import { FavoritesProvider, useFavorites } from '../favorites/FavoritesContext'
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp'
 import { fetchCatalogProductBySku, fetchCatalogProducts, fetchCatalogTree, notifyRestock } from '../lib/api'
+import { hapticSelection } from '../lib/haptics'
 import type { CatalogNode, CatalogProduct, CatalogProductDetail } from '../types/catalog'
 import { CatalogCategoryPage } from '../pages/CatalogCategoryPage'
 import { CatalogHomePage } from '../pages/CatalogHomePage'
@@ -285,6 +286,7 @@ const AppShell = () => {
   }, [userId, loadFavorites])
 
   const handleSelectTab = (tab: string) => {
+    hapticSelection()
     setActiveTab(tab)
     setIsCheckoutOpen(false)
     setIsAdminPageOpen(false)

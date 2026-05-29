@@ -36,6 +36,11 @@ export type TelegramWebApp = {
   enableVerticalSwipes?: () => void
   isVerticalSwipesEnabled?: boolean
   close?: () => void
+  HapticFeedback?: {
+    impactOccurred?: (style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft') => void
+    notificationOccurred?: (type: 'error' | 'success' | 'warning') => void
+    selectionChanged?: () => void
+  }
 }
 
 declare global {
