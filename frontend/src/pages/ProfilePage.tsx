@@ -4,7 +4,8 @@ import { clearCartSnapshot } from '../cart/cartStorage'
 import { fetchMyOrders, fetchMyProfile, saveMyProfile } from '../lib/api'
 import { ExitConfirmModal } from '../components/ExitConfirmModal'
 import { formatPrice } from '../lib/format'
-import { pressable, pressableDisabled } from '../lib/uiClasses'
+import { ReceiptGlyph } from '../components/Glyphs'
+import { pressable, pressableDisabled, cardSurface } from '../lib/uiClasses'
 import type { OrderHistoryItem, ProfileData } from '../types/cart'
 
 type ProfilePageProps = {
@@ -228,12 +229,12 @@ export const ProfilePage = ({
           </tbody>
         </table>
         {orders.length === 0 ? (
-          <div className="mt-3 rounded-xl border border-muru-accent bg-[#fff9ed] p-5 text-center">
-            <div className="text-4xl">🧾</div>
+          <div className={`${cardSurface} mt-3 p-5 text-center`}>
+            <ReceiptGlyph className="mx-auto h-10 w-10 text-muru-olive" />
             <p className="mt-2 text-sm">Здесь пока пусто</p>
             <button
               type="button"
-              className={`${pressable} mt-3 rounded-xl bg-[#8f2b2b] px-4 py-2 text-xs font-semibold text-[#fff5ef]`}
+              className={`${pressable} mt-3 rounded-xl bg-muru-olive-soft px-4 py-2 text-xs font-medium text-muru-ivory`}
               onClick={onGoCatalog}
             >
               Перейти в каталог

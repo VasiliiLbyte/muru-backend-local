@@ -1,6 +1,7 @@
+import { HeartGlyph } from '../components/Glyphs'
 import { SmartImage } from '../components/SmartImage'
 import { formatPrice } from '../lib/format'
-import { pressable } from '../lib/uiClasses'
+import { pressable, cardSurface } from '../lib/uiClasses'
 import type { FavoriteItem } from '../types/favorite'
 
 type FavoritesPageProps = {
@@ -35,12 +36,14 @@ export const FavoritesPage = ({
 
   if (items.length === 0) {
     return (
-      <section className="flex min-h-[70vh] flex-col items-center justify-center rounded-2xl border border-muru-accent bg-[#fff9ed] p-6 text-center">
-        <div className="text-8xl text-red-600">❤️</div>
-        <p className="mt-4 text-3xl font-semibold text-[#5e5252]">Здесь пока пусто</p>
+      <section
+        className={`${cardSurface} flex min-h-[70vh] flex-col items-center justify-center p-6 text-center`}
+      >
+        <HeartGlyph className="h-16 w-16 text-muru-olive" />
+        <p className="mt-4 font-muru-display text-[1.7rem] font-medium text-muru-olive">Здесь пока пусто</p>
         <button
           type="button"
-          className={`${pressable} mt-5 rounded-xl bg-[#8f2b2b] px-6 py-3 text-sm font-semibold text-[#fff5ef]`}
+          className={`${pressable} mt-5 rounded-xl bg-muru-olive-soft px-6 py-2.5 text-sm font-medium tracking-wide text-muru-ivory`}
           onClick={onGoCatalog}
         >
           Перейти в каталог

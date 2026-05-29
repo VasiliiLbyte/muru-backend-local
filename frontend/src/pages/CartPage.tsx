@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
 
 import { useCart } from '../cart/CartContext'
+import { HeartGlyph } from '../components/Glyphs'
 import { SmartImage } from '../components/SmartImage'
 import { formatPrice } from '../lib/format'
-import { pressable, pressableDisabled } from '../lib/uiClasses'
+import { pressable, pressableDisabled, cardSurface } from '../lib/uiClasses'
 
 type CartPageProps = {
   userId?: number
@@ -44,13 +45,15 @@ export const CartPage = ({ userId, onGoCatalog, onCheckout }: CartPageProps) => 
 
   if (!hasItems) {
     return (
-      <section className="flex min-h-[70vh] flex-col items-center justify-center rounded-2xl border border-muru-accent bg-[#fff9ed] p-6 text-center">
-        <div className="text-8xl">❤️</div>
-        <h1 className="mt-4 text-3xl font-semibold text-[#5e5252]">Корзина пуста</h1>
+      <section
+        className={`${cardSurface} flex min-h-[70vh] flex-col items-center justify-center p-6 text-center`}
+      >
+        <HeartGlyph className="h-16 w-16 text-muru-olive" />
+        <h1 className="mt-4 font-muru-display text-[1.7rem] font-medium text-muru-olive">Корзина пуста</h1>
         <p className="mt-2 text-sm text-[#6f6666]">Добавьте товары, чтобы перейти к оформлению заказа.</p>
         <button
           type="button"
-          className={`${pressable} mt-5 rounded-xl bg-[#8f2b2b] px-6 py-3 text-sm font-semibold text-[#fff5ef]`}
+          className={`${pressable} mt-5 rounded-xl bg-muru-olive-soft px-6 py-2.5 text-sm font-medium tracking-wide text-muru-ivory`}
           onClick={onGoCatalog}
         >
           Перейти в каталог
