@@ -73,9 +73,11 @@ export const ProductDetailPage = ({
           </button>
         </div>
         <p className="mt-2 text-lg font-semibold">{formatPrice(product.price)}</p>
-        <p className={`mt-1 text-sm ${product.inStock > 0 ? 'text-green-700' : 'text-amber-700'}`}>
-          {product.inStock > 0 ? 'В наличии' : 'Под заказ'}
-        </p>
+        {product.inStock > 0 ? null : (
+          <span className="mt-1 inline-block rounded-full bg-[#efe8d8] px-2.5 py-1 text-xs tracking-wide text-[#8a7a52]">
+            Под заказ
+          </span>
+        )}
         <p className="mt-3 text-sm">{product.description || 'Описание будет добавлено позже.'}</p>
 
         {product.color || product.dimensionsLabel ? (

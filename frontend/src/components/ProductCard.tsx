@@ -46,9 +46,11 @@ export const ProductCard = ({
         <p className="text-[11px] text-[#6b6b4a]">{product.dimensionsLabel} см</p>
       ) : null}
       <p className="mt-1 text-sm font-semibold">{formatPrice(product.price)}</p>
-      <p className={`mt-1 text-xs ${product.inStock > 0 ? 'text-green-700' : 'text-amber-700'}`}>
-        {product.inStock > 0 ? 'В наличии' : 'Под заказ'}
-      </p>
+      {product.inStock > 0 ? null : (
+        <span className="mt-1 inline-block rounded-full bg-[#efe8d8] px-2 py-0.5 text-[11px] tracking-wide text-[#8a7a52]">
+          Под заказ
+        </span>
+      )}
       <button
         type="button"
         className={`${pressable} mt-2 w-full rounded-lg bg-muru-olive-soft px-3 py-1.5 text-xs font-medium tracking-wide text-muru-ivory`}
