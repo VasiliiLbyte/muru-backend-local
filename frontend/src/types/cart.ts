@@ -67,4 +67,16 @@ export type OrderHistoryItem = {
   status: string
   total: number
   items: CartItem[]
+  deliveryMode?: 'delivery' | 'pickup'
+  deliveryOption?: string | null
+  deliveryPrice?: number
+  deliveryEta?: string | null
+  address?: string
+  subtotal?: number
+  promoDiscount?: number
+  cdekPvzAddress?: string | null
+  cdekRecipientName?: string | null
+  cdekRecipientPhone?: string | null
+  cdekTrackNumber?: string | null
+  cdekStatus?: string | null
 }

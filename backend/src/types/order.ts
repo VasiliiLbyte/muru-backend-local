@@ -64,5 +64,16 @@ export type OrderHistoryItem = {
   promoCode?: string | null
   promoDiscount?: number
   items: OrderItemInput[]
+  deliveryMode?: DeliveryMode
+  deliveryOption?: string | null
+  deliveryPrice?: number
+  deliveryEta?: string | null
+  address?: string
+  subtotal?: number
+  cdekPvzAddress?: string | null
+  cdekRecipientName?: string | null
+  cdekRecipientPhone?: string | null
+  cdekTrackNumber?: string | null
+  cdekStatus?: string | null
 }
 

@@ -381,8 +381,21 @@ export const getOrdersByTelegramUserId = async (telegramUserId: number): Promise
     total: string
     promo_code: string | null
     promo_discount: string
+    delivery_mode: 'delivery' | 'pickup'
+    delivery_option: string | null
+    delivery_price: string
+    delivery_eta: string | null
+    address: string
+    subtotal: string
+    cdek_pvz_address: string | null
+    cdek_recipient_name: string | null
+    cdek_recipient_phone: string | null
+    cdek_track_number: string | null
+    cdek_status: string | null
   }>(
-    `SELECT id, created_at::text, status, total::text, promo_code, promo_discount::text
+    `SELECT id, created_at::text, status, total::text, promo_code, promo_discount::text,
+            delivery_mode, delivery_option, delivery_price::text, delivery_eta, address, subtotal::text,
+            cdek_pvz_address, cdek_recipient_name, cdek_recipient_phone, cdek_track_number, cdek_status
      FROM orders
      WHERE telegram_user_id = $1
      ORDER BY created_at DESC`,
@@ -428,5 +441,16 @@ export const getOrdersByTelegramUserId = async (telegramUserId: number): Promise
     promoCode: row.promo_code,
     promoDiscount: Number(row.promo_discount),
     items: itemMap.get(row.id) ?? [],
+    deliveryMode: row.delivery_mode,
+    deliveryOption: row.delivery_option,
+    deliveryPrice: Number(row.delivery_price),
+    deliveryEta: row.delivery_eta,
+    address: row.address,
+    subtotal: Number(row.subtotal),
+    cdekPvzAddress: row.cdek_pvz_address,
+    cdekRecipientName: row.cdek_recipient_name,
+    cdekRecipientPhone: row.cdek_recipient_phone,
+    cdekTrackNumber: row.cdek_track_number,
+    cdekStatus: row.cdek_status,
   }))
 }
