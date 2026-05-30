@@ -233,11 +233,20 @@ export const ProfilePage = ({
             </button>
           </div>
         ) : (
-          <div className="grid gap-2">
-            {orders.slice(0, 3).map((order) => (
-              <OrderCard key={order.id} order={order} onOpen={onOpenOrderDetail} />
-            ))}
-          </div>
+          <>
+            <div className="grid gap-2">
+              {orders.slice(0, 3).map((order) => (
+                <OrderCard key={order.id} order={order} onOpen={onOpenOrderDetail} />
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={onOpenOrders}
+              className={`${pressable} mt-1 text-sm text-muru-olive underline`}
+            >
+              Все заказы
+            </button>
+          </>
         )}
       </div>
 

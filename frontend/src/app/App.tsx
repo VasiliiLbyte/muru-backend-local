@@ -19,6 +19,7 @@ import { FavoritesPage } from '../pages/FavoritesPage'
 import { PlaceholderPage } from '../pages/PlaceholderPage'
 import { ProductDetailPage } from '../pages/ProductDetailPage'
 import { LegalPage } from '../pages/LegalPage'
+import { MyOrdersPage } from '../pages/MyOrdersPage'
 import { OrderDetailPage } from '../pages/OrderDetailPage'
 import { ProfilePage } from '../pages/ProfilePage'
 import type { OrderHistoryItem } from '../types/cart'
@@ -217,6 +218,7 @@ const AppShell = () => {
   const [selectedProduct, setSelectedProduct] = useState<CatalogProductDetail | null>(null)
   const [legalDoc, setLegalDoc] = useState<'terms' | 'privacy' | null>(null)
   const [selectedOrder, setSelectedOrder] = useState<OrderHistoryItem | null>(null)
+  const [isMyOrdersOpen, setIsMyOrdersOpen] = useState(false)
   const [search, setSearch] = useState('')
   const { userId, isAdmin, webApp } = useTelegramWebApp()
   const { addProduct, items: cartItems } = useCart()
@@ -246,7 +248,9 @@ const AppShell = () => {
   useEffect(() => {
     const app = webApp
     if (!app) return
-    const isInnerScreen = Boolean(selectedProduct || isCheckoutOpen || isAdminPageOpen || legalDoc || selectedOrder)
+    const isInnerScreen = Boolean(
+      selectedProduct || isCheckoutOpen || isAdminPageOpen || legalDoc || selectedOrder || isMyOrdersOpen,
+    )
     const handleBack = () => {
       if (legalDoc) {
         setLegalDoc(null)
@@ -254,6 +258,10 @@ const AppShell = () => {
       }
       if (selectedOrder) {
         setSelectedOrder(null)
+        return
+      }
+      if (isMyOrdersOpen) {
+        setIsMyOrdersOpen(false)
         return
       }
       if (selectedProduct) {
@@ -280,7 +288,7 @@ const AppShell = () => {
       app.BackButton.offClick?.(handleBack)
       if (!isInnerScreen) app.BackButton.hide()
     }
-  }, [webApp, selectedProduct, isCheckoutOpen, isAdminPageOpen, legalDoc, selectedOrder])
+  }, [webApp, selectedProduct, isCheckoutOpen, isAdminPageOpen, legalDoc, selectedOrder, isMyOrdersOpen])
 
   const handleNotifyRestock = (product: CatalogProduct | CatalogProductDetail) => {
     if (!userId) {
@@ -306,6 +314,7 @@ const AppShell = () => {
     setSelectedProduct(null)
     setLegalDoc(null)
     setSelectedOrder(null)
+    setIsMyOrdersOpen(false)
     if (tab === 'Каталог') {
       navigate('/catalog')
     }
@@ -342,6 +351,7 @@ const AppShell = () => {
   const screenTransitionKey = useMemo(() => {
     if (legalDoc) return `legal-${legalDoc}`
     if (selectedOrder) return `order-${selectedOrder.id}`
+    if (isMyOrdersOpen) return 'my-orders'
     if (selectedProduct) return `product-${selectedProduct.sku}`
     if (isAdminPageOpen && isAdmin) return 'admin'
     if (activeTab === 'Каталог') return `catalog-${location.pathname}`
@@ -356,6 +366,7 @@ const AppShell = () => {
     activeTab,
     legalDoc,
     selectedOrder,
+    isMyOrdersOpen,
     selectedProduct,
     location.pathname,
     isCheckoutOpen,
@@ -367,6 +378,19 @@ const AppShell = () => {
     }
     if (selectedOrder) {
       return <OrderDetailPage order={selectedOrder} onBack={() => setSelectedOrder(null)} />
+    }
+    if (isMyOrdersOpen) {
+      return (
+        <MyOrdersPage
+          userId={userId}
+          onBack={() => setIsMyOrdersOpen(false)}
+          onOpenOrderDetail={(o) => setSelectedOrder(o)}
+          onGoCatalog={() => {
+            setIsMyOrdersOpen(false)
+            handleSelectTab('Каталог')
+          }}
+        />
+      )
     }
     if (selectedProduct) {
       return productDetail
@@ -419,7 +443,7 @@ const AppShell = () => {
           webAppClose={webApp?.close}
           onGoCatalog={() => handleSelectTab('Каталог')}
           onOpenFavorites={() => handleSelectTab('Избранное')}
-          onOpenOrders={() => handleSelectTab('Корзина')}
+          onOpenOrders={() => setIsMyOrdersOpen(true)}
           onOpenAdmin={() => setIsAdminPageOpen(true)}
           onOpenLegal={(doc) => setLegalDoc(doc)}
           onOpenOrderDetail={(order) => setSelectedOrder(order)}
