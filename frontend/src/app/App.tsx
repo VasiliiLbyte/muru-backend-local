@@ -18,6 +18,7 @@ import { CheckoutPage } from '../pages/CheckoutPage'
 import { FavoritesPage } from '../pages/FavoritesPage'
 import { PlaceholderPage } from '../pages/PlaceholderPage'
 import { ProductDetailPage } from '../pages/ProductDetailPage'
+import { LegalPage } from '../pages/LegalPage'
 import { ProfilePage } from '../pages/ProfilePage'
 import { SearchPage } from '../pages/SearchPage'
 
@@ -212,6 +213,7 @@ const AppShell = () => {
   const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>([])
   const [isCatalogLoading, setIsCatalogLoading] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<CatalogProductDetail | null>(null)
+  const [legalDoc, setLegalDoc] = useState<'terms' | 'privacy' | null>(null)
   const [search, setSearch] = useState('')
   const { userId, isAdmin, webApp } = useTelegramWebApp()
   const { addProduct, items: cartItems } = useCart()
@@ -241,8 +243,12 @@ const AppShell = () => {
   useEffect(() => {
     const app = webApp
     if (!app) return
-    const isInnerScreen = Boolean(selectedProduct || isCheckoutOpen || isAdminPageOpen)
+    const isInnerScreen = Boolean(selectedProduct || isCheckoutOpen || isAdminPageOpen || legalDoc)
     const handleBack = () => {
+      if (legalDoc) {
+        setLegalDoc(null)
+        return
+      }
       if (selectedProduct) {
         setSelectedProduct(null)
         return
@@ -267,7 +273,7 @@ const AppShell = () => {
       app.BackButton.offClick?.(handleBack)
       if (!isInnerScreen) app.BackButton.hide()
     }
-  }, [webApp, selectedProduct, isCheckoutOpen, isAdminPageOpen])
+  }, [webApp, selectedProduct, isCheckoutOpen, isAdminPageOpen, legalDoc])
 
   const handleNotifyRestock = (product: CatalogProduct | CatalogProductDetail) => {
     if (!userId) {
@@ -291,6 +297,7 @@ const AppShell = () => {
     setIsCheckoutOpen(false)
     setIsAdminPageOpen(false)
     setSelectedProduct(null)
+    setLegalDoc(null)
     if (tab === 'Каталог') {
       navigate('/catalog')
     }
@@ -325,6 +332,7 @@ const AppShell = () => {
   ) : null
 
   const screenTransitionKey = useMemo(() => {
+    if (legalDoc) return `legal-${legalDoc}`
     if (selectedProduct) return `product-${selectedProduct.sku}`
     if (isAdminPageOpen && isAdmin) return 'admin'
     if (activeTab === 'Каталог') return `catalog-${location.pathname}`
@@ -337,12 +345,16 @@ const AppShell = () => {
     isAdminPageOpen,
     isAdmin,
     activeTab,
+    legalDoc,
     selectedProduct,
     location.pathname,
     isCheckoutOpen,
   ])
 
   const renderPage = () => {
+    if (legalDoc) {
+      return <LegalPage doc={legalDoc} onBack={() => setLegalDoc(null)} />
+    }
     if (selectedProduct) {
       return productDetail
     }
@@ -396,6 +408,7 @@ const AppShell = () => {
           onOpenFavorites={() => handleSelectTab('Избранное')}
           onOpenOrders={() => handleSelectTab('Корзина')}
           onOpenAdmin={() => setIsAdminPageOpen(true)}
+          onOpenLegal={(doc) => setLegalDoc(doc)}
         />
       )
     }
@@ -417,7 +430,13 @@ const AppShell = () => {
     }
     if (activeTab === 'Корзина') {
       if (isCheckoutOpen) {
-        return <CheckoutPage userId={userId} onBackToCart={() => setIsCheckoutOpen(false)} />
+        return (
+          <CheckoutPage
+            userId={userId}
+            onBackToCart={() => setIsCheckoutOpen(false)}
+            onOpenLegal={(doc) => setLegalDoc(doc)}
+          />
+        )
       }
       return (
         <CartPage

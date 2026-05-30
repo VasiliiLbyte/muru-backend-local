@@ -16,6 +16,7 @@ type ProfilePageProps = {
   onOpenFavorites: () => void
   onOpenOrders: () => void
   onOpenAdmin: () => void
+  onOpenLegal: (doc: 'terms' | 'privacy') => void
 }
 
 const initialProfile = (telegramUserId: number): ProfileData => ({
@@ -33,6 +34,7 @@ export const ProfilePage = ({
   onOpenFavorites,
   onOpenOrders,
   onOpenAdmin,
+  onOpenLegal,
 }: ProfilePageProps) => {
   const [profile, setProfile] = useState<ProfileData | null>(null)
   const [orders, setOrders] = useState<OrderHistoryItem[]>([])
@@ -152,10 +154,18 @@ export const ProfilePage = ({
         <button type="button" className={`${pressable} rounded-xl bg-white px-3 py-2 text-left`}>
           Отзывы
         </button>
-        <button type="button" className={`${pressable} rounded-xl bg-white px-3 py-2 text-left`}>
-          Политика конфиденциальности
+        <button
+          type="button"
+          className={`${pressable} rounded-xl bg-white px-3 py-2 text-left`}
+          onClick={() => onOpenLegal('privacy')}
+        >
+          Политика обработки персональных данных
         </button>
-        <button type="button" className={`${pressable} rounded-xl bg-white px-3 py-2 text-left`}>
+        <button
+          type="button"
+          className={`${pressable} rounded-xl bg-white px-3 py-2 text-left`}
+          onClick={() => onOpenLegal('terms')}
+        >
           Пользовательское соглашение
         </button>
       </div>

@@ -19,6 +19,7 @@ import { pressable, pressableDisabled } from '../lib/uiClasses'
 type CheckoutPageProps = {
   userId?: number
   onBackToCart: () => void
+  onOpenLegal: (doc: 'terms' | 'privacy') => void
 }
 
 const formatEta = (option: CdekTariffOption | null | undefined): string => {
@@ -33,7 +34,8 @@ const formatCityLabel = (city: CdekCity) => {
   return city.full_name.trim() || name
 }
 
-export const CheckoutPage = ({ userId, onBackToCart }: CheckoutPageProps) => {
+export const CheckoutPage = ({ userId, onBackToCart, onOpenLegal: _onOpenLegal }: CheckoutPageProps) => {
+  void _onOpenLegal
   const {
     items,
     checkout,
