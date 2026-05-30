@@ -43,7 +43,7 @@ export const CatalogHomePage = ({ tree }: CatalogHomePageProps) => {
                 />
               ) : null}
             </div>
-            <h2 className="text-sm font-medium tracking-wide text-muru-olive">{category.name}</h2>
+            <h2 className="line-clamp-2 min-h-10 text-sm font-medium leading-snug tracking-wide text-muru-olive">{category.name}</h2>
           </button>
         ))}
       </div>

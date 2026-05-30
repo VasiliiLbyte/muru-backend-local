@@ -31,7 +31,7 @@ export const CatalogCategoryPage = ({ category }: CatalogCategoryPageProps) => {
                 />
               ) : null}
             </div>
-            <h2 className="text-sm font-medium tracking-wide text-muru-olive">{subcategory.name}</h2>
+            <h2 className="line-clamp-2 min-h-10 text-sm font-medium leading-snug tracking-wide text-muru-olive">{subcategory.name}</h2>
             <p className="mt-1 text-xs">Перейти к товарам</p>
           </Link>
         ))}
