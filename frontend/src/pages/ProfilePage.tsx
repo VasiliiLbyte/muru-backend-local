@@ -67,7 +67,7 @@ export const ProfilePage = ({
 
   if (!hasAuth) {
     return (
-      <section className="rounded-2xl border border-muru-accent bg-[#fff9ed] p-4">
+      <section className="rounded-2xl bg-[#fffaf3] p-4 shadow-[0_2px_10px_rgba(60,55,40,0.05)]">
         <h1 className="text-xl font-semibold text-muru-olive">Профиль</h1>
         <p className="mt-2 text-sm">Требуется авторизация в Telegram.</p>
       </section>
@@ -121,7 +121,7 @@ export const ProfilePage = ({
 
   if (isLoading && !profile) {
     return (
-      <section className="space-y-3 rounded-2xl border border-muru-accent bg-[#fff9ed] p-4">
+      <section className="space-y-4 rounded-2xl bg-[#fffaf3] p-4 shadow-[0_2px_10px_rgba(60,55,40,0.05)]">
         <div className="h-8 w-40 animate-pulse rounded bg-[#efe8d8]" />
         <div className="h-24 animate-pulse rounded-2xl bg-[#efe8d8]" />
         <div className="h-36 animate-pulse rounded-2xl bg-[#efe8d8]" />
@@ -132,8 +132,8 @@ export const ProfilePage = ({
 
   return (
     <>
-      <section className="space-y-3 rounded-2xl border border-muru-accent bg-[#fff9ed] p-4">
-      <h1 className="text-xl font-semibold text-muru-olive">Мой профиль</h1>
+      <section className="space-y-4 rounded-2xl bg-[#fffaf3] p-4 shadow-[0_2px_10px_rgba(60,55,40,0.05)]">
+      <h1 className="font-muru-display text-[1.7rem] font-medium text-muru-olive">Мой профиль</h1>
 
       <div className="rounded-2xl bg-[#f5ecdc] p-4 shadow-sm">
         <div className="flex items-center gap-4">
@@ -147,28 +147,45 @@ export const ProfilePage = ({
       </div>
 
       <div className="grid gap-2 rounded-2xl bg-[#efe8d8] p-3 text-sm">
-        <button type="button" className={`${pressable} rounded-xl bg-white px-3 py-2 text-left`} onClick={onOpenFavorites}>
+        <button
+          type="button"
+          className={`${pressable} flex items-center justify-between rounded-xl bg-white px-3 py-2 text-left`}
+          onClick={onOpenFavorites}
+        >
           Избранное
-        </button>
-        <button type="button" className={`${pressable} rounded-xl bg-white px-3 py-2 text-left`} onClick={onOpenOrders}>
-          Мои заказы
-        </button>
-        <button type="button" className={`${pressable} rounded-xl bg-white px-3 py-2 text-left`}>
-          Отзывы
+          <span className="text-muru-accent">›</span>
         </button>
         <button
           type="button"
-          className={`${pressable} rounded-xl bg-white px-3 py-2 text-left`}
+          className={`${pressable} flex items-center justify-between rounded-xl bg-white px-3 py-2 text-left`}
+          onClick={onOpenOrders}
+        >
+          Мои заказы
+          <span className="text-muru-accent">›</span>
+        </button>
+        <button
+          type="button"
+          disabled
+          className={`${pressable} flex items-center justify-between rounded-xl bg-white px-3 py-2 text-left opacity-60`}
+        >
+          Отзывы
+          <span className="rounded-full bg-[#e3dccd] px-2 py-0.5 text-[10px] text-[#6f6655]">Скоро</span>
+        </button>
+        <button
+          type="button"
+          className={`${pressable} flex items-center justify-between rounded-xl bg-white px-3 py-2 text-left`}
           onClick={() => onOpenLegal('privacy')}
         >
           Политика обработки персональных данных
+          <span className="text-muru-accent">›</span>
         </button>
         <button
           type="button"
-          className={`${pressable} rounded-xl bg-white px-3 py-2 text-left`}
+          className={`${pressable} flex items-center justify-between rounded-xl bg-white px-3 py-2 text-left`}
           onClick={() => onOpenLegal('terms')}
         >
           Пользовательское соглашение
+          <span className="text-muru-accent">›</span>
         </button>
       </div>
 
@@ -176,7 +193,7 @@ export const ProfilePage = ({
         <label className="text-sm">
           ФИО
           <input
-            className="mt-1 w-full rounded-lg border border-muru-accent bg-white px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-lg border border-muru-accent/40 bg-white px-3 py-2 text-sm"
             value={profileData.fullName}
             onChange={(event) =>
               setProfile((prev) => ({ ...(prev ?? initialProfile(userId!)), fullName: event.target.value }))
@@ -187,7 +204,7 @@ export const ProfilePage = ({
         <label className="text-sm">
           Телефон
           <input
-            className="mt-1 w-full rounded-lg border border-muru-accent bg-white px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-lg border border-muru-accent/40 bg-white px-3 py-2 text-sm"
             value={profileData.phone}
             onChange={(event) =>
               setProfile((prev) => ({ ...(prev ?? initialProfile(userId!)), phone: event.target.value }))
@@ -198,7 +215,7 @@ export const ProfilePage = ({
         <label className="text-sm">
           Адрес доставки
           <input
-            className="mt-1 w-full rounded-lg border border-muru-accent bg-white px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-lg border border-muru-accent/40 bg-white px-3 py-2 text-sm"
             value={profileData.deliveryAddresses[0] ?? ''}
             onChange={(event) =>
               setProfile((prev) => ({
@@ -211,7 +228,7 @@ export const ProfilePage = ({
         </label>
         <button
           type="button"
-          className={`${pressableDisabled} rounded-xl bg-muru-olive px-4 py-2 text-sm font-medium text-muru-ivory`}
+          className={`${pressableDisabled} rounded-xl bg-muru-olive-soft px-4 py-2 text-sm font-medium text-muru-ivory`}
           disabled={isLoading}
           onClick={handleSaveProfile}
         >
@@ -269,8 +286,8 @@ export const ProfilePage = ({
         ) : null}
       </div>
 
-      {successMessage ? <p className="text-sm text-green-700">{successMessage}</p> : null}
-      {error ? <p className="text-sm text-red-700">{error}</p> : null}
+      {successMessage ? <p className="text-sm text-muru-olive">{successMessage}</p> : null}
+      {error ? <p className="text-sm text-[#9a5b43]">{error}</p> : null}
       </section>
       <ExitConfirmModal
         isOpen={exitConfirmOpen}
