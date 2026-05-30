@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { clearCartSnapshot } from '../cart/cartStorage'
 import { fetchMyOrders, fetchMyProfile, saveMyProfile } from '../lib/api'
 import { ExitConfirmModal } from '../components/ExitConfirmModal'
-import { formatPrice } from '../lib/format'
+import { OrderCard } from '../components/OrderCard'
 import { ReceiptGlyph } from '../components/Glyphs'
 import { pressable, pressableDisabled, cardSurface } from '../lib/uiClasses'
 import type { OrderHistoryItem, ProfileData } from '../types/cart'
@@ -17,6 +17,7 @@ type ProfilePageProps = {
   onOpenOrders: () => void
   onOpenAdmin: () => void
   onOpenLegal: (doc: 'terms' | 'privacy') => void
+  onOpenOrderDetail: (order: OrderHistoryItem) => void
 }
 
 const initialProfile = (telegramUserId: number): ProfileData => ({
@@ -35,6 +36,7 @@ export const ProfilePage = ({
   onOpenOrders,
   onOpenAdmin,
   onOpenLegal,
+  onOpenOrderDetail,
 }: ProfilePageProps) => {
   const [profile, setProfile] = useState<ProfileData | null>(null)
   const [orders, setOrders] = useState<OrderHistoryItem[]>([])
@@ -218,28 +220,8 @@ export const ProfilePage = ({
       </div>
 
       <div className="overflow-x-auto rounded-xl bg-[#efe8d8] p-3">
-        <table className="min-w-full text-left text-sm">
-          <thead>
-            <tr className="border-b border-[#d9d0bd]">
-              <th className="px-2 py-1">№</th>
-              <th className="px-2 py-1">Дата</th>
-              <th className="px-2 py-1">Статус</th>
-              <th className="px-2 py-1">Сумма</th>
-            </tr>
-          </thead>
-          <tbody>
-            {orders.slice(0, 3).map((order) => (
-              <tr key={order.id} className="border-b border-[#e5dcc9] last:border-b-0">
-                <td className="px-2 py-1">{order.id}</td>
-                <td className="px-2 py-1">{new Date(order.createdAt).toLocaleDateString('ru-RU')}</td>
-                <td className="px-2 py-1">{order.status}</td>
-                <td className="px-2 py-1">{formatPrice(order.total)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
         {orders.length === 0 ? (
-          <div className={`${cardSurface} mt-3 p-5 text-center`}>
+          <div className={`${cardSurface} p-5 text-center`}>
             <ReceiptGlyph className="mx-auto h-10 w-10 text-muru-olive" />
             <p className="mt-2 text-sm">Здесь пока пусто</p>
             <button
@@ -250,7 +232,13 @@ export const ProfilePage = ({
               Перейти в каталог
             </button>
           </div>
-        ) : null}
+        ) : (
+          <div className="grid gap-2">
+            {orders.slice(0, 3).map((order) => (
+              <OrderCard key={order.id} order={order} onOpen={onOpenOrderDetail} />
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="grid gap-2">
