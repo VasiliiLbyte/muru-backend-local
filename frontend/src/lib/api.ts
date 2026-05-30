@@ -820,6 +820,8 @@ type DraftPayload = {
   cdekPvzAddress?: string | null
   recipientName?: string
   recipientPhone?: string
+  consentAccepted?: boolean
+  consentVersion?: string
 }
 
 export const fetchOrderDraft = async (telegramUserId: number): Promise<DraftOrder | null> => {

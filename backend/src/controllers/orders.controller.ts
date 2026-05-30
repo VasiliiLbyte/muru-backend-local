@@ -36,6 +36,8 @@ const draftPayloadSchema = z.object({
   cdekPvzAddress: z.string().nullable().optional(),
   recipientName: z.string().trim().min(2).max(100).optional(),
   recipientPhone: z.string().trim().min(10).max(20).optional(),
+  consentAccepted: z.boolean().optional(),
+  consentVersion: z.string().max(32).optional(),
 })
 
 const validatePromoBodySchema = z.object({
@@ -89,6 +91,9 @@ export const createOrderHandler = async (req: Request, res: Response, next: Next
     }
     if (parsed.data.deliveryMode === 'delivery' && !parsed.data.address?.trim()) {
       return fail(res, 400, 'Address is required for delivery', 'VALIDATION')
+    }
+    if (parsed.data.consentAccepted !== true) {
+      return fail(res, 400, 'Consent to terms and privacy policy is required', 'VALIDATION')
     }
 
     const order = await createOrder({ ...parsed.data, telegramUserId })

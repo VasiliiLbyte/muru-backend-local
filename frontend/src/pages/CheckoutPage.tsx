@@ -34,8 +34,7 @@ const formatCityLabel = (city: CdekCity) => {
   return city.full_name.trim() || name
 }
 
-export const CheckoutPage = ({ userId, onBackToCart, onOpenLegal: _onOpenLegal }: CheckoutPageProps) => {
-  void _onOpenLegal
+export const CheckoutPage = ({ userId, onBackToCart, onOpenLegal }: CheckoutPageProps) => {
   const {
     items,
     checkout,
@@ -78,6 +77,7 @@ export const CheckoutPage = ({ userId, onBackToCart, onOpenLegal: _onOpenLegal }
   const [recipientName, setRecipientName] = useState('')
   const [recipientPhone, setRecipientPhone] = useState('')
   const [draftHydrated, setDraftHydrated] = useState(false)
+  const [consentAccepted, setConsentAccepted] = useState(false)
 
   const houseAddress = useMemo(() => {
     const street = selectedStreetValue.trim() || streetQuery.trim()
@@ -91,6 +91,7 @@ export const CheckoutPage = ({ userId, onBackToCart, onOpenLegal: _onOpenLegal }
   const selectedTariff = deliveryType === 'pvz' ? calc?.pvz : calc?.door
 
   const checkoutReady = useMemo(() => {
+    if (!consentAccepted) return false
     if (!hasItems || calcLoading || !selectedCity) return false
     if (!selectedTariff) return false
     if (recipientName.trim().length < 2) return false
@@ -103,6 +104,7 @@ export const CheckoutPage = ({ userId, onBackToCart, onOpenLegal: _onOpenLegal }
     if (deliveryType === 'pvz' && !selectedPvz) return false
     return true
   }, [
+    consentAccepted,
     hasItems,
     calcLoading,
     selectedCity,
@@ -696,6 +698,33 @@ export const CheckoutPage = ({ userId, onBackToCart, onOpenLegal: _onOpenLegal }
         >
           Сохранить черновик
         </button>
+        <label className="mt-4 flex items-start gap-2 text-xs leading-snug text-muru-text">
+          <input
+            type="checkbox"
+            checked={consentAccepted}
+            onChange={(e) => setConsentAccepted(e.target.checked)}
+            className="mt-0.5 h-4 w-4 accent-muru-olive"
+          />
+          <span>
+            Я соглашаюсь с{' '}
+            <button
+              type="button"
+              className="text-muru-olive underline"
+              onClick={() => onOpenLegal('terms')}
+            >
+              Пользовательским соглашением
+            </button>{' '}
+            и{' '}
+            <button
+              type="button"
+              className="text-muru-olive underline"
+              onClick={() => onOpenLegal('privacy')}
+            >
+              Политикой обработки персональных данных
+            </button>
+            .
+          </span>
+        </label>
         <button
           type="button"
           className={`${pressableDisabled} rounded-xl bg-muru-olive px-4 py-3 text-sm font-semibold text-muru-ivory`}

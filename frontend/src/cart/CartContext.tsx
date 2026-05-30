@@ -10,6 +10,7 @@ import {
 } from 'react'
 
 import { createOrder, fetchOrderDraft, saveOrderDraft, validateOrderPromo } from '../lib/api'
+import { LEGAL_VERSION } from '../lib/legal'
 import type { CartItem, CheckoutForm, DraftOrder } from '../types/cart'
 import { hapticImpact } from '../lib/haptics'
 import type { CatalogProduct, CatalogProductDetail } from '../types/catalog'
@@ -312,6 +313,8 @@ export const CartProvider = ({ children, telegramUserId }: CartProviderProps) =>
         const createdOrder = await createOrder({
           ...buildDraftPayload(id),
           promoCode: activatedPromo?.code,
+          consentAccepted: true,
+          consentVersion: LEGAL_VERSION,
         })
         setItems([])
         setCheckout(defaultCheckout)

@@ -27,6 +27,8 @@ export type CheckoutDraftInput = {
   cdekPvzAddress?: string | null
   recipientName?: string
   recipientPhone?: string
+  consentAccepted?: boolean
+  consentVersion?: string
 }
 
 export type OrderDraft = {

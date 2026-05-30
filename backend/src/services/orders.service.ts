@@ -265,14 +265,16 @@ export const createOrder = async (input: CheckoutDraftInput): Promise<OrderDraft
 
   try {
     await client.query('BEGIN')
+    const consentAccepted = input.consentAccepted === true
     const inserted = await client.query<OrderRowForDraft>(
       `INSERT INTO orders (
         telegram_user_id, status, delivery_mode, delivery_option, delivery_price, delivery_eta,
         address, comment, birth_date, subtotal, total, promo_code, promo_discount,
         cdek_tariff_code, cdek_to_city_code, cdek_to_city_name, cdek_pvz_code, cdek_pvz_address,
         cdek_recipient_name, cdek_recipient_phone,
+        consent_accepted, consent_version, consent_accepted_at,
         is_draft, created_at, updated_at
-      ) VALUES ($1, 'Новый', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, FALSE, NOW(), NOW())
+      ) VALUES ($1, 'Новый', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, CASE WHEN $20 THEN NOW() ELSE NULL END, FALSE, NOW(), NOW())
       RETURNING id, telegram_user_id, status, delivery_mode, delivery_option, delivery_price::text,
                 delivery_eta, address, comment, birth_date::text, subtotal::text, total::text,
                 promo_code, promo_discount::text,
@@ -298,6 +300,8 @@ export const createOrder = async (input: CheckoutDraftInput): Promise<OrderDraft
         input.cdekPvzAddress ?? null,
         input.recipientName ?? null,
         input.recipientPhone ?? null,
+        consentAccepted,
+        input.consentVersion ?? null,
       ],
     )
     const order = inserted.rows[0]
