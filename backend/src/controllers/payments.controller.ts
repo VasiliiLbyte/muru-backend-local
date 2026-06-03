@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from 'express'
 import { z } from 'zod'
 
 import type { AuthenticatedRequest } from '../middleware/auth.middleware'
+import { createInvoiceForCheckout } from '../services/telegram/invoice.service'
 import {
   createPayment,
   getPaymentStatusForUser,
@@ -10,7 +11,7 @@ import {
 import { env } from '../utils/env'
 import { fail, ok } from '../utils/api-response'
 
-const snapshotSchema = z
+export const snapshotSchema = z
   .object({
     items: z
       .array(
@@ -39,30 +40,59 @@ const snapshotSchema = z
   })
   .strict()
 
+export const parseCheckoutBody = (
+  req: Request,
+  res: Response,
+): RawCheckoutInput | null => {
+  const telegramUserId = (req as AuthenticatedRequest).auth?.telegramId
+  if (!telegramUserId) {
+    fail(res, 401, 'Unauthorized', 'UNAUTHORIZED')
+    return null
+  }
+
+  const parsed = snapshotSchema.safeParse(req.body)
+  if (!parsed.success) {
+    fail(res, 400, 'Некорректные данные заказа', 'VALIDATION', parsed.error.issues)
+    return null
+  }
+
+  if (parsed.data.deliveryMode === 'delivery' && !parsed.data.address.trim()) {
+    fail(res, 400, 'Address is required for delivery', 'VALIDATION')
+    return null
+  }
+
+  return {
+    ...parsed.data,
+    telegramUserId,
+  }
+}
+
 export const createPaymentHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
     if (!env.yookassa.enabled) {
       return fail(res, 503, 'Оплата временно недоступна', 'UPSTREAM')
     }
 
-    const telegramUserId = (req as AuthenticatedRequest).auth?.telegramId
-    if (!telegramUserId) return fail(res, 401, 'Unauthorized', 'UNAUTHORIZED')
-
-    const parsed = snapshotSchema.safeParse(req.body)
-    if (!parsed.success) {
-      return fail(res, 400, 'Некорректные данные заказа', 'VALIDATION', parsed.error.issues)
-    }
-
-    if (parsed.data.deliveryMode === 'delivery' && !parsed.data.address.trim()) {
-      return fail(res, 400, 'Address is required for delivery', 'VALIDATION')
-    }
-
-    const raw: RawCheckoutInput = {
-      ...parsed.data,
-      telegramUserId,
-    }
+    const raw = parseCheckoutBody(req, res)
+    if (!raw) return
 
     const result = await createPayment(raw)
+    return ok(res, result)
+  } catch (e) {
+    next(e)
+  }
+}
+
+export const createInvoiceHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (!env.payments.nativeEnabled) {
+      return fail(res, 503, 'Оплата через Telegram недоступна', 'UPSTREAM')
+    }
+
+    const raw = parseCheckoutBody(req, res)
+    if (!raw) return
+
+    const result = await createInvoiceForCheckout(raw)
     return ok(res, result)
   } catch (e) {
     next(e)

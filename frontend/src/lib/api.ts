@@ -884,6 +884,17 @@ export const createPayment = async (
   return parseApi<{ paymentId: string; confirmationUrl: string }>(response)
 }
 
+export const createInvoice = async (
+  snapshot: PaymentCheckoutPayload,
+): Promise<{ invoiceUrl: string; intentId: number }> => {
+  const response = await safeFetch(`${API_BASE_URL}/api/payments/invoice`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify(snapshot),
+  })
+  return parseApi<{ invoiceUrl: string; intentId: number }>(response)
+}
+
 export const fetchPaymentStatus = async (
   paymentId: string,
 ): Promise<{ status: string; orderId: number | null }> => {

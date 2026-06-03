@@ -5,6 +5,7 @@ import { env } from '../../utils/env'
 
 import { ykFetch, getYkPayment, type YkPayment } from './client'
 import { computeTrustedPricing } from './pricing.service'
+import { buildSnapshotFromPricing } from './checkout-snapshot'
 import {
   fulfillPaidPayment,
   markPaymentCanceled,
@@ -81,28 +82,7 @@ export const createPayment = async (
     cdekCityCode: raw.cdekCityCode,
   })
 
-  const snapshot: CheckoutSnapshot = {
-    telegramUserId: raw.telegramUserId,
-    items: pricing.items,
-    subtotal: pricing.subtotal,
-    deliveryPrice: pricing.deliveryPrice,
-    promoCode: pricing.promoCode,
-    promoDiscount: pricing.promoDiscount,
-    total: pricing.total,
-    deliveryMode: raw.deliveryMode,
-    deliveryOption: raw.deliveryOption,
-    deliveryEta: raw.deliveryEta,
-    address: raw.address,
-    comment: raw.comment,
-    birthDate: raw.birthDate,
-    recipientName: raw.recipientName,
-    recipientPhone: raw.recipientPhone,
-    cdekTariffCode: raw.cdekTariffCode,
-    cdekCityCode: raw.cdekCityCode,
-    cdekCityName: raw.cdekCityName,
-    cdekPvzCode: raw.cdekPvzCode,
-    cdekPvzAddress: raw.cdekPvzAddress,
-  }
+  const snapshot = buildSnapshotFromPricing(raw, pricing)
 
   const productItems = snapshot.items.map((i) => ({
     description: i.name,

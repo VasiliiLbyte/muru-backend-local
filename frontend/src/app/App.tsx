@@ -537,6 +537,11 @@ const AppShell = () => {
             userId={userId}
             onBackToCart={() => setIsCheckoutOpen(false)}
             onOpenLegal={(doc) => setLegalDoc(doc)}
+            onPaymentSuccess={() => {
+              setIsCheckoutOpen(false)
+              setActiveTab('Профиль')
+              setIsMyOrdersOpen(true)
+            }}
           />
         )
       }

@@ -69,7 +69,9 @@ psql "$DATABASE_URL" -f backend/src/db/migrations/010_payments.sql
 
 В `.env`: `YOOKASSA_SHOP_ID`, `YOOKASSA_SECRET_KEY` (тест: `test_…`), `YOOKASSA_RETURN_URL`, `YOOKASSA_VAT_CODE=1`.
 
-**Return URL (checkout):** тест — `https://murushop.online/?pay=check` (при возврате mini app читает `sessionStorage` `muru-pending-payment` и показывает экран проверки оплаты). Прод — deep-link `https://t.me/<bot>/<app>?startapp=pay` (`start_param=pay`). Кнопка «Перейти к оплате» вызывает `POST /api/payments/create` и открывает `confirmationUrl` через `Telegram.WebApp.openLink`.
+**Native Telegram Payments (основной checkout):** `TELEGRAM_BOT_TOKEN` + `TELEGRAM_PROVIDER_TOKEN` (BotFather → Payments → YooKassa). Кнопка «Перейти к оплате» вызывает `POST /api/payments/invoice`, затем `Telegram.WebApp.openInvoice` — оплата внутри mini app без браузера. Бот (long-polling) обрабатывает `pre_checkout_query` и `successful_payment`, создаёт заказ через `fulfillPaidIntent`. При `paid` корзина очищается и открываются «Мои заказы».
+
+**Redirect fallback:** если `openInvoice` недоступен — `POST /api/payments/create` + `openLink`. Return URL (тест): `https://murushop.online/?pay=check` (`sessionStorage` `muru-pending-payment`, экран проверки). Прод — deep-link `https://t.me/<bot>/<app>?startapp=pay`.
 
 Webhook в личном кабинете ЮKassa (тест): URL `https://murushop.online/yookassa-webhook`, события `payment.succeeded` и `payment.canceled`. Nginx: эталонный конфиг [`deploy/nginx-murushop.online.conf`](deploy/nginx-murushop.online.conf) (включает `/yookassa-webhook`). На VPS после `git pull`: `sudo bash deploy/sync-nginx-murushop.sh` — бэкап старого конфига, `nginx -t`, reload. Проверка: `curl -X POST https://murushop.online/yookassa-webhook` → **200**, не 405. Backend: `app.set('trust proxy', 1)` и маршрут до CORS.
 

@@ -27,6 +27,7 @@ const envSchema = z.object({
   ADMIN_TELEGRAM_IDS: z.string().default(''),
   ORDER_NOTIFY_TELEGRAM_IDS: z.string().default(''),
   TELEGRAM_BOT_TOKEN: z.string().optional(),
+  TELEGRAM_PROVIDER_TOKEN: z.string().optional(),
   TELEGRAM_MINI_APP_URL: z.string().optional(),
   BOT_WELCOME_DESCRIPTION: z.string().optional(),
   BOT_WELCOME_MESSAGE: z.string().optional(),
@@ -90,6 +91,10 @@ const yookassaVatCode = Number.parseInt(parsed.data.YOOKASSA_VAT_CODE?.trim() ||
 const yookassaVerifyIp = parsed.data.YOOKASSA_VERIFY_IP?.trim().toLowerCase() !== 'false'
 const yookassaEnabled = Boolean(yookassaShopId && yookassaSecretKey)
 
+const telegramBotToken = parsed.data.TELEGRAM_BOT_TOKEN?.trim() ?? ''
+const telegramProviderToken = parsed.data.TELEGRAM_PROVIDER_TOKEN?.trim() ?? ''
+const nativePaymentsEnabled = Boolean(telegramBotToken && telegramProviderToken)
+
 const nodeEnvForYookassa = parsed.data.NODE_ENV || 'development'
 if (nodeEnvForYookassa === 'production') {
   if (!yookassaShopId || !yookassaSecretKey) {
@@ -149,7 +154,8 @@ export const env = {
   allowedOrigins,
   adminTelegramIds,
   orderNotifyTelegramIds,
-  telegramBotToken: parsed.data.TELEGRAM_BOT_TOKEN ?? '',
+  telegramBotToken,
+  telegramProviderToken,
   telegramMiniAppUrl: parsed.data.TELEGRAM_MINI_APP_URL ?? '',
   botWelcomeDescription:
     parsed.data.BOT_WELCOME_DESCRIPTION?.trim() || DEFAULT_BOT_WELCOME_DESCRIPTION,
@@ -195,5 +201,8 @@ export const env = {
     vatCode: Number.isFinite(yookassaVatCode) ? yookassaVatCode : 1,
     enabled: yookassaEnabled,
     verifyIp: yookassaVerifyIp,
+  },
+  payments: {
+    nativeEnabled: nativePaymentsEnabled,
   },
 }

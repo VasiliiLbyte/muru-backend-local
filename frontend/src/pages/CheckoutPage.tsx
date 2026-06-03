@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useCart } from '../cart/CartContext'
 import {
   calculateCdek,
+  createInvoice,
   createPayment,
   fetchAddressSuggestions,
   fetchCdekCities,
@@ -21,6 +22,7 @@ type CheckoutPageProps = {
   userId?: number
   onBackToCart: () => void
   onOpenLegal: (doc: 'terms' | 'privacy') => void
+  onPaymentSuccess: () => void
 }
 
 const formatEta = (option: CdekTariffOption | null | undefined): string => {
@@ -35,12 +37,18 @@ const formatCityLabel = (city: CdekCity) => {
   return city.full_name.trim() || name
 }
 
-export const CheckoutPage = ({ userId, onBackToCart, onOpenLegal }: CheckoutPageProps) => {
+export const CheckoutPage = ({
+  userId,
+  onBackToCart,
+  onOpenLegal,
+  onPaymentSuccess,
+}: CheckoutPageProps) => {
   const {
     items,
     checkout,
     updateCheckout,
     buildPaymentSnapshot,
+    clearCartAfterPayment,
     total,
     subtotal,
     discount,
@@ -350,9 +358,23 @@ export const CheckoutPage = ({ userId, onBackToCart, onOpenLegal }: CheckoutPage
     setPaymentError(null)
     try {
       const snapshot = buildPaymentSnapshot(userId)
+      const webApp = window.Telegram?.WebApp
+
+      if (webApp?.openInvoice) {
+        const { invoiceUrl } = await createInvoice(snapshot)
+        webApp.openInvoice(invoiceUrl, (status) => {
+          if (status === 'paid') {
+            clearCartAfterPayment()
+            onPaymentSuccess()
+          } else if (status === 'cancelled' || status === 'failed') {
+            setPaymentError('Оплата не завершена')
+          }
+        })
+        return
+      }
+
       const { paymentId, confirmationUrl } = await createPayment(snapshot)
       sessionStorage.setItem('muru-pending-payment', paymentId)
-      const webApp = window.Telegram?.WebApp
       if (webApp?.openLink) {
         webApp.openLink(confirmationUrl)
       } else {
@@ -363,7 +385,14 @@ export const CheckoutPage = ({ userId, onBackToCart, onOpenLegal }: CheckoutPage
     } finally {
       setIsSubmitting(false)
     }
-  }, [isSubmitting, checkoutReady, userId, buildPaymentSnapshot])
+  }, [
+    isSubmitting,
+    checkoutReady,
+    userId,
+    buildPaymentSnapshot,
+    clearCartAfterPayment,
+    onPaymentSuccess,
+  ])
 
   useEffect(() => {
     const webApp = window.Telegram?.WebApp
