@@ -9,6 +9,8 @@ import {
   fetchCdekCities,
   fetchCdekPvz,
   fetchMyProfile,
+  PENDING_CHECKOUT_SUMMARY_KEY,
+  type OrderSuccessSummary,
   type AddressSuggestion,
   type CdekCalcResult,
   type CdekCity,
@@ -22,7 +24,7 @@ type CheckoutPageProps = {
   userId?: number
   onBackToCart: () => void
   onOpenLegal: (doc: 'terms' | 'privacy') => void
-  onPaymentSuccess: () => void
+  onPaymentSuccess: (summary: OrderSuccessSummary) => void
 }
 
 const formatEta = (option: CdekTariffOption | null | undefined): string => {
@@ -361,17 +363,38 @@ export const CheckoutPage = ({
       const webApp = window.Telegram?.WebApp
 
       if (webApp?.openInvoice) {
-        const { invoiceUrl } = await createInvoice(snapshot)
+        const { invoiceUrl, intentId } = await createInvoice(snapshot)
         webApp.openInvoice(invoiceUrl, (status) => {
           if (status === 'paid') {
+            const summary: OrderSuccessSummary = {
+              items: items.map((i) => ({ name: i.name, quantity: i.quantity, price: i.price })),
+              subtotal,
+              deliveryPrice: checkout.deliveryPrice,
+              discount,
+              total,
+              deliveryEta: checkout.deliveryEta || null,
+              address: checkout.address,
+              intentId,
+            }
             clearCartAfterPayment()
-            onPaymentSuccess()
+            onPaymentSuccess(summary)
           } else if (status === 'cancelled' || status === 'failed') {
             setPaymentError('Оплата не завершена')
           }
         })
         return
       }
+
+      const redirectSummary: OrderSuccessSummary = {
+        items: items.map((i) => ({ name: i.name, quantity: i.quantity, price: i.price })),
+        subtotal,
+        deliveryPrice: checkout.deliveryPrice,
+        discount,
+        total,
+        deliveryEta: checkout.deliveryEta || null,
+        address: checkout.address,
+      }
+      sessionStorage.setItem(PENDING_CHECKOUT_SUMMARY_KEY, JSON.stringify(redirectSummary))
 
       const { paymentId, confirmationUrl } = await createPayment(snapshot)
       sessionStorage.setItem('muru-pending-payment', paymentId)
@@ -392,6 +415,11 @@ export const CheckoutPage = ({
     buildPaymentSnapshot,
     clearCartAfterPayment,
     onPaymentSuccess,
+    items,
+    subtotal,
+    discount,
+    total,
+    checkout,
   ])
 
   useEffect(() => {

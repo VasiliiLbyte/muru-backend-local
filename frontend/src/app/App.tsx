@@ -7,7 +7,7 @@ import { CatalogSearch } from '../components/CatalogSearch'
 import { BottomNavigation } from '../components/BottomNavigation'
 import { FavoritesProvider, useFavorites } from '../favorites/FavoritesContext'
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp'
-import { fetchCatalogProductBySku, fetchCatalogProducts, fetchCatalogTree, notifyRestock } from '../lib/api'
+import { fetchCatalogProductBySku, fetchCatalogProducts, fetchCatalogTree, fetchMyOrders, notifyRestock, PENDING_CHECKOUT_SUMMARY_KEY, type OrderSuccessSummary } from '../lib/api'
 import { hapticSelection } from '../lib/haptics'
 import type { CatalogNode, CatalogProduct, CatalogProductDetail } from '../types/catalog'
 import { CatalogCategoryPage } from '../pages/CatalogCategoryPage'
@@ -15,6 +15,7 @@ import { CatalogHomePage } from '../pages/CatalogHomePage'
 import { CatalogProductsPage } from '../pages/CatalogProductsPage'
 import { CartPage } from '../pages/CartPage'
 import { CheckoutPage } from '../pages/CheckoutPage'
+import { OrderSuccessPage } from '../pages/OrderSuccessPage'
 import { PaymentCheckPage } from '../pages/PaymentCheckPage'
 import { FavoritesPage } from '../pages/FavoritesPage'
 import { PlaceholderPage } from '../pages/PlaceholderPage'
@@ -221,6 +222,7 @@ const AppShell = () => {
   const [selectedOrder, setSelectedOrder] = useState<OrderHistoryItem | null>(null)
   const [isMyOrdersOpen, setIsMyOrdersOpen] = useState(false)
   const [pendingPayment, setPendingPayment] = useState<string | null>(null)
+  const [orderSuccess, setOrderSuccess] = useState<OrderSuccessSummary | null>(null)
   const [search, setSearch] = useState('')
   const { userId, isAdmin, webApp } = useTelegramWebApp()
   const { addProduct, items: cartItems, clearCartAfterPayment } = useCart()
@@ -270,7 +272,8 @@ const AppShell = () => {
     const app = webApp
     if (!app) return
     const isInnerScreen = Boolean(
-      pendingPayment ||
+      orderSuccess ||
+        pendingPayment ||
         selectedProduct ||
         isCheckoutOpen ||
         isAdminPageOpen ||
@@ -281,6 +284,12 @@ const AppShell = () => {
     const handleBack = () => {
       if (legalDoc) {
         setLegalDoc(null)
+        return
+      }
+      if (orderSuccess) {
+        setOrderSuccess(null)
+        setActiveTab('Каталог')
+        navigate('/catalog')
         return
       }
       if (pendingPayment) {
@@ -321,6 +330,7 @@ const AppShell = () => {
     }
   }, [
     webApp,
+    orderSuccess,
     pendingPayment,
     selectedProduct,
     isCheckoutOpen,
@@ -328,6 +338,7 @@ const AppShell = () => {
     legalDoc,
     selectedOrder,
     isMyOrdersOpen,
+    navigate,
   ])
 
   const handleNotifyRestock = (product: CatalogProduct | CatalogProductDetail) => {
@@ -355,8 +366,60 @@ const AppShell = () => {
     setLegalDoc(null)
     setSelectedOrder(null)
     setIsMyOrdersOpen(false)
+    setOrderSuccess(null)
     if (tab === 'Каталог') {
       navigate('/catalog')
+    }
+  }
+
+  const showOrderSuccess = (summary: OrderSuccessSummary) => {
+    setIsCheckoutOpen(false)
+    setOrderSuccess(summary)
+  }
+
+  const resolveRedirectSuccessSummary = async (
+    paymentId: string,
+    orderId: number | null,
+  ): Promise<OrderSuccessSummary> => {
+    const stored = sessionStorage.getItem(PENDING_CHECKOUT_SUMMARY_KEY)
+    if (stored) {
+      sessionStorage.removeItem(PENDING_CHECKOUT_SUMMARY_KEY)
+      try {
+        const parsed = JSON.parse(stored) as OrderSuccessSummary
+        return { ...parsed, paymentId, orderId: orderId ?? parsed.orderId ?? null }
+      } catch {
+        /* fall through */
+      }
+    }
+    if (userId && orderId) {
+      try {
+        const orders = await fetchMyOrders(userId)
+        const order = orders.find((o) => o.id === orderId)
+        if (order) {
+          return {
+            items: order.items.map((i) => ({ name: i.name, quantity: i.quantity, price: i.price })),
+            subtotal: order.subtotal ?? 0,
+            deliveryPrice: order.deliveryPrice ?? 0,
+            discount: order.promoDiscount ?? 0,
+            total: order.total,
+            deliveryEta: order.deliveryEta,
+            address: order.address,
+            paymentId,
+            orderId: order.id,
+          }
+        }
+      } catch {
+        /* fall through */
+      }
+    }
+    return {
+      items: [],
+      subtotal: 0,
+      deliveryPrice: 0,
+      discount: 0,
+      total: 0,
+      paymentId,
+      orderId,
     }
   }
 
@@ -389,6 +452,7 @@ const AppShell = () => {
   ) : null
 
   const screenTransitionKey = useMemo(() => {
+    if (orderSuccess) return 'order-success'
     if (pendingPayment) return `payment-check-${pendingPayment}`
     if (legalDoc) return `legal-${legalDoc}`
     if (selectedOrder) return `order-${selectedOrder.id}`
@@ -402,6 +466,7 @@ const AppShell = () => {
     if (activeTab === 'Корзина') return isCheckoutOpen ? 'checkout' : 'cart'
     return `tab-${activeTab}`
   }, [
+    orderSuccess,
     pendingPayment,
     isAdminPageOpen,
     isAdmin,
@@ -418,18 +483,31 @@ const AppShell = () => {
     if (legalDoc) {
       return <LegalPage doc={legalDoc} onBack={() => setLegalDoc(null)} />
     }
+    if (orderSuccess) {
+      return (
+        <OrderSuccessPage
+          summary={orderSuccess}
+          onGoCatalog={() => {
+            setOrderSuccess(null)
+            handleSelectTab('Каталог')
+          }}
+          onGoProfile={() => {
+            setOrderSuccess(null)
+            setActiveTab('Профиль')
+            setIsMyOrdersOpen(true)
+          }}
+        />
+      )
+    }
     if (pendingPayment && userId) {
       return (
         <PaymentCheckPage
           paymentId={pendingPayment}
-          userId={userId}
-          onPaid={() => {
+          onPaid={({ paymentId, orderId }) => {
             clearCartAfterPayment()
             sessionStorage.removeItem('muru-pending-payment')
             setPendingPayment(null)
-            setIsCheckoutOpen(false)
-            setActiveTab('Профиль')
-            setIsMyOrdersOpen(true)
+            void resolveRedirectSuccessSummary(paymentId, orderId).then(showOrderSuccess)
           }}
           onCanceled={() => {
             sessionStorage.removeItem('muru-pending-payment')
@@ -537,10 +615,8 @@ const AppShell = () => {
             userId={userId}
             onBackToCart={() => setIsCheckoutOpen(false)}
             onOpenLegal={(doc) => setLegalDoc(doc)}
-            onPaymentSuccess={() => {
-              setIsCheckoutOpen(false)
-              setActiveTab('Профиль')
-              setIsMyOrdersOpen(true)
+            onPaymentSuccess={(summary) => {
+              showOrderSuccess(summary)
             }}
           />
         )
@@ -565,7 +641,9 @@ const AppShell = () => {
           {pageContent}
         </div>
       </main>
-      <BottomNavigation activeTab={activeTab} onSelectTab={handleSelectTab} cartItemCount={cartItemCount} />
+      {!orderSuccess ? (
+        <BottomNavigation activeTab={activeTab} onSelectTab={handleSelectTab} cartItemCount={cartItemCount} />
+      ) : null}
     </div>
   )
 }

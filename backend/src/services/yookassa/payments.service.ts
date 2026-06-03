@@ -197,3 +197,18 @@ export const getPaymentStatusForUser = async (
 
   return { status: row.status, orderId: row.order_id }
 }
+
+export const getPaymentIntentStatusForUser = async (
+  intentId: number,
+  telegramUserId: number,
+): Promise<{ status: string; orderId: number | null } | null> => {
+  const r = await pool.query<{
+    status: string
+    order_id: number | null
+    telegram_user_id: string
+  }>(`SELECT status, order_id, telegram_user_id FROM payments WHERE id=$1`, [intentId])
+  const row = r.rows[0]
+  if (!row) return null
+  if (Number(row.telegram_user_id) !== telegramUserId) return null
+  return { status: row.status, orderId: row.order_id }
+}

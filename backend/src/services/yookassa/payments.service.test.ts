@@ -25,7 +25,7 @@ vi.mock('./order-from-payment.service', () => ({
 import { pool } from '../../utils/db'
 import { getYkPayment } from './client'
 import { fulfillPaidPayment, markPaymentCanceled } from './order-from-payment.service'
-import { getPaymentStatusForUser } from './payments.service'
+import { getPaymentIntentStatusForUser, getPaymentStatusForUser } from './payments.service'
 
 const poolQueryMock = vi.mocked(pool.query)
 const getYkPaymentMock = vi.mocked(getYkPayment)
@@ -94,6 +94,36 @@ describe('getPaymentStatusForUser', () => {
     } as never)
 
     const result = await getPaymentStatusForUser('yk-1', 123)
+
+    expect(result).toBeNull()
+  })
+})
+
+describe('getPaymentIntentStatusForUser', () => {
+  beforeEach(() => {
+    poolQueryMock.mockReset()
+  })
+
+  it('returns status and orderId for own intent', async () => {
+    poolQueryMock.mockResolvedValue({
+      rows: [{ status: 'succeeded', order_id: 15, telegram_user_id: '123' }],
+    } as never)
+
+    const result = await getPaymentIntentStatusForUser(7, 123)
+
+    expect(result).toEqual({ status: 'succeeded', orderId: 15 })
+    expect(poolQueryMock).toHaveBeenCalledWith(
+      expect.stringContaining('WHERE id=$1'),
+      [7],
+    )
+  })
+
+  it('returns null for wrong user', async () => {
+    poolQueryMock.mockResolvedValue({
+      rows: [{ status: 'pending', order_id: null, telegram_user_id: '999' }],
+    } as never)
+
+    const result = await getPaymentIntentStatusForUser(7, 123)
 
     expect(result).toBeNull()
   })

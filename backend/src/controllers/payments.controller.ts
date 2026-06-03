@@ -5,6 +5,7 @@ import type { AuthenticatedRequest } from '../middleware/auth.middleware'
 import { createInvoiceForCheckout } from '../services/telegram/invoice.service'
 import {
   createPayment,
+  getPaymentIntentStatusForUser,
   getPaymentStatusForUser,
   type RawCheckoutInput,
 } from '../services/yookassa/payments.service'
@@ -94,6 +95,28 @@ export const createInvoiceHandler = async (req: Request, res: Response, next: Ne
 
     const result = await createInvoiceForCheckout(raw)
     return ok(res, result)
+  } catch (e) {
+    next(e)
+  }
+}
+
+export const getPaymentIntentStatusHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const telegramUserId = (req as AuthenticatedRequest).auth?.telegramId
+    if (!telegramUserId) return fail(res, 401, 'Unauthorized', 'UNAUTHORIZED')
+
+    const intentId = Number.parseInt(String(req.params.intentId), 10)
+    if (!Number.isInteger(intentId) || intentId <= 0) {
+      return fail(res, 400, 'Invalid intent id', 'VALIDATION')
+    }
+
+    const status = await getPaymentIntentStatusForUser(intentId, telegramUserId)
+    if (!status) return fail(res, 404, 'Платёж не найден', 'NOT_FOUND')
+    return ok(res, status)
   } catch (e) {
     next(e)
   }

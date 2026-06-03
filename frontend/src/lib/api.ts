@@ -873,6 +873,21 @@ export type PaymentCheckoutPayload = {
   cdekPvzAddress: string | null
 }
 
+export type OrderSuccessSummary = {
+  items: Array<{ name: string; quantity: number; price: number }>
+  subtotal: number
+  deliveryPrice: number
+  discount: number
+  total: number
+  deliveryEta?: string | null
+  address?: string
+  intentId?: number
+  paymentId?: string
+  orderId?: number | null
+}
+
+export const PENDING_CHECKOUT_SUMMARY_KEY = 'muru-pending-checkout-summary'
+
 export const createPayment = async (
   snapshot: PaymentCheckoutPayload,
 ): Promise<{ paymentId: string; confirmationUrl: string }> => {
@@ -893,6 +908,16 @@ export const createInvoice = async (
     body: JSON.stringify(snapshot),
   })
   return parseApi<{ invoiceUrl: string; intentId: number }>(response)
+}
+
+export const fetchPaymentIntentStatus = async (
+  intentId: number,
+): Promise<{ status: string; orderId: number | null }> => {
+  const response = await safeFetch(
+    `${API_BASE_URL}/api/payments/intent/${intentId}/status`,
+    { headers: getAuthHeaders() },
+  )
+  return parseApi<{ status: string; orderId: number | null }>(response)
 }
 
 export const fetchPaymentStatus = async (

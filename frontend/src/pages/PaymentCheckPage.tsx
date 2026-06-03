@@ -3,15 +3,19 @@ import { useEffect, useRef, useState } from 'react'
 import { ReceiptGlyph } from '../components/Glyphs'
 import { fetchPaymentStatus } from '../lib/api'
 
+type PaidResult = {
+  paymentId: string
+  orderId: number | null
+}
+
 type Props = {
   paymentId: string
-  userId: number
-  onPaid: () => void
+  onPaid: (result: PaidResult) => void
   onCanceled: () => void
 }
 
 export const PaymentCheckPage = ({ paymentId, onPaid, onCanceled }: Props) => {
-  const [status, setStatus] = useState<'checking' | 'paid' | 'canceled' | 'timeout'>('checking')
+  const [status, setStatus] = useState<'checking' | 'canceled' | 'timeout'>('checking')
   const attemptsRef = useRef(0)
   const onPaidRef = useRef(onPaid)
   const onCanceledRef = useRef(onCanceled)
@@ -29,8 +33,7 @@ export const PaymentCheckPage = ({ paymentId, onPaid, onCanceled }: Props) => {
       try {
         const res = await fetchPaymentStatus(paymentId)
         if (res.status === 'succeeded') {
-          setStatus('paid')
-          onPaidRef.current()
+          onPaidRef.current({ paymentId, orderId: res.orderId })
           return
         }
         if (res.status === 'canceled') {
@@ -64,17 +67,9 @@ export const PaymentCheckPage = ({ paymentId, onPaid, onCanceled }: Props) => {
           <p className="text-xs text-[#7a7165]">Это занимает несколько секунд. Не закрывайте приложение.</p>
         </>
       ) : null}
-      {status === 'paid' ? (
-        <>
-          <ReceiptGlyph className="mx-auto h-12 w-12 text-muru-olive" />
-          <p className="text-lg font-semibold text-muru-olive">Оплата получена</p>
-          <p className="text-sm text-[#6f6655]">
-            Заказ принят в работу. Детали — в разделе «Профиль» → «Мои заказы».
-          </p>
-        </>
-      ) : null}
       {status === 'timeout' ? (
         <>
+          <ReceiptGlyph className="mx-auto h-12 w-12 text-muru-olive" />
           <p className="text-sm text-muru-olive">Платёж ещё обрабатывается</p>
           <p className="text-xs text-[#7a7165]">
             Проверьте «Мои заказы» в профиле через пару минут.

@@ -17,3 +17,11 @@ export const hapticSelection = (): void => {
     /* ignore */
   }
 }
+
+export const hapticNotification = (type: 'error' | 'success' | 'warning' = 'success'): void => {
+  try {
+    hf()?.notificationOccurred?.(type)
+  } catch {
+    /* ignore */
+  }
+}
