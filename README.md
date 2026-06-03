@@ -63,6 +63,7 @@ psql "$DATABASE_URL" -f backend/src/db/migrations/007_product_shipping_dims.sql
 psql "$DATABASE_URL" -f backend/src/db/migrations/008_product_dims_parsed.sql
 psql "$DATABASE_URL" -f backend/src/db/migrations/009_order_consent.sql
 psql "$DATABASE_URL" -f backend/src/db/migrations/010_payments.sql
+psql "$DATABASE_URL" -f backend/src/db/migrations/011_product_discount.sql
 ```
 
 ### ЮKassa (оплата до заказа)

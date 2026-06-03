@@ -41,6 +41,8 @@ ALTER TABLE products ADD COLUMN IF NOT EXISTS dims_source TEXT NOT NULL DEFAULT 
 ALTER TABLE products ADD COLUMN IF NOT EXISTS weight_source TEXT NOT NULL DEFAULT 'auto'
   CHECK (weight_source IN ('auto', 'manual'));
 ALTER TABLE products ADD COLUMN IF NOT EXISTS color_tags TEXT[] NOT NULL DEFAULT '{}';
+ALTER TABLE products
+  ADD COLUMN IF NOT EXISTS discount_percent NUMERIC(5,2) NOT NULL DEFAULT 0;
 CREATE INDEX IF NOT EXISTS idx_products_color_tags ON products USING gin(color_tags);
 
 UPDATE products

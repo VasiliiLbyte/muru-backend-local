@@ -32,6 +32,7 @@ import {
   parseColorTags,
   parseDimensionsLabel,
 } from './google-sync-dimensions'
+import { PRODUCT_UPSERT_VALUES_SQL } from './google-sync-upsert-sql'
 import { extractDriveFileId } from '../utils/drive-file-id'
 
 const rowSchema = z.object({
@@ -216,7 +217,7 @@ const upsertProductWithClient = async (
   const imageUrl2 = product.imageUrls[1] ?? imageUrl1
   const productResult = await client.query<{ id: number }>(
     `INSERT INTO products (sku, name, description, price, discount_percent, in_stock, specs, image_url_1, image_url_2, image_urls, category_id, color, color_tags, size, dimensions_label, updated_at)
-     VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9::jsonb,$10,$11,$12,$13,$14,$15,NOW())
+     VALUES ${PRODUCT_UPSERT_VALUES_SQL}
      ON CONFLICT (sku)
      DO UPDATE SET
        name = EXCLUDED.name,
