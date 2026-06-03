@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
+import { PvzMap } from '../components/PvzMap'
 import { useCart } from '../cart/CartContext'
 import {
   calculateCdek,
@@ -78,6 +79,7 @@ export const CheckoutPage = ({
   const [deliveryType, setDeliveryType] = useState<'door' | 'pvz'>('door')
   const [pvzList, setPvzList] = useState<CdekPvz[]>([])
   const [selectedPvz, setSelectedPvz] = useState<CdekPvz | null>(null)
+  const [pvzView, setPvzView] = useState<'map' | 'list'>('map')
   const [calc, setCalc] = useState<CdekCalcResult | null>(null)
   const [calcLoading, setCalcLoading] = useState(false)
   const [streetQuery, setStreetQuery] = useState('')
@@ -531,7 +533,10 @@ export const CheckoutPage = ({
               className={`${pressable} rounded-xl px-3 py-2 text-sm ${
                 deliveryType === 'pvz' ? 'bg-muru-olive text-muru-ivory' : 'bg-[#efe8d8]'
               }`}
-              onClick={() => setDeliveryType('pvz')}
+              onClick={() => {
+                setDeliveryType('pvz')
+                setPvzView('map')
+              }}
             >
               До ПВЗ
             </button>
@@ -597,28 +602,79 @@ export const CheckoutPage = ({
               </div>
             </div>
           ) : (
-            <div className="mt-3 grid max-h-56 gap-2 overflow-y-auto">
+            <div className="mt-3">
+              <div className="mb-2 flex gap-2">
+                <button
+                  type="button"
+                  className={`${pressable} rounded-full px-3 py-1 text-xs ${
+                    pvzView === 'map' ? 'bg-muru-olive text-muru-ivory' : 'bg-[#efe8d8]'
+                  }`}
+                  onClick={() => setPvzView('map')}
+                >
+                  На карте
+                </button>
+                <button
+                  type="button"
+                  className={`${pressable} rounded-full px-3 py-1 text-xs ${
+                    pvzView === 'list' ? 'bg-muru-olive text-muru-ivory' : 'bg-[#efe8d8]'
+                  }`}
+                  onClick={() => setPvzView('list')}
+                >
+                  Списком
+                </button>
+              </div>
               {pvzList.length === 0 ? (
                 <p className="text-xs text-[#6b6b4a]">
                   {calcLoading ? 'Загрузка пунктов…' : 'Пункты выдачи не найдены'}
                 </p>
+              ) : pvzView === 'map' ? (
+                <>
+                  {pvzList.some((p) => p.location.latitude && p.location.longitude) ? (
+                    <PvzMap
+                      points={pvzList}
+                      selectedCode={selectedPvz?.code ?? null}
+                      onSelect={(pvz) => setSelectedPvz(pvz)}
+                    />
+                  ) : (
+                    <p className="text-xs text-[#6b6b4a]">
+                      Нет координат для отображения на карте — выберите из списка.
+                    </p>
+                  )}
+                  {selectedPvz ? (
+                    <div className="mt-2 rounded-xl border border-muru-olive bg-[#efe8d8] px-3 py-2 text-sm">
+                      <p className="font-medium">{selectedPvz.name}</p>
+                      <p className="text-xs">{selectedPvz.address}</p>
+                      {selectedPvz.workTime ? (
+                        <p className="text-xs text-[#6b6b4a]">{selectedPvz.workTime}</p>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-xs text-[#6b6b4a]">
+                      Нажмите на метку, чтобы выбрать пункт выдачи
+                    </p>
+                  )}
+                </>
               ) : (
-                pvzList.map((pvz) => (
-                  <button
-                    key={pvz.code}
-                    type="button"
-                    className={`${pressable} rounded-xl border px-3 py-2 text-left text-sm ${
-                      selectedPvz?.code === pvz.code
-                        ? 'border-muru-olive bg-[#efe8d8]'
-                        : 'border-muru-accent'
-                    }`}
-                    onClick={() => setSelectedPvz(pvz)}
-                  >
-                    <p className="font-medium">{pvz.name}</p>
-                    <p className="text-xs">{pvz.address}</p>
-                    {pvz.workTime ? <p className="text-xs text-[#6b6b4a]">{pvz.workTime}</p> : null}
-                  </button>
-                ))
+                <div className="grid max-h-56 gap-2 overflow-y-auto">
+                  {pvzList.map((pvz) => (
+                    <button
+                      key={pvz.code}
+                      type="button"
+                      className={`${pressable} rounded-xl border px-3 py-2 text-left text-sm ${
+                        selectedPvz?.code === pvz.code
+                          ? 'border-muru-olive bg-[#efe8d8]'
+                          : 'border-muru-accent'
+                      }`}
+                      onClick={() => setSelectedPvz(pvz)}
+                    >
+                      <p className="font-medium">{pvz.name}</p>
+                      <p className="text-xs">{pvz.address}</p>
+                      {pvz.workTime ? (
+                        <p className="text-xs text-[#6b6b4a]">{pvz.workTime}</p>
+                      ) : null}
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
           )}
