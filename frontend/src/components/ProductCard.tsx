@@ -47,21 +47,21 @@ export const ProductCard = ({
           <p className="text-[11px] text-[#6b6b4a]">{product.dimensionsLabel} см</p>
         ) : null}
       </div>
-      <div className="mt-1 min-h-[2.5rem]">
+      <div className="mt-1 flex h-6 items-center">
         {(product.discountPercent ?? 0) > 0 ? (
-          <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
-            <span className="text-sm font-semibold tabular-nums text-muru-olive">
+          <div className="flex min-w-0 flex-nowrap items-center gap-x-1 gap-y-0">
+            <span className="shrink-0 text-sm font-semibold leading-none tabular-nums text-muru-olive">
               {formatPrice(Math.round(product.price * (1 - (product.discountPercent ?? 0) / 100) * 100) / 100)}
             </span>
-            <span className="text-xs line-through tabular-nums text-[#9a7a6a]">
+            <span className="shrink-0 text-[11px] leading-none line-through tabular-nums text-[#9a7a6a]">
               {formatPrice(product.price)}
             </span>
-            <span className="rounded-full bg-[#8f2b2b] px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-white">
+            <span className="shrink-0 whitespace-nowrap rounded-full bg-[#8f2b2b] px-1 py-px text-[9px] font-semibold leading-none tracking-wide text-white">
               −{product.discountPercent}%
             </span>
           </div>
         ) : (
-          <p className="text-sm font-semibold tabular-nums">{formatPrice(product.price)}</p>
+          <p className="text-sm font-semibold leading-none tabular-nums">{formatPrice(product.price)}</p>
         )}
       </div>
       {product.inStock > 0 ? null : (
