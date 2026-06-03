@@ -65,6 +65,14 @@ psql "$DATABASE_URL" -f backend/src/db/migrations/009_order_consent.sql
 psql "$DATABASE_URL" -f backend/src/db/migrations/010_payments.sql
 ```
 
+### ЮKassa (оплата до заказа)
+
+В `.env`: `YOOKASSA_SHOP_ID`, `YOOKASSA_SECRET_KEY` (тест: `test_…`), `YOOKASSA_RETURN_URL`, `YOOKASSA_VAT_CODE=1`.
+
+Webhook в личном кабинете ЮKassa (тест): URL `https://murushop.online/yookassa-webhook`, события `payment.succeeded` и `payment.canceled`. Nginx: фрагмент [`deploy/nginx-yookassa-webhook.snippet`](deploy/nginx-yookassa-webhook.snippet), затем `nginx -t && systemctl reload nginx`. Backend: `app.set('trust proxy', 1)` и маршрут до CORS.
+
+После успешной оплаты webhook создаёт заказ из `payments.checkout_snapshot`, запускает СДЭК (если в снимке есть тариф/город) и шлёт уведомления в Telegram.
+
 После синка каталога габариты и оценочный вес заполняются из колонки «Размер» и «Материал» в xlsx. Ручные правки не перезаписываются, если выставить `dims_source='manual'` и/или `weight_source='manual'`:
 
 ```sql

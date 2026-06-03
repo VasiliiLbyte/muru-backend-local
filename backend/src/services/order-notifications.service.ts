@@ -107,6 +107,31 @@ export const notifyClientByTelegram = async (order: OrderDraft): Promise<void> =
   }
 }
 
+export const notifyAdminsPaymentReceived = async (order: OrderDraft): Promise<void> => {
+  const text = `💰 Оплачен заказ #${order.id} на сумму ${order.total.toFixed(2)} ₽`
+  const targetIds = env.orderNotifyTelegramIds.length > 0 ? env.orderNotifyTelegramIds : env.adminTelegramIds
+
+  for (const chatId of targetIds) {
+    await callTelegramApi('sendMessage', {
+      chat_id: chatId,
+      text,
+    })
+  }
+}
+
+export const notifyClientPaymentReceived = async (order: OrderDraft): Promise<void> => {
+  if (!env.telegramBotToken) return
+
+  try {
+    await callTelegramApi('sendMessage', {
+      chat_id: order.telegramUserId,
+      text: `Оплата получена, заказ #${order.id} принят в работу`,
+    })
+  } catch (error) {
+    console.error('[notify-client-payment:error]', error)
+  }
+}
+
 export const notifyAdminsCdekError = async (orderId: number, errMsg: string): Promise<void> => {
   const text = `⚠️ Заказ #${orderId}: не удалось создать в СДЭК\n${errMsg}\nПовторить в админке.`
   const targetIds = env.orderNotifyTelegramIds.length > 0 ? env.orderNotifyTelegramIds : env.adminTelegramIds

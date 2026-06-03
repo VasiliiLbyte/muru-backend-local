@@ -29,6 +29,10 @@ export type CheckoutDraftInput = {
   recipientPhone?: string
   consentAccepted?: boolean
   consentVersion?: string
+  paymentId?: string
+  paymentStatus?: string
+  /** Paid fulfillment: discount from checkout snapshot without re-validation */
+  promoDiscount?: number
 }
 
 export type OrderDraft = {

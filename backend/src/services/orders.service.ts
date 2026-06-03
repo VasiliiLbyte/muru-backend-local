@@ -2,6 +2,7 @@ import type { PoolClient } from 'pg'
 
 import {
   applyPromoCodeOnOrder,
+  normalizePromoCode,
   validatePromoCode,
   PromoValidationError,
 } from './promo.service'
@@ -245,7 +246,18 @@ export const createOrder = async (input: CheckoutDraftInput): Promise<OrderDraft
   let promoCodeStored: string | null = null
   let promoCodeId: number | null = null
 
-  if (input.promoCode?.trim()) {
+  if (input.paymentId) {
+    promoDiscount = normalizeMoney(input.promoDiscount ?? 0)
+    const code = input.promoCode?.trim() ? normalizePromoCode(input.promoCode) : null
+    if (code) {
+      promoCodeStored = code
+      const promoRow = await pool.query<{ id: number }>(
+        `SELECT id FROM promo_codes WHERE code = $1 AND is_active = TRUE`,
+        [code],
+      )
+      promoCodeId = promoRow.rows[0]?.id ?? null
+    }
+  } else if (input.promoCode?.trim()) {
     const validation = await validatePromoCode({
       code: input.promoCode,
       telegramUserId: input.telegramUserId,
@@ -273,8 +285,9 @@ export const createOrder = async (input: CheckoutDraftInput): Promise<OrderDraft
         cdek_tariff_code, cdek_to_city_code, cdek_to_city_name, cdek_pvz_code, cdek_pvz_address,
         cdek_recipient_name, cdek_recipient_phone,
         consent_accepted, consent_version, consent_accepted_at,
+        payment_id, payment_status, paid_at,
         is_draft, created_at, updated_at
-      ) VALUES ($1, 'Новый', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, CASE WHEN $20 THEN NOW() ELSE NULL END, FALSE, NOW(), NOW())
+      ) VALUES ($1, 'Новый', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, CASE WHEN $20 THEN NOW() ELSE NULL END, $22, $23, CASE WHEN $23 = 'succeeded' THEN NOW() ELSE NULL END, FALSE, NOW(), NOW())
       RETURNING id, telegram_user_id, status, delivery_mode, delivery_option, delivery_price::text,
                 delivery_eta, address, comment, birth_date::text, subtotal::text, total::text,
                 promo_code, promo_discount::text,
@@ -302,6 +315,8 @@ export const createOrder = async (input: CheckoutDraftInput): Promise<OrderDraft
         input.recipientPhone ?? null,
         consentAccepted,
         input.consentVersion ?? null,
+        input.paymentId ?? null,
+        input.paymentStatus ?? null,
       ],
     )
     const order = inserted.rows[0]

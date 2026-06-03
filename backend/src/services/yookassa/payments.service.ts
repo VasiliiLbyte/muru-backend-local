@@ -14,7 +14,7 @@ export type CheckoutSnapshot = {
   promoCode: string | null
   promoDiscount: number
   total: number
-  deliveryMode: string
+  deliveryMode: 'delivery' | 'pickup'
   deliveryOption: string | null
   deliveryEta: string | null
   address: string

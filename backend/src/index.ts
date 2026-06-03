@@ -11,6 +11,7 @@ import { favoritesRouter } from './routes/favorites.routes'
 import { ordersRouter } from './routes/orders.routes'
 import { paymentsRouter } from './routes/payments.routes'
 import { profileRouter } from './routes/profile.routes'
+import { yookassaWebhookRouter } from './routes/yookassa-webhook.routes'
 import { errorHandler } from './middleware/error-handler.middleware'
 import { startTelegramBotPolling } from './services/telegram-bot.service'
 import { fail, ok } from './utils/api-response'
@@ -19,6 +20,7 @@ import { env } from './utils/env'
 dotenv.config()
 
 const app = express()
+app.set('trust proxy', 1)
 const port = env.port
 const isProd = env.nodeEnv === 'production'
 
@@ -41,6 +43,9 @@ const ALLOWED_ORIGINS = Array.from(
   ]),
 )
 
+app.use(express.json())
+app.use('/yookassa-webhook', yookassaWebhookRouter)
+
 app.use(
   cors({
     origin: (origin, callback) => {
@@ -55,7 +60,6 @@ app.use(
     credentials: true,
   }),
 )
-app.use(express.json())
 app.use(imageRouter)
 app.use('/api/auth', authRouter)
 app.use('/api/admin', adminRouter)
@@ -99,6 +103,16 @@ app.listen(port, () => {
         .then((m) => m.recoverPendingCdekTracks())
         .catch((e) => console.warn('[cdek-poll] recover failed', e))
     }, 30_000)
+  }
+
+  if (process.env.NODE_ENV !== 'test' && env.yookassa.enabled) {
+    const runExpiry = () => {
+      void import('./services/yookassa/payment-expiry.service')
+        .then((m) => m.cancelStalePayments())
+        .catch((e) => console.warn('[yk-expiry] tick failed', e))
+    }
+    setTimeout(runExpiry, 60_000)
+    setInterval(runExpiry, 60 * 60 * 1000)
   }
 })
 
