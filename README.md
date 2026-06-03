@@ -71,7 +71,7 @@ psql "$DATABASE_URL" -f backend/src/db/migrations/010_payments.sql
 
 **Return URL (checkout):** тест — `https://murushop.online/?pay=check` (при возврате mini app читает `sessionStorage` `muru-pending-payment` и показывает экран проверки оплаты). Прод — deep-link `https://t.me/<bot>/<app>?startapp=pay` (`start_param=pay`). Кнопка «Перейти к оплате» вызывает `POST /api/payments/create` и открывает `confirmationUrl` через `Telegram.WebApp.openLink`.
 
-Webhook в личном кабинете ЮKassa (тест): URL `https://murushop.online/yookassa-webhook`, события `payment.succeeded` и `payment.canceled`. Nginx: фрагмент [`deploy/nginx-yookassa-webhook.snippet`](deploy/nginx-yookassa-webhook.snippet), затем `nginx -t && systemctl reload nginx`. Backend: `app.set('trust proxy', 1)` и маршрут до CORS.
+Webhook в личном кабинете ЮKassa (тест): URL `https://murushop.online/yookassa-webhook`, события `payment.succeeded` и `payment.canceled`. Nginx: эталонный конфиг [`deploy/nginx-murushop.online.conf`](deploy/nginx-murushop.online.conf) (включает `/yookassa-webhook`). На VPS после `git pull`: `sudo bash deploy/sync-nginx-murushop.sh` — бэкап старого конфига, `nginx -t`, reload. Проверка: `curl -X POST https://murushop.online/yookassa-webhook` → **200**, не 405. Backend: `app.set('trust proxy', 1)` и маршрут до CORS.
 
 После успешной оплаты webhook создаёт заказ из `payments.checkout_snapshot`, запускает СДЭК (если в снимке есть тариф/город) и шлёт уведомления в Telegram. Клиент поллит `GET /api/payments/:paymentId/status` на экране проверки; при `succeeded` корзина очищается и открываются «Мои заказы».
 
