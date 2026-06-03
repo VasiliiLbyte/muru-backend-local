@@ -112,15 +112,44 @@ describe('fulfillPaidPayment', () => {
       release: vi.fn(),
     }
     mockPoolConnect.mockResolvedValue(client)
-    mockPoolQuery.mockResolvedValue({ rows: [] })
+    mockPoolQuery.mockImplementation(async (sql: string) => {
+      if (sql.includes('order_id IS NULL RETURNING')) {
+        return { rows: [{ id: 1 }] }
+      }
+      return { rows: [] }
+    })
 
     const result = await fulfillPaidPayment('yk-new')
     expect(result).toBe(99)
     expect(mockCreateOrder).toHaveBeenCalledOnce()
     expect(mockPoolQuery).toHaveBeenCalledWith(
-      expect.stringContaining('order_id'),
+      expect.stringContaining('order_id IS NULL RETURNING'),
       [99, 1],
     )
+  })
+
+  it('ignores duplicate fulfill when payment already linked', async () => {
+    const client = {
+      query: vi.fn().mockImplementation(async (sql: string) => {
+        if (sql === 'BEGIN' || sql === 'COMMIT' || sql === 'ROLLBACK') return { rows: [] }
+        if (sql.includes('FOR UPDATE')) {
+          return { rows: [{ id: 1, order_id: null, status: 'pending', checkout_snapshot: snap }] }
+        }
+        if (sql.includes("status='succeeded'")) return { rows: [] }
+        return { rows: [] }
+      }),
+      release: vi.fn(),
+    }
+    mockPoolConnect.mockResolvedValue(client)
+    mockPoolQuery.mockImplementation(async (sql: string) => {
+      if (sql.includes('order_id IS NULL RETURNING')) return { rows: [] }
+      if (sql.includes('SELECT order_id FROM payments')) return { rows: [{ order_id: 42 }] }
+      return { rows: [] }
+    })
+
+    const result = await fulfillPaidPayment('yk-dup')
+    expect(result).toBe(42)
+    expect(mockCreateOrder).toHaveBeenCalledOnce()
   })
 })
 
@@ -162,13 +191,18 @@ describe('fulfillPaidIntent', () => {
       release: vi.fn(),
     }
     mockPoolConnect.mockResolvedValue(client)
-    mockPoolQuery.mockResolvedValue({ rows: [] })
+    mockPoolQuery.mockImplementation(async (sql: string) => {
+      if (sql.includes('order_id IS NULL RETURNING')) {
+        return { rows: [{ id: 7 }] }
+      }
+      return { rows: [] }
+    })
 
     const result = await fulfillPaidIntent(7, 'tg-charge-new')
     expect(result).toBe(99)
     expect(mockCreateOrder).toHaveBeenCalledOnce()
     expect(mockPoolQuery).toHaveBeenCalledWith(
-      expect.stringContaining('order_id'),
+      expect.stringContaining('order_id IS NULL RETURNING'),
       [99, 7],
     )
   })

@@ -170,10 +170,7 @@ export const CartPage = ({ userId, onGoCatalog, onCheckout }: CartPageProps) => 
             type="button"
             className={`${pressableDisabled} rounded-xl bg-[#b91c1c] px-4 py-4 text-base font-semibold text-[#fff5ef]`}
             disabled={isLoading}
-            onClick={async () => {
-              await persistDraft(userId)
-              onCheckout()
-            }}
+            onClick={() => onCheckout()}
           >
             Оформить заказ
           </button>

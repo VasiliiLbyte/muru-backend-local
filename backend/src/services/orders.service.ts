@@ -329,8 +329,7 @@ export const createOrder = async (input: CheckoutDraftInput): Promise<OrderDraft
       )
     }
     await client.query(
-      `UPDATE orders SET is_draft = FALSE, updated_at = NOW()
-       WHERE telegram_user_id = $1 AND is_draft = TRUE`,
+      `DELETE FROM orders WHERE telegram_user_id = $1 AND is_draft = TRUE`,
       [input.telegramUserId],
     )
     await client.query('COMMIT')
@@ -413,6 +412,8 @@ export const getOrdersByTelegramUserId = async (telegramUserId: number): Promise
             cdek_pvz_address, cdek_recipient_name, cdek_recipient_phone, cdek_track_number, cdek_status
      FROM orders
      WHERE telegram_user_id = $1
+       AND is_draft = FALSE
+       AND NOT (status = 'Черновик' AND payment_id IS NULL)
      ORDER BY created_at DESC`,
     [telegramUserId],
   )

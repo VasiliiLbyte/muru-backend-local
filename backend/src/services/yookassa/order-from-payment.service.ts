@@ -37,6 +37,16 @@ const snapshotToOrderInput = (snap: CheckoutSnapshot, paymentChargeId: string) =
   paymentStatus: 'succeeded',
 })
 
+const cancelOrphanOrder = async (orderId: number, items: { sku: string; quantity: number }[]) => {
+  await pool.query(`UPDATE orders SET status='Отменён', updated_at=NOW() WHERE id=$1`, [orderId])
+  for (const item of items) {
+    await pool.query(`UPDATE products SET in_stock = in_stock + $1 WHERE sku = $2`, [
+      item.quantity,
+      item.sku,
+    ])
+  }
+}
+
 const completeOrderAfterPayment = async (
   snapshot: CheckoutSnapshot,
   chargeId: string,
@@ -45,7 +55,30 @@ const completeOrderAfterPayment = async (
 ): Promise<number> => {
   const order = await createOrder(snapshotToOrderInput(snapshot, chargeId))
 
-  await pool.query(`UPDATE payments SET order_id=$1 WHERE id=$2`, [order.id, paymentRowId])
+  const linkResult = await pool.query<{ id: number }>(
+    `UPDATE payments SET order_id=$1 WHERE id=$2 AND order_id IS NULL RETURNING id`,
+    [order.id, paymentRowId],
+  )
+
+  if (linkResult.rows.length === 0) {
+    const existing = await pool.query<{ order_id: number | null }>(
+      `SELECT order_id FROM payments WHERE id=$1`,
+      [paymentRowId],
+    )
+    const existingOrderId = existing.rows[0]?.order_id
+    if (existingOrderId) {
+      log.warn?.(`[${logTag}] duplicate fulfill ignored`, {
+        paymentRowId,
+        orphanOrderId: order.id,
+        existingOrderId,
+      })
+      await cancelOrphanOrder(order.id, order.items).catch((err) => {
+        log.error?.(`[${logTag}] failed to cancel orphan order`, { orderId: order.id, err })
+      })
+      return existingOrderId
+    }
+    throw new Error(`Failed to link payment ${paymentRowId} to order ${order.id}`)
+  }
 
   const stockUpdates = order.items.map((item) => ({
     sku: item.sku,
