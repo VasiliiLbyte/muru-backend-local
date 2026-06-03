@@ -108,7 +108,14 @@ export const CartPage = ({ userId, onGoCatalog, onCheckout }: CartPageProps) => 
             <div className="flex-1">
               <h2 className="text-sm font-semibold text-[#3f3636]">{item.name}</h2>
               <p className="mt-1 text-xs text-[#6f6666]">Цена/шт</p>
-              <p className="text-xl font-semibold text-[#3f3636] tabular-nums">{formatPrice(item.price)}</p>
+              {item.originalPrice ? (
+                <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
+                  <p className="text-xl font-semibold text-[#3f3636] tabular-nums">{formatPrice(item.price)}</p>
+                  <p className="text-xs line-through tabular-nums text-[#9a7a6a]">{formatPrice(item.originalPrice)}</p>
+                </div>
+              ) : (
+                <p className="text-xl font-semibold text-[#3f3636] tabular-nums">{formatPrice(item.price)}</p>
+              )}
             </div>
           </div>
           <div className="mt-2 flex items-center gap-1">

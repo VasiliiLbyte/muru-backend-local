@@ -9,6 +9,7 @@ export type CatalogProduct = {
   sku: string
   name: string
   price: number
+  discountPercent?: number
   inStock: number
   imageUrls: string[]
   colors: string[]

@@ -15,6 +15,7 @@ export type TrustedLine = {
   sku: string
   name: string
   price: number
+  originalPrice?: number
   quantity: number
   color?: string
   size?: string
@@ -48,8 +49,14 @@ export const computeTrustedPricing = async (input: PricingInput): Promise<Truste
   }
 
   const skus = input.items.map((i) => i.sku)
-  const rows = await pool.query<{ sku: string; name: string; price: string; in_stock: number }>(
-    `SELECT sku, name, price::text, in_stock FROM products WHERE sku = ANY($1::text[])`,
+  const rows = await pool.query<{
+    sku: string
+    name: string
+    price: string
+    discount_percent: string
+    in_stock: number
+  }>(
+    `SELECT sku, name, price::text, discount_percent::text, in_stock FROM products WHERE sku = ANY($1::text[])`,
     [skus],
   )
   const dbMap = new Map(rows.rows.map((r) => [r.sku, r]))
@@ -63,10 +70,17 @@ export const computeTrustedPricing = async (input: PricingInput): Promise<Truste
     if (line.quantity < 1) {
       throw new PaymentPricingError(`Некорректное количество для ${line.sku}`)
     }
+    const basePrice = Number(db.price)
+    const discountPct = Number(db.discount_percent) || 0
+    const effectivePrice =
+      discountPct > 0
+        ? Math.round(basePrice * (1 - discountPct / 100) * 100) / 100
+        : basePrice
     items.push({
       sku: db.sku,
       name: db.name,
-      price: Number(db.price),
+      price: effectivePrice,
+      ...(discountPct > 0 ? { originalPrice: basePrice } : {}),
       quantity: line.quantity,
       color: line.color,
       size: line.size,

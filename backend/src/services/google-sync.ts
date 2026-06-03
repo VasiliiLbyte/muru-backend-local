@@ -15,6 +15,7 @@ import {
 } from './google-drive-product-images'
 import {
   resolvePrimaryCatalogSection,
+  resolveSheetDiscountPercent,
   resolveSheetPrice,
   resolveSkuFromRow,
 } from './google-sheet-headers'
@@ -162,6 +163,7 @@ const normalizeProduct = (
     name: parsed.data.name,
     categoryNames,
     price: parseNumber(parsed.data.price),
+    discountPercent: resolveSheetDiscountPercent(source),
     inStock: Math.max(0, Math.floor(parseNumber(parsed.data.stock))),
     description: parsed.data.description,
     specs: finalSpecs,
@@ -213,13 +215,14 @@ const upsertProductWithClient = async (
   const imageUrl1 = product.imageUrls[0] ?? DEFAULT_IMAGE_URL
   const imageUrl2 = product.imageUrls[1] ?? imageUrl1
   const productResult = await client.query<{ id: number }>(
-    `INSERT INTO products (sku, name, description, price, in_stock, specs, image_url_1, image_url_2, image_urls, category_id, color, color_tags, size, dimensions_label, updated_at)
-     VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9::jsonb,$10,$11,$12,$13,$14,NOW())
+    `INSERT INTO products (sku, name, description, price, discount_percent, in_stock, specs, image_url_1, image_url_2, image_urls, category_id, color, color_tags, size, dimensions_label, updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9::jsonb,$10,$11,$12,$13,$14,$15,NOW())
      ON CONFLICT (sku)
      DO UPDATE SET
        name = EXCLUDED.name,
        description = EXCLUDED.description,
        price = EXCLUDED.price,
+       discount_percent = EXCLUDED.discount_percent,
        in_stock = EXCLUDED.in_stock,
        specs = EXCLUDED.specs,
        image_url_1 = EXCLUDED.image_url_1,
@@ -237,6 +240,7 @@ const upsertProductWithClient = async (
       product.name,
       product.description,
       product.price,
+      product.discountPercent,
       product.inStock,
       JSON.stringify(product.specs),
       imageUrl1,

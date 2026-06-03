@@ -45,7 +45,21 @@ export const ProductCard = ({
       {product.dimensionsLabel ? (
         <p className="text-[11px] text-[#6b6b4a]">{product.dimensionsLabel} см</p>
       ) : null}
-      <p className="mt-1 text-sm font-semibold tabular-nums">{formatPrice(product.price)}</p>
+      {(product.discountPercent ?? 0) > 0 ? (
+        <div className="mt-1 flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
+          <span className="text-sm font-semibold tabular-nums text-muru-olive">
+            {formatPrice(Math.round(product.price * (1 - (product.discountPercent ?? 0) / 100) * 100) / 100)}
+          </span>
+          <span className="text-xs line-through tabular-nums text-[#9a7a6a]">
+            {formatPrice(product.price)}
+          </span>
+          <span className="rounded-full bg-[#8f2b2b] px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-white">
+            −{product.discountPercent}%
+          </span>
+        </div>
+      ) : (
+        <p className="mt-1 text-sm font-semibold tabular-nums">{formatPrice(product.price)}</p>
+      )}
       {product.inStock > 0 ? null : (
         <span className="mt-1 inline-block rounded-full bg-[#efe8d8] px-2 py-0.5 text-[11px] tracking-wide text-[#8a7a52]">
           Под заказ

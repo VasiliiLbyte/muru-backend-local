@@ -20,6 +20,7 @@ type ProductRow = {
   sku: string
   name: string
   price: string
+  discount_percent: string
   in_stock: number
   image_url_1: string
   image_url_2: string
@@ -165,6 +166,7 @@ export const getCatalogProducts = async (params: {
        p.sku,
        p.name,
        p.price::text,
+       p.discount_percent::text,
        p.in_stock,
        p.image_url_1,
        p.image_url_2,
@@ -196,6 +198,7 @@ export const getCatalogProducts = async (params: {
         sku: row.sku,
         name: row.name,
         price: Number(row.price),
+        discountPercent: Number(row.discount_percent) || 0,
         inStock: row.in_stock,
         imageUrls: normalizeImageUrls(row.image_urls, row.image_url_1, row.image_url_2),
         colors: [],
@@ -240,6 +243,7 @@ export const getCatalogProductBySku = async (sku: string): Promise<CatalogProduc
        p.sku,
        p.name,
        p.price::text,
+       p.discount_percent::text,
        p.in_stock,
        p.image_url_1,
        p.image_url_2,
@@ -294,6 +298,7 @@ export const getCatalogProductBySku = async (sku: string): Promise<CatalogProduc
     sku: first.sku,
     name: first.name,
     price: Number(first.price),
+    discountPercent: Number(first.discount_percent) || 0,
     inStock: first.in_stock,
     imageUrls: normalizeImageUrls(first.image_urls, first.image_url_1, first.image_url_2),
     colors: dotColors,

@@ -56,7 +56,7 @@ describe('computeTrustedPricing', () => {
 
   it('uses product price from DB, not client-supplied values', async () => {
     poolQueryMock.mockResolvedValue({
-      rows: [{ sku: 'MU0001', name: 'Ваза', price: '5000', in_stock: 5 }],
+      rows: [{ sku: 'MU0001', name: 'Ваза', price: '5000', discount_percent: '0', in_stock: 5 }],
     } as never)
 
     const result = await computeTrustedPricing(baseInput)
@@ -69,6 +69,39 @@ describe('computeTrustedPricing', () => {
     expect(buildPackagesMock).not.toHaveBeenCalled()
   })
 
+  it('applies product discount_percent to effective price', async () => {
+    poolQueryMock.mockResolvedValue({
+      rows: [{ sku: 'MU0001', name: 'Ваза', price: '1000', discount_percent: '20', in_stock: 3 }],
+    } as never)
+
+    const result = await computeTrustedPricing(baseInput) // qty: 2
+
+    expect(result.items[0].price).toBe(800)
+    expect(result.items[0].originalPrice).toBe(1000)
+    expect(result.subtotal).toBe(1600)
+    expect(result.total).toBe(1600)
+  })
+
+  it('promo applies on top of already-discounted subtotal', async () => {
+    poolQueryMock.mockResolvedValue({
+      rows: [{ sku: 'MU0001', name: 'Ваза', price: '1000', discount_percent: '20', in_stock: 3 }],
+    } as never)
+    validatePromoMock.mockResolvedValue({
+      valid: true,
+      promoCodeId: 1,
+      code: 'PROMO',
+      discountType: 'fixed',
+      discountValue: 200,
+    })
+
+    const result = await computeTrustedPricing({ ...baseInput, promoCode: 'PROMO' })
+
+    // effectivePrice = 800, qty=2, subtotal=1600, promo=200, total=1400
+    expect(result.subtotal).toBe(1600)
+    expect(result.promoDiscount).toBe(200)
+    expect(result.total).toBe(1400)
+  })
+
   it('throws PaymentPricingError for unknown sku', async () => {
     poolQueryMock.mockResolvedValue({ rows: [] } as never)
 
@@ -77,7 +110,7 @@ describe('computeTrustedPricing', () => {
 
   it('computes delivery via CDEK for delivery mode', async () => {
     poolQueryMock.mockResolvedValue({
-      rows: [{ sku: 'MU0001', name: 'Ваза', price: '1000', in_stock: 1 }],
+      rows: [{ sku: 'MU0001', name: 'Ваза', price: '1000', discount_percent: '0', in_stock: 1 }],
     } as never)
     buildPackagesMock.mockResolvedValue([{ weight: 500 }])
     calculateTariffMock.mockResolvedValue({
@@ -103,7 +136,7 @@ describe('computeTrustedPricing', () => {
 
   it('rejects invalid tariff code', async () => {
     poolQueryMock.mockResolvedValue({
-      rows: [{ sku: 'MU0001', name: 'Ваза', price: '1000', in_stock: 1 }],
+      rows: [{ sku: 'MU0001', name: 'Ваза', price: '1000', discount_percent: '0', in_stock: 1 }],
     } as never)
 
     await expect(
@@ -118,7 +151,7 @@ describe('computeTrustedPricing', () => {
 
   it('throws PromoValidationError when promo is invalid', async () => {
     poolQueryMock.mockResolvedValue({
-      rows: [{ sku: 'MU0001', name: 'Ваза', price: '1000', in_stock: 1 }],
+      rows: [{ sku: 'MU0001', name: 'Ваза', price: '1000', discount_percent: '0', in_stock: 1 }],
     } as never)
     validatePromoMock.mockResolvedValue({ valid: false, reason: 'Промокод не найден' })
 
@@ -129,7 +162,7 @@ describe('computeTrustedPricing', () => {
 
   it('applies valid promo discount from server validation', async () => {
     poolQueryMock.mockResolvedValue({
-      rows: [{ sku: 'MU0001', name: 'Ваза', price: '1000', in_stock: 1 }],
+      rows: [{ sku: 'MU0001', name: 'Ваза', price: '1000', discount_percent: '0', in_stock: 1 }],
     } as never)
     validatePromoMock.mockResolvedValue({
       valid: true,

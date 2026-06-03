@@ -89,6 +89,13 @@ export const resolveSheetPrice = (source: Record<string, string>) =>
   source['стоимость'] ??
   ''
 
+export const resolveSheetDiscountPercent = (source: Record<string, string>): number => {
+  const raw = source['скидка (%)'] ?? source['скидка'] ?? source['discount'] ?? ''
+  const parsed = parseFloat(String(raw).replace(',', '.').replace(/[^\d.]/g, ''))
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed >= 100) return 0
+  return parsed
+}
+
 export const resolvePrimaryCatalogSection = (source: Record<string, string>) =>
   source['раздел каталога 1-й уровень'] ??
   source.section ??

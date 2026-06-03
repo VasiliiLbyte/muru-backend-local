@@ -4,6 +4,7 @@ import {
   columnIndexToA1,
   findHeaderRowIndex,
   normalizeHeaderKey,
+  resolveSheetDiscountPercent,
   resolveSheetPrice,
   resolveSkuFromRow,
   rowToRecord,
@@ -82,5 +83,32 @@ describe('resolveSkuFromRow', () => {
 
   it('finds embedded MU sku in any column', () => {
     expect(resolveSkuFromRow({ misc: 'prefix MU12345 suffix' })).toBe('MU12345')
+  })
+})
+
+describe('resolveSheetDiscountPercent', () => {
+  it('reads discount from «скидка (%)» column', () => {
+    expect(resolveSheetDiscountPercent({ 'скидка (%)': '20' })).toBe(20)
+  })
+
+  it('reads discount with comma decimal', () => {
+    expect(resolveSheetDiscountPercent({ 'скидка (%)': '15,5' })).toBe(15.5)
+  })
+
+  it('returns 0 when column is empty', () => {
+    expect(resolveSheetDiscountPercent({})).toBe(0)
+  })
+
+  it('returns 0 when value is 0', () => {
+    expect(resolveSheetDiscountPercent({ 'скидка (%)': '0' })).toBe(0)
+  })
+
+  it('returns 0 when value is 100 or above', () => {
+    expect(resolveSheetDiscountPercent({ 'скидка (%)': '100' })).toBe(0)
+    expect(resolveSheetDiscountPercent({ 'скидка (%)': '150' })).toBe(0)
+  })
+
+  it('falls back to «скидка» column', () => {
+    expect(resolveSheetDiscountPercent({ скидка: '10' })).toBe(10)
   })
 })

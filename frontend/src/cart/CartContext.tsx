@@ -223,12 +223,16 @@ export const CartProvider = ({ children, telegramUserId }: CartProviderProps) =>
       if (existing) {
         return prev.map((item) => (item.sku === product.sku ? { ...item, quantity: item.quantity + 1 } : item))
       }
+      const pct = product.discountPercent ?? 0
+      const effectivePrice =
+        pct > 0 ? Math.round(product.price * (1 - pct / 100) * 100) / 100 : product.price
       return [
         ...prev,
         {
           sku: product.sku,
           name: product.name,
-          price: product.price,
+          price: effectivePrice,
+          ...(pct > 0 ? { originalPrice: product.price } : {}),
           quantity: 1,
           imageUrl: product.imageUrls[0],
         },

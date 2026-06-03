@@ -14,6 +14,7 @@ export type Product = {
   name: string
   categoryNames: string[]
   price: number
+  discountPercent: number
   inStock: number
   description: string
   specs: Record<string, string>
@@ -97,6 +98,7 @@ export type CatalogProductListItem = {
   sku: string
   name: string
   price: number
+  discountPercent: number
   inStock: number
   imageUrls: string[]
   colors: string[]
