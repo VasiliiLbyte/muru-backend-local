@@ -3,6 +3,7 @@ import { ZodError } from 'zod'
 
 import { CdekApiError } from '../services/cdek/client'
 import { PromoValidationError } from '../services/promo.service'
+import { YooKassaError } from '../services/yookassa/client'
 import { HttpError } from '../utils/api-response'
 
 export const errorHandler = (err: unknown, req: Request, res: Response, _next: NextFunction) => {
@@ -23,6 +24,15 @@ export const errorHandler = (err: unknown, req: Request, res: Response, _next: N
   }
 
   if (err instanceof CdekApiError) {
+    return res.status(502).json({
+      success: false,
+      data: null,
+      error: { message: err.message, code: 'UPSTREAM' },
+    })
+  }
+
+  if (err instanceof YooKassaError) {
+    console.error('[yookassa]', { status: err.status, payload: err.payload, message: err.message })
     return res.status(502).json({
       success: false,
       data: null,

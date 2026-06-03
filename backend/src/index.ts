@@ -9,6 +9,7 @@ import { cdekRouter } from './routes/cdek.routes'
 import { catalogRouter } from './routes/catalog.routes'
 import { favoritesRouter } from './routes/favorites.routes'
 import { ordersRouter } from './routes/orders.routes'
+import { paymentsRouter } from './routes/payments.routes'
 import { profileRouter } from './routes/profile.routes'
 import { errorHandler } from './middleware/error-handler.middleware'
 import { startTelegramBotPolling } from './services/telegram-bot.service'
@@ -61,6 +62,7 @@ app.use('/api/admin', adminRouter)
 app.use('/api/catalog', catalogRouter)
 app.use('/api/favorites', favoritesRouter)
 app.use('/api/orders', ordersRouter)
+app.use('/api/payments', paymentsRouter)
 app.use('/api/profile', profileRouter)
 app.use('/api/cdek', cdekRouter)
 

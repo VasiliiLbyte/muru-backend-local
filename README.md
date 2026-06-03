@@ -62,6 +62,7 @@ psql "$DATABASE_URL" -f backend/src/db/migrations/006_cdek_orders.sql
 psql "$DATABASE_URL" -f backend/src/db/migrations/007_product_shipping_dims.sql
 psql "$DATABASE_URL" -f backend/src/db/migrations/008_product_dims_parsed.sql
 psql "$DATABASE_URL" -f backend/src/db/migrations/009_order_consent.sql
+psql "$DATABASE_URL" -f backend/src/db/migrations/010_payments.sql
 ```
 
 После синка каталога габариты и оценочный вес заполняются из колонки «Размер» и «Материал» в xlsx. Ручные правки не перезаписываются, если выставить `dims_source='manual'` и/или `weight_source='manual'`:

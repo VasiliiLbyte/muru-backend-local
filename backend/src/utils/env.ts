@@ -60,6 +60,10 @@ const envSchema = z.object({
   CDEK_WEBHOOK_SECRET: z.string().optional(),
   DADATA_API_KEY: z.string().optional(),
   DADATA_SECRET_KEY: z.string().optional(),
+  YOOKASSA_SHOP_ID: z.string().optional(),
+  YOOKASSA_SECRET_KEY: z.string().optional(),
+  YOOKASSA_RETURN_URL: z.string().optional(),
+  YOOKASSA_VAT_CODE: z.string().optional(),
 })
 
 const parsed = envSchema.safeParse(process.env)
@@ -74,6 +78,24 @@ if (parsed.data.CDEK_ENV === 'production') {
   const cdekClientSecret = parsed.data.CDEK_CLIENT_SECRET?.trim()
   if (!cdekClientId || !cdekClientSecret) {
     console.error('[env] CDEK_ENV=production requires CDEK_CLIENT_ID and CDEK_CLIENT_SECRET')
+    process.exit(1)
+  }
+}
+
+const yookassaShopId = parsed.data.YOOKASSA_SHOP_ID?.trim() ?? ''
+const yookassaSecretKey = parsed.data.YOOKASSA_SECRET_KEY?.trim() ?? ''
+const yookassaReturnUrl = parsed.data.YOOKASSA_RETURN_URL?.trim() ?? ''
+const yookassaVatCode = Number.parseInt(parsed.data.YOOKASSA_VAT_CODE?.trim() || '1', 10)
+const yookassaEnabled = Boolean(yookassaShopId && yookassaSecretKey)
+
+const nodeEnvForYookassa = parsed.data.NODE_ENV || 'development'
+if (nodeEnvForYookassa === 'production') {
+  if (!yookassaShopId || !yookassaSecretKey) {
+    console.error('[env] production requires YOOKASSA_SHOP_ID and YOOKASSA_SECRET_KEY')
+    process.exit(1)
+  }
+  if (!yookassaReturnUrl) {
+    console.error('[env] production requires YOOKASSA_RETURN_URL when YooKassa is configured')
     process.exit(1)
   }
 }
@@ -163,5 +185,12 @@ export const env = {
   dadata: {
     apiKey: parsed.data.DADATA_API_KEY?.trim() ?? '',
     secretKey: parsed.data.DADATA_SECRET_KEY?.trim() ?? '',
+  },
+  yookassa: {
+    shopId: yookassaShopId,
+    secretKey: yookassaSecretKey,
+    returnUrl: yookassaReturnUrl,
+    vatCode: Number.isFinite(yookassaVatCode) ? yookassaVatCode : 1,
+    enabled: yookassaEnabled,
   },
 }
