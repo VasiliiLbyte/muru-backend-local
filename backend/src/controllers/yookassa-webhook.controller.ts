@@ -21,13 +21,19 @@ const YK_IP_ALLOWLIST = [
 ]
 
 export const yookassaIpGuard = (req: Request, res: Response, next: NextFunction) => {
-  const ip = req.ip ?? ''
-  log.log?.('[yk-webhook] from ip', ip)
+  log.log?.('[yk-webhook] incoming', {
+    ip: req.ip,
+    xff: req.headers['x-forwarded-for'],
+    event: req.body?.event,
+    paymentId: req.body?.object?.id,
+  })
   if (!env.yookassa.verifyIp) {
     return next()
   }
+  const ip = req.ip ?? ''
   const allowed = ipRangeCheck(ip, YK_IP_ALLOWLIST)
   if (!allowed) {
+    log.warn?.('[yk-webhook] IP blocked', { ip: req.ip })
     return res.status(404).end()
   }
   next()
@@ -39,6 +45,7 @@ export const yookassaWebhookHandler = async (req: Request, res: Response, next: 
     const object = req.body?.object as { id?: string; status?: string } | undefined
 
     res.status(200).json({ ok: true })
+    log.log?.('[yk-webhook] handled', { event, paymentId: object?.id })
 
     if (!object?.id) return
     const paymentId = object.id

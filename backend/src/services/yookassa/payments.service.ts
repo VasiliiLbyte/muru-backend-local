@@ -200,7 +200,10 @@ export const getPaymentStatusForUser = async (
   if (isPending && yookassaPaymentId) {
     const yk = await getYkPayment(yookassaPaymentId).catch(() => null)
     if (yk?.status === 'succeeded' && yk.paid) {
-      const orderId = await fulfillPaidPayment(yookassaPaymentId).catch(() => null)
+      const orderId = await fulfillPaidPayment(yookassaPaymentId).catch((e) => {
+        console.error('[yk-status] self-heal fulfill failed', e)
+        return null
+      })
       if (orderId) {
         log.log?.('[yk-status] self-heal succeeded', { paymentId: yookassaPaymentId, orderId })
       }

@@ -15,7 +15,17 @@ vi.mock('../services/yookassa/order-from-payment.service', () => ({
 
 import { yookassaIpGuard } from './yookassa-webhook.controller'
 
-const makeReq = (ip: string) => ({ ip }) as Parameters<typeof yookassaIpGuard>[0]
+const makeReq = (
+  ip: string,
+  body: Record<string, unknown> = {},
+  headers: Record<string, string> = {},
+) =>
+  ({
+    ip,
+    body,
+    headers,
+  }) as Parameters<typeof yookassaIpGuard>[0]
+
 const makeRes = () => {
   const res = {
     statusCode: 200,
@@ -32,8 +42,35 @@ const makeRes = () => {
 }
 
 describe('yookassaIpGuard', () => {
+  let logSpy: ReturnType<typeof vi.spyOn>
+  let warnSpy: ReturnType<typeof vi.spyOn>
+
   beforeEach(() => {
     mockEnv.yookassa.verifyIp = true
+    logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+  })
+
+  it('always logs incoming request before checks', () => {
+    const next = vi.fn()
+    yookassaIpGuard(
+      makeReq(
+        '1.2.3.4',
+        { event: 'payment.succeeded', object: { id: 'yk-99' } },
+        { 'x-forwarded-for': '1.2.3.4' },
+      ),
+      makeRes(),
+      next,
+    )
+    expect(logSpy).toHaveBeenCalledWith(
+      '[yk-webhook] incoming',
+      expect.objectContaining({
+        ip: '1.2.3.4',
+        xff: '1.2.3.4',
+        event: 'payment.succeeded',
+        paymentId: 'yk-99',
+      }),
+    )
   })
 
   it('calls next when verifyIp is false regardless of IP', () => {
@@ -41,15 +78,17 @@ describe('yookassaIpGuard', () => {
     const next = vi.fn()
     yookassaIpGuard(makeReq('1.2.3.4'), makeRes(), next)
     expect(next).toHaveBeenCalled()
+    expect(warnSpy).not.toHaveBeenCalled()
   })
 
-  it('returns 404 when verifyIp is true and IP is not in allowlist', () => {
+  it('returns 404 and warns when verifyIp is true and IP is not in allowlist', () => {
     const next = vi.fn()
     const res = makeRes()
     yookassaIpGuard(makeReq('1.2.3.4'), res, next)
     expect(res.statusCode).toBe(404)
     expect(res.end).toHaveBeenCalled()
     expect(next).not.toHaveBeenCalled()
+    expect(warnSpy).toHaveBeenCalledWith('[yk-webhook] IP blocked', { ip: '1.2.3.4' })
   })
 
   it('calls next when verifyIp is true and IP is in allowlist', () => {
@@ -57,5 +96,6 @@ describe('yookassaIpGuard', () => {
     const res = makeRes()
     yookassaIpGuard(makeReq('185.71.76.1'), res, next)
     expect(next).toHaveBeenCalled()
+    expect(warnSpy).not.toHaveBeenCalled()
   })
 })
