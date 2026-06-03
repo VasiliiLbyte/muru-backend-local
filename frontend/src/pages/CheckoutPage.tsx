@@ -17,6 +17,7 @@ import {
   type CdekPvz,
   type CdekTariffOption,
 } from '../lib/api'
+import { cityNameForAddressSuggest } from '../lib/dadata-city'
 import { formatPrice } from '../lib/format'
 import { pressable, pressableDisabled } from '../lib/uiClasses'
 
@@ -82,7 +83,7 @@ export const CheckoutPage = ({
   const [streetQuery, setStreetQuery] = useState('')
   const [streetSuggestions, setStreetSuggestions] = useState<AddressSuggestion[]>([])
   const [streetLookupState, setStreetLookupState] = useState<
-    'idle' | 'loading' | 'empty' | 'error' | 'disabled'
+    'idle' | 'loading' | 'empty' | 'error'
   >('idle')
   const [selectedStreetValue, setSelectedStreetValue] = useState('')
   const [flat, setFlat] = useState('')
@@ -144,10 +145,12 @@ export const CheckoutPage = ({
     const extras = checkout.cdekExtras
     if (!extras?.cdekCityCode) return
 
+    const fullName = extras.cdekCityName ?? ''
+    const shortCity = fullName.split(',')[0]?.trim() || fullName
     const city: CdekCity = {
       code: extras.cdekCityCode,
-      full_name: extras.cdekCityName ?? '',
-      city: extras.cdekCityName ?? '',
+      full_name: fullName,
+      city: shortCity,
       region: '',
     }
     setSelectedCity(city)
@@ -235,14 +238,10 @@ export const CheckoutPage = ({
     }
     setStreetLookupState('loading')
     const timer = setTimeout(() => {
-      fetchAddressSuggestions(q, selectedCity.city || selectedCity.full_name)
+      fetchAddressSuggestions(q, cityNameForAddressSuggest(selectedCity))
         .then((list) => {
           setStreetSuggestions(list)
-          if (list.length === 0) {
-            setStreetLookupState('disabled')
-          } else {
-            setStreetLookupState('idle')
-          }
+          setStreetLookupState(list.length === 0 ? 'empty' : 'idle')
         })
         .catch(() => {
           setStreetSuggestions([])
@@ -559,13 +558,10 @@ export const CheckoutPage = ({
                 {streetLookupState === 'loading' ? (
                   <p className="mt-1 text-xs text-[#6b6b4a]">Ищем адрес…</p>
                 ) : null}
-                {streetLookupState === 'disabled' ? (
-                  <p className="mt-1 text-xs text-[#6b6b4a]">
-                    Подсказки недоступны — введите улицу и дом вручную.
-                  </p>
-                ) : null}
                 {streetLookupState === 'empty' ? (
-                  <p className="mt-1 text-xs text-[#6b6b4a]">Адрес не найден. Проверьте написание.</p>
+                  <p className="mt-1 text-xs text-[#6b6b4a]">
+                    Ничего не найдено — уточните улицу или введите адрес вручную.
+                  </p>
                 ) : null}
                 {streetLookupState === 'error' ? (
                   <p className="mt-1 text-xs text-red-700">

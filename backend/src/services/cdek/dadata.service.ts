@@ -38,6 +38,14 @@ const log = {
   warn: (payload: unknown, msg?: string) => console.warn('[dadata]', msg ?? '', payload),
 }
 
+/** DaData expects a short city name, not "Санкт-Петербург, Россия". */
+export const normalizeDadataCityFilter = (cityName?: string): string | undefined => {
+  const trimmed = cityName?.trim()
+  if (!trimmed) return undefined
+  const short = trimmed.split(',')[0]?.trim()
+  return short || trimmed
+}
+
 const buildBody = (query: string, cityName?: string) => {
   const body: Record<string, unknown> = {
     query,
@@ -45,8 +53,9 @@ const buildBody = (query: string, cityName?: string) => {
     from_bound: { value: 'street' },
     to_bound: { value: 'house' },
   }
-  if (cityName) {
-    body.locations = [{ city: cityName }]
+  const cityFilter = normalizeDadataCityFilter(cityName)
+  if (cityFilter) {
+    body.locations = [{ city: cityFilter }]
   }
   return body
 }

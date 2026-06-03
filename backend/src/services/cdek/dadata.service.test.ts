@@ -124,6 +124,16 @@ describe('suggestAddresses', () => {
     expect(result).toEqual([])
   })
 
+  it('strips region/country suffix from city filter', async () => {
+    const fetchMock = vi.fn(async () => buildOkResponse())
+    vi.stubGlobal('fetch', fetchMock)
+
+    await suggestAddresses('Ординарная', 'Санкт-Петербург, Россия')
+
+    const body = JSON.parse(String((fetchMock.mock.calls[0] as [string, RequestInit])[1].body))
+    expect(body.locations).toEqual([{ city: 'Санкт-Петербург' }])
+  })
+
   it('returns [] for non-2xx DaData response', async () => {
     const fetchMock = vi.fn(
       async () => new Response('forbidden', { status: 403 }),
