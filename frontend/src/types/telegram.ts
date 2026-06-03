@@ -9,6 +9,7 @@ export type TelegramWebApp = {
   initData?: string
   initDataUnsafe?: {
     user?: TelegramWebAppUser
+    start_param?: string
   }
   themeParams?: Record<string, string>
   ready: () => void
@@ -36,6 +37,7 @@ export type TelegramWebApp = {
   enableVerticalSwipes?: () => void
   isVerticalSwipesEnabled?: boolean
   close?: () => void
+  openLink?: (url: string, options?: { try_instant_view?: boolean }) => void
   HapticFeedback?: {
     impactOccurred?: (style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft') => void
     notificationOccurred?: (type: 'error' | 'success' | 'warning') => void

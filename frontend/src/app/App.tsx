@@ -15,6 +15,7 @@ import { CatalogHomePage } from '../pages/CatalogHomePage'
 import { CatalogProductsPage } from '../pages/CatalogProductsPage'
 import { CartPage } from '../pages/CartPage'
 import { CheckoutPage } from '../pages/CheckoutPage'
+import { PaymentCheckPage } from '../pages/PaymentCheckPage'
 import { FavoritesPage } from '../pages/FavoritesPage'
 import { PlaceholderPage } from '../pages/PlaceholderPage'
 import { ProductDetailPage } from '../pages/ProductDetailPage'
@@ -219,15 +220,35 @@ const AppShell = () => {
   const [legalDoc, setLegalDoc] = useState<'terms' | 'privacy' | null>(null)
   const [selectedOrder, setSelectedOrder] = useState<OrderHistoryItem | null>(null)
   const [isMyOrdersOpen, setIsMyOrdersOpen] = useState(false)
+  const [pendingPayment, setPendingPayment] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const { userId, isAdmin, webApp } = useTelegramWebApp()
-  const { addProduct, items: cartItems } = useCart()
+  const { addProduct, items: cartItems, clearCartAfterPayment } = useCart()
   const cartItemCount = useMemo(() => cartItems.reduce((n, i) => n + i.quantity, 0), [cartItems])
   const { favorites, favoriteSkus, isLoading: favoritesLoading, loadFavorites, toggleFavorite } = useFavorites()
 
   useEffect(() => {
     fetchCatalogTree().then(setCatalogTree).catch(() => setCatalogTree([]))
   }, [])
+
+  useEffect(() => {
+    const stored = sessionStorage.getItem('muru-pending-payment')
+    if (!stored) return
+
+    const params = new URLSearchParams(window.location.search)
+    const payCheck = params.get('pay') === 'check'
+    const startPay = webApp?.initDataUnsafe?.start_param === 'pay'
+
+    if (payCheck || startPay) {
+      setPendingPayment(stored)
+      if (payCheck) {
+        params.delete('pay')
+        const qs = params.toString()
+        const next = `${window.location.pathname}${qs ? `?${qs}` : ''}${window.location.hash}`
+        window.history.replaceState(null, '', next)
+      }
+    }
+  }, [webApp])
 
   useEffect(() => {
     const path = location.pathname.replace(/\/$/, '') || '/'
@@ -249,11 +270,21 @@ const AppShell = () => {
     const app = webApp
     if (!app) return
     const isInnerScreen = Boolean(
-      selectedProduct || isCheckoutOpen || isAdminPageOpen || legalDoc || selectedOrder || isMyOrdersOpen,
+      pendingPayment ||
+        selectedProduct ||
+        isCheckoutOpen ||
+        isAdminPageOpen ||
+        legalDoc ||
+        selectedOrder ||
+        isMyOrdersOpen,
     )
     const handleBack = () => {
       if (legalDoc) {
         setLegalDoc(null)
+        return
+      }
+      if (pendingPayment) {
+        setPendingPayment(null)
         return
       }
       if (selectedOrder) {
@@ -288,7 +319,16 @@ const AppShell = () => {
       app.BackButton.offClick?.(handleBack)
       if (!isInnerScreen) app.BackButton.hide()
     }
-  }, [webApp, selectedProduct, isCheckoutOpen, isAdminPageOpen, legalDoc, selectedOrder, isMyOrdersOpen])
+  }, [
+    webApp,
+    pendingPayment,
+    selectedProduct,
+    isCheckoutOpen,
+    isAdminPageOpen,
+    legalDoc,
+    selectedOrder,
+    isMyOrdersOpen,
+  ])
 
   const handleNotifyRestock = (product: CatalogProduct | CatalogProductDetail) => {
     if (!userId) {
@@ -349,6 +389,7 @@ const AppShell = () => {
   ) : null
 
   const screenTransitionKey = useMemo(() => {
+    if (pendingPayment) return `payment-check-${pendingPayment}`
     if (legalDoc) return `legal-${legalDoc}`
     if (selectedOrder) return `order-${selectedOrder.id}`
     if (isMyOrdersOpen) return 'my-orders'
@@ -361,6 +402,7 @@ const AppShell = () => {
     if (activeTab === 'Корзина') return isCheckoutOpen ? 'checkout' : 'cart'
     return `tab-${activeTab}`
   }, [
+    pendingPayment,
     isAdminPageOpen,
     isAdmin,
     activeTab,
@@ -375,6 +417,28 @@ const AppShell = () => {
   const renderPage = () => {
     if (legalDoc) {
       return <LegalPage doc={legalDoc} onBack={() => setLegalDoc(null)} />
+    }
+    if (pendingPayment && userId) {
+      return (
+        <PaymentCheckPage
+          paymentId={pendingPayment}
+          userId={userId}
+          onPaid={() => {
+            clearCartAfterPayment()
+            sessionStorage.removeItem('muru-pending-payment')
+            setPendingPayment(null)
+            setIsCheckoutOpen(false)
+            setActiveTab('Профиль')
+            setIsMyOrdersOpen(true)
+          }}
+          onCanceled={() => {
+            sessionStorage.removeItem('muru-pending-payment')
+            setPendingPayment(null)
+            setIsCheckoutOpen(false)
+            setActiveTab('Корзина')
+          }}
+        />
+      )
     }
     if (selectedOrder) {
       return <OrderDetailPage order={selectedOrder} onBack={() => setSelectedOrder(null)} />

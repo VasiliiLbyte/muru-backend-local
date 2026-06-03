@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useCart } from '../cart/CartContext'
 import {
   calculateCdek,
+  createPayment,
   fetchAddressSuggestions,
   fetchCdekCities,
   fetchCdekPvz,
@@ -39,7 +40,7 @@ export const CheckoutPage = ({ userId, onBackToCart, onOpenLegal }: CheckoutPage
     items,
     checkout,
     updateCheckout,
-    submitOrder,
+    buildPaymentSnapshot,
     total,
     subtotal,
     discount,
@@ -55,6 +56,7 @@ export const CheckoutPage = ({ userId, onBackToCart, onOpenLegal }: CheckoutPage
   } = useCart()
 
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [paymentError, setPaymentError] = useState<string | null>(null)
   const [promoBusy, setPromoBusy] = useState(false)
   const [cityQuery, setCityQuery] = useState('')
   const [citySuggestions, setCitySuggestions] = useState<CdekCity[]>([])
@@ -342,42 +344,45 @@ export const CheckoutPage = ({ userId, onBackToCart, onOpenLegal }: CheckoutPage
     }
   }, [])
 
-  const handleConfirm = useCallback(async () => {
-    if (isSubmitting || !checkoutReady) return
+  const handlePay = useCallback(async () => {
+    if (isSubmitting || !checkoutReady || !userId) return
     setIsSubmitting(true)
+    setPaymentError(null)
     try {
-      const createdOrder = await submitOrder(userId)
-      console.log('[checkout-confirmed]', {
-        orderId: createdOrder.id,
-        total: createdOrder.total,
-        deliveryMode: createdOrder.deliveryMode,
-        deliveryOption: createdOrder.deliveryOption,
-      })
-      alert(`Заказ №${createdOrder.id} принят. Ожидайте звонка менеджера`)
-      onBackToCart()
+      const snapshot = buildPaymentSnapshot(userId)
+      const { paymentId, confirmationUrl } = await createPayment(snapshot)
+      sessionStorage.setItem('muru-pending-payment', paymentId)
+      const webApp = window.Telegram?.WebApp
+      if (webApp?.openLink) {
+        webApp.openLink(confirmationUrl)
+      } else {
+        window.location.href = confirmationUrl
+      }
+    } catch (e) {
+      setPaymentError(e instanceof Error ? e.message : 'Не удалось создать платёж')
     } finally {
       setIsSubmitting(false)
     }
-  }, [isSubmitting, checkoutReady, submitOrder, userId, onBackToCart])
+  }, [isSubmitting, checkoutReady, userId, buildPaymentSnapshot])
 
   useEffect(() => {
     const webApp = window.Telegram?.WebApp
     if (!webApp) return
 
-    webApp.MainButton.setText('Подтвердить заказ')
+    webApp.MainButton.setText('Перейти к оплате')
     if (checkoutReady && !isLoading && !isSubmitting) {
       webApp.MainButton.enable()
     } else {
       webApp.MainButton.disable()
     }
     webApp.MainButton.show()
-    webApp.MainButton.onClick(handleConfirm)
+    webApp.MainButton.onClick(handlePay)
 
     return () => {
-      webApp.MainButton.offClick(handleConfirm)
+      webApp.MainButton.offClick(handlePay)
       webApp.MainButton.hide()
     }
-  }, [handleConfirm, checkoutReady, isLoading, isSubmitting])
+  }, [handlePay, checkoutReady, isLoading, isSubmitting])
 
   const selectCity = (city: CdekCity) => {
     setSelectedCity(city)
@@ -392,7 +397,7 @@ export const CheckoutPage = ({ userId, onBackToCart, onOpenLegal }: CheckoutPage
     <section className="space-y-3 pb-3">
       <div className="rounded-2xl border border-muru-accent bg-[#fff9ed] p-4">
         <h1 className="text-xl font-semibold text-muru-olive">Оформление заказа</h1>
-        <p className="mt-2 text-sm">Заполните данные доставки и подтвердите заказ.</p>
+        <p className="mt-2 text-sm">Заполните данные доставки и перейдите к онлайн-оплате.</p>
       </div>
 
       <div className="rounded-2xl border border-muru-accent bg-[#fff9ed] p-4">
@@ -682,6 +687,7 @@ export const CheckoutPage = ({ userId, onBackToCart, onOpenLegal }: CheckoutPage
       ) : null}
 
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
+      {paymentError ? <p className="text-sm text-[#9a5b43]">{paymentError}</p> : null}
       <div className="grid gap-2">
         <button
           type="button"
@@ -729,9 +735,9 @@ export const CheckoutPage = ({ userId, onBackToCart, onOpenLegal }: CheckoutPage
           type="button"
           className={`${pressableDisabled} rounded-xl bg-muru-olive px-4 py-3 text-sm font-semibold text-muru-ivory`}
           disabled={isLoading || isSubmitting || !checkoutReady}
-          onClick={handleConfirm}
+          onClick={handlePay}
         >
-          Подтвердить заказ
+          Перейти к оплате
         </button>
       </div>
     </section>

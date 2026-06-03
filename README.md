@@ -69,9 +69,11 @@ psql "$DATABASE_URL" -f backend/src/db/migrations/010_payments.sql
 
 В `.env`: `YOOKASSA_SHOP_ID`, `YOOKASSA_SECRET_KEY` (тест: `test_…`), `YOOKASSA_RETURN_URL`, `YOOKASSA_VAT_CODE=1`.
 
+**Return URL (checkout):** тест — `https://murushop.online/?pay=check` (при возврате mini app читает `sessionStorage` `muru-pending-payment` и показывает экран проверки оплаты). Прод — deep-link `https://t.me/<bot>/<app>?startapp=pay` (`start_param=pay`). Кнопка «Перейти к оплате» вызывает `POST /api/payments/create` и открывает `confirmationUrl` через `Telegram.WebApp.openLink`.
+
 Webhook в личном кабинете ЮKassa (тест): URL `https://murushop.online/yookassa-webhook`, события `payment.succeeded` и `payment.canceled`. Nginx: фрагмент [`deploy/nginx-yookassa-webhook.snippet`](deploy/nginx-yookassa-webhook.snippet), затем `nginx -t && systemctl reload nginx`. Backend: `app.set('trust proxy', 1)` и маршрут до CORS.
 
-После успешной оплаты webhook создаёт заказ из `payments.checkout_snapshot`, запускает СДЭК (если в снимке есть тариф/город) и шлёт уведомления в Telegram.
+После успешной оплаты webhook создаёт заказ из `payments.checkout_snapshot`, запускает СДЭК (если в снимке есть тариф/город) и шлёт уведомления в Telegram. Клиент поллит `GET /api/payments/:paymentId/status` на экране проверки; при `succeeded` корзина очищается и открываются «Мои заказы».
 
 После синка каталога габариты и оценочный вес заполняются из колонки «Размер» и «Материал» в xlsx. Ручные правки не перезаписываются, если выставить `dims_source='manual'` и/или `weight_source='manual'`:
 

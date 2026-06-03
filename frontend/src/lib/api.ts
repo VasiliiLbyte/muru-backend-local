@@ -850,6 +850,56 @@ export const createOrder = async (payloadBody: DraftPayload): Promise<DraftOrder
   return parseApi<DraftOrder>(response)
 }
 
+export type CheckoutSnapshotPayload = {
+  items: Array<{
+    sku: string
+    name: string
+    price: number
+    quantity: number
+    color?: string
+    size?: string
+  }>
+  subtotal: number
+  deliveryPrice: number
+  promoCode: string | null
+  promoDiscount: number
+  total: number
+  deliveryMode: 'delivery' | 'pickup'
+  deliveryOption: string | null
+  deliveryEta: string | null
+  address: string
+  comment: string
+  birthDate: string | null
+  recipientName: string
+  recipientPhone: string
+  cdekTariffCode: number | null
+  cdekCityCode: number | null
+  cdekCityName: string | null
+  cdekPvzCode: string | null
+  cdekPvzAddress: string | null
+}
+
+export const createPayment = async (
+  snapshot: CheckoutSnapshotPayload,
+): Promise<{ paymentId: string; confirmationUrl: string }> => {
+  const response = await safeFetch(`${API_BASE_URL}/api/payments/create`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify(snapshot),
+  })
+  return parseApi<{ paymentId: string; confirmationUrl: string }>(response)
+}
+
+export const fetchPaymentStatus = async (
+  paymentId: string,
+): Promise<{ status: string; orderId: number | null }> => {
+  const response = await safeFetch(
+    `${API_BASE_URL}/api/payments/${encodeURIComponent(paymentId)}/status`,
+    { headers: getAuthHeaders() },
+  )
+  return parseApi<{ status: string; orderId: number | null }>(response)
+}
+
 export const fetchMyOrders = async (telegramUserId: number): Promise<OrderHistoryItem[]> => {
   const response = await safeFetch(`${API_BASE_URL}/api/orders/my?telegramUserId=${telegramUserId}`, {
     headers: getAuthHeaders(),

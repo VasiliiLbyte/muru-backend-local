@@ -9,7 +9,13 @@ import {
   type ReactNode,
 } from 'react'
 
-import { createOrder, fetchOrderDraft, saveOrderDraft, validateOrderPromo } from '../lib/api'
+import {
+  createOrder,
+  fetchOrderDraft,
+  saveOrderDraft,
+  validateOrderPromo,
+  type CheckoutSnapshotPayload,
+} from '../lib/api'
 import { LEGAL_VERSION } from '../lib/legal'
 import type { CartItem, CheckoutForm, DraftOrder } from '../types/cart'
 import { hapticImpact } from '../lib/haptics'
@@ -47,6 +53,8 @@ type CartContextValue = {
   updateCheckout: (patch: Partial<CheckoutForm>) => void
   persistDraft: (telegramUserId?: number) => Promise<void>
   submitOrder: (telegramUserId?: number) => Promise<DraftOrder>
+  buildPaymentSnapshot: (telegramUserId: number) => CheckoutSnapshotPayload
+  clearCartAfterPayment: () => void
 }
 
 const defaultCheckout: CheckoutForm = {
@@ -303,6 +311,46 @@ export const CartProvider = ({ children, telegramUserId }: CartProviderProps) =>
     [telegramUserId, buildDraftPayload],
   )
 
+  const buildPaymentSnapshot = useCallback(
+    (_userId: number): CheckoutSnapshotPayload => ({
+      items: items.map((i) => ({
+        sku: i.sku,
+        name: i.name,
+        price: i.price,
+        quantity: i.quantity,
+        color: i.color,
+        size: i.size,
+      })),
+      subtotal,
+      deliveryPrice: checkout.deliveryMode === 'pickup' ? 0 : checkout.deliveryPrice,
+      promoCode: activatedPromo?.code ?? null,
+      promoDiscount: discount,
+      total,
+      deliveryMode: checkout.deliveryMode,
+      deliveryOption: checkout.deliveryOption ?? null,
+      deliveryEta: checkout.deliveryMode === 'pickup' ? 'Самовывоз сегодня' : checkout.deliveryEta || null,
+      address: checkout.address,
+      comment: checkout.comment,
+      birthDate: checkout.birthDate || null,
+      recipientName: checkout.recipientName ?? '',
+      recipientPhone: checkout.recipientPhone ?? '',
+      cdekTariffCode: checkout.cdekExtras?.cdekTariffCode ?? null,
+      cdekCityCode: checkout.cdekExtras?.cdekCityCode ?? null,
+      cdekCityName: checkout.cdekExtras?.cdekCityName ?? null,
+      cdekPvzCode: checkout.cdekExtras?.cdekPvzCode ?? null,
+      cdekPvzAddress: checkout.cdekExtras?.cdekPvzAddress ?? null,
+    }),
+    [items, checkout, subtotal, discount, total, activatedPromo],
+  )
+
+  const clearCartAfterPayment = useCallback(() => {
+    const id = telegramUserId
+    setItems([])
+    setCheckout(defaultCheckout)
+    if (id) clearCartSnapshot(id)
+    clearPromo()
+  }, [telegramUserId, clearPromo])
+
   const submitOrder = useCallback(
     async (userId?: number) => {
       const id = userId ?? telegramUserId
@@ -356,6 +404,8 @@ export const CartProvider = ({ children, telegramUserId }: CartProviderProps) =>
       updateCheckout,
       persistDraft,
       submitOrder,
+      buildPaymentSnapshot,
+      clearCartAfterPayment,
     }),
     [
       items,
@@ -379,6 +429,8 @@ export const CartProvider = ({ children, telegramUserId }: CartProviderProps) =>
       updateCheckout,
       persistDraft,
       submitOrder,
+      buildPaymentSnapshot,
+      clearCartAfterPayment,
     ],
   )
 
