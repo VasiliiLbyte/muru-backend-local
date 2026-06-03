@@ -22,14 +22,14 @@ export const CatalogProductsPage = ({
     <section className="space-y-3">
       <h1 className="text-xl font-semibold text-muru-olive">{title}</h1>
       {isLoading ? (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 items-stretch">
           {[...Array(6)].map((_, idx) => (
             <div key={idx} className="h-56 animate-pulse rounded-2xl bg-[#efe8d8]" />
           ))}
         </div>
       ) : null}
       {!isLoading ? (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 items-stretch">
           {products.map((product, i) => (
             <ProductCard
               key={product.sku}
