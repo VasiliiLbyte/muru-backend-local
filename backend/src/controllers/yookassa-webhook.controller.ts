@@ -5,6 +5,7 @@ import {
   fulfillPaidPayment,
   markPaymentCanceled,
 } from '../services/yookassa/order-from-payment.service'
+import { env } from '../utils/env'
 
 const log = console
 
@@ -21,6 +22,10 @@ const YK_IP_ALLOWLIST = [
 
 export const yookassaIpGuard = (req: Request, res: Response, next: NextFunction) => {
   const ip = req.ip ?? ''
+  log.log?.('[yk-webhook] from ip', ip)
+  if (!env.yookassa.verifyIp) {
+    return next()
+  }
   const allowed = ipRangeCheck(ip, YK_IP_ALLOWLIST)
   if (!allowed) {
     return res.status(404).end()

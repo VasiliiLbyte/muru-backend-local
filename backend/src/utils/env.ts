@@ -64,6 +64,7 @@ const envSchema = z.object({
   YOOKASSA_SECRET_KEY: z.string().optional(),
   YOOKASSA_RETURN_URL: z.string().optional(),
   YOOKASSA_VAT_CODE: z.string().optional(),
+  YOOKASSA_VERIFY_IP: z.string().optional(),
 })
 
 const parsed = envSchema.safeParse(process.env)
@@ -86,6 +87,7 @@ const yookassaShopId = parsed.data.YOOKASSA_SHOP_ID?.trim() ?? ''
 const yookassaSecretKey = parsed.data.YOOKASSA_SECRET_KEY?.trim() ?? ''
 const yookassaReturnUrl = parsed.data.YOOKASSA_RETURN_URL?.trim() ?? ''
 const yookassaVatCode = Number.parseInt(parsed.data.YOOKASSA_VAT_CODE?.trim() || '1', 10)
+const yookassaVerifyIp = parsed.data.YOOKASSA_VERIFY_IP?.trim().toLowerCase() !== 'false'
 const yookassaEnabled = Boolean(yookassaShopId && yookassaSecretKey)
 
 const nodeEnvForYookassa = parsed.data.NODE_ENV || 'development'
@@ -192,5 +194,6 @@ export const env = {
     returnUrl: yookassaReturnUrl,
     vatCode: Number.isFinite(yookassaVatCode) ? yookassaVatCode : 1,
     enabled: yookassaEnabled,
+    verifyIp: yookassaVerifyIp,
   },
 }

@@ -3,9 +3,15 @@ import { randomUUID } from 'node:crypto'
 import { pool } from '../../utils/db'
 import { env } from '../../utils/env'
 
-import { ykFetch, type YkPayment } from './client'
+import { ykFetch, getYkPayment, type YkPayment } from './client'
 import { computeTrustedPricing } from './pricing.service'
+import {
+  fulfillPaidPayment,
+  markPaymentCanceled,
+} from './order-from-payment.service'
 import { buildReceipt, receiptTotalKop } from './receipt'
+
+const log = console
 
 export type RawCheckoutInput = {
   telegramUserId: number
@@ -174,12 +180,37 @@ export const getPaymentStatusForUser = async (
   yookassaPaymentId: string,
   telegramUserId: number,
 ): Promise<{ status: string; orderId: number | null } | null> => {
-  const r = await pool.query<{ status: string; order_id: number | null; telegram_user_id: string }>(
+  const r = await pool.query<{
+    status: string
+    order_id: number | null
+    telegram_user_id: string
+  }>(
     `SELECT status, order_id, telegram_user_id FROM payments WHERE yookassa_payment_id=$1`,
     [yookassaPaymentId],
   )
   const row = r.rows[0]
   if (!row) return null
   if (Number(row.telegram_user_id) !== telegramUserId) return null
+
+  if (row.status === 'succeeded' || row.order_id) {
+    return { status: row.status, orderId: row.order_id }
+  }
+
+  const isPending = row.status === 'pending' || row.status === 'waiting_for_capture'
+  if (isPending && yookassaPaymentId) {
+    const yk = await getYkPayment(yookassaPaymentId).catch(() => null)
+    if (yk?.status === 'succeeded' && yk.paid) {
+      const orderId = await fulfillPaidPayment(yookassaPaymentId).catch(() => null)
+      if (orderId) {
+        log.log?.('[yk-status] self-heal succeeded', { paymentId: yookassaPaymentId, orderId })
+      }
+      return { status: 'succeeded', orderId: orderId ?? row.order_id }
+    }
+    if (yk?.status === 'canceled') {
+      await markPaymentCanceled(yookassaPaymentId).catch(() => undefined)
+      return { status: 'canceled', orderId: null }
+    }
+  }
+
   return { status: row.status, orderId: row.order_id }
 }
