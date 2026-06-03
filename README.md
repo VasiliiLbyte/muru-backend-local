@@ -64,6 +64,7 @@ psql "$DATABASE_URL" -f backend/src/db/migrations/008_product_dims_parsed.sql
 psql "$DATABASE_URL" -f backend/src/db/migrations/009_order_consent.sql
 psql "$DATABASE_URL" -f backend/src/db/migrations/010_payments.sql
 psql "$DATABASE_URL" -f backend/src/db/migrations/011_product_discount.sql
+psql "$DATABASE_URL" -f backend/src/db/migrations/012_default_dims_update.sql
 ```
 
 ### ЮKassa (оплата до заказа)
@@ -93,11 +94,11 @@ WHERE sku = 'MU0123';
 SELECT sku, dimensions_label, dim_length_cm, dim_width_cm, dim_height_cm, weight_grams, color, color_tags
 FROM products WHERE sku IN ('MU0001', 'MU0002') LIMIT 5;
 
-SELECT COUNT(*) FILTER (WHERE dim_length_cm = 20 AND dim_width_cm = 20 AND dim_height_cm = 20) AS still_default,
+SELECT COUNT(*) FILTER (WHERE dim_length_cm = 22 AND dim_width_cm = 12 AND dim_height_cm = 18) AS still_default,
        COUNT(*) AS total FROM products;
 ```
 
-Диагностика СДЭК на VPS: временно `LOG_CDEK_DEBUG=1` в `.env`, затем `pm2 reload ecosystem.config.js --update-env` и `pm2 logs muru-backend --raw`. Список доступных тарифов для города: `curl 'https://murushop.online/api/cdek/tariff-list?toCityCode=137&weight=500'`. Для отправки со склада: `CDEK_TARIFF_DOOR=137` (склад→дверь), `CDEK_TARIFF_PVZ=136` (склад→ПВЗ); коды 138/139 дают `v2_internal_error`, если отправитель не «с двери».
+Диагностика СДЭК на VPS: временно `LOG_CDEK_DEBUG=1` в `.env`, затем `pm2 reload ecosystem.config.js --update-env` и `pm2 logs muru-backend --raw`. Список доступных тарифов: `curl 'https://murushop.online/api/cdek/tariff-list?toCityCode=137&weight=3000'`. Отправка с адреса продавца (курьер забирает): `CDEK_SENDER_CITY_CODE=137`, `CDEK_SENDER_POSTAL_CODE=192102`, `CDEK_SENDER_ADDRESS` (ул. Дубровская, 13), тарифы `CDEK_TARIFF_DOOR=139` (дверь→дверь), `CDEK_TARIFF_PVZ=138` (дверь→ПВЗ).
 
 ### Подсказки адреса (DaData)
 
@@ -125,10 +126,10 @@ sequenceDiagram
 
 Пошаговая проверка на песочнице:
 
-1. В `.env` на VPS: `CDEK_ENV=test`, тестовые `CDEK_CLIENT_ID`/`CDEK_CLIENT_SECRET`, отправитель `CDEK_SENDER_CITY_CODE=137`, `CDEK_SENDER_ADDRESS="Ординарная 16, кв 104, г. Санкт-Петербург"`, `CDEK_SENDER_NAME`, `CDEK_SENDER_PHONE`. Тарифы `CDEK_TARIFF_DOOR=137`, `CDEK_TARIFF_PVZ=136`. `DADATA_API_KEY=<токен>`. Временно `LOG_CDEK_DEBUG=1`.
+1. В `.env` на VPS: `CDEK_ENV=test`, тестовые `CDEK_CLIENT_ID`/`CDEK_CLIENT_SECRET`, отправитель `CDEK_SENDER_CITY_CODE=137`, `CDEK_SENDER_POSTAL_CODE=192102`, `CDEK_SENDER_ADDRESS="г. Санкт-Петербург, ул. Дубровская, 13 (цокольный этаж, отдельный вход со двора)"`, `CDEK_SENDER_NAME`, `CDEK_SENDER_PHONE`. Тарифы `CDEK_TARIFF_DOOR=139`, `CDEK_TARIFF_PVZ=138`. `DADATA_API_KEY=<токен>`. Временно `LOG_CDEK_DEBUG=1`.
 2. `pm2 reload ecosystem.config.js --update-env`.
 3. Health-check: `curl https://murushop.online/api/cdek/health` → `status=ok`.
-4. `curl 'https://murushop.online/api/cdek/tariff-list?toCityCode=137&weight=500'` — в списке должны быть 137 и 136.
+4. `curl 'https://murushop.online/api/cdek/tariff-list?toCityCode=137&weight=3000'` — в списке должны быть 139 и 138 (или актуальные коды из личного кабинета СДЭК).
 5. `curl 'https://murushop.online/api/cdek/address-suggest?q=Невский&city=Санкт-Петербург'` — массив подсказок.
 6. Через мини-апп оформить два заказа (door и ПВЗ): добавить товар → выбрать СПб → выбрать улицу/ПВЗ → корректный телефон `+7…`. В логах `pm2 logs muru-backend --raw` ожидаем `[cdek-orders] cdek order created { orderId, uuid }`.
 7. Проверка в БД:

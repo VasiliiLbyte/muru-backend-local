@@ -206,13 +206,6 @@ const upsertProductWithClient = async (
   product: Product,
   categoryId: number,
 ): Promise<void> => {
-  const existing = await client.query<{ dims_source: string; weight_source: string }>(
-    `SELECT dims_source, weight_source FROM products WHERE sku = $1`,
-    [product.sku],
-  )
-  const dimsManual = existing.rows[0]?.dims_source === 'manual'
-  const weightManual = existing.rows[0]?.weight_source === 'manual'
-
   const imageUrl1 = product.imageUrls[0] ?? DEFAULT_IMAGE_URL
   const imageUrl2 = product.imageUrls[1] ?? imageUrl1
   const productResult = await client.query<{ id: number }>(
@@ -254,28 +247,6 @@ const upsertProductWithClient = async (
       product.dimensionsLabel ?? '',
     ],
   )
-
-  if (product.parsedDims && !dimsManual) {
-    await client.query(
-      `UPDATE products
-       SET dim_length_cm = $1, dim_width_cm = $2, dim_height_cm = $3, dims_source = 'auto'
-       WHERE sku = $4 AND dims_source = 'auto'`,
-      [
-        product.parsedDims.lengthCm,
-        product.parsedDims.widthCm,
-        product.parsedDims.heightCm,
-        product.sku,
-      ],
-    )
-  }
-
-  if (product.weightGramsEstimated != null && !weightManual) {
-    await client.query(
-      `UPDATE products SET weight_grams = $1, weight_source = 'auto'
-       WHERE sku = $2 AND weight_source = 'auto'`,
-      [product.weightGramsEstimated, product.sku],
-    )
-  }
 
   const productId = productResult.rows[0].id
   await client.query('DELETE FROM variants WHERE product_id = $1', [productId])

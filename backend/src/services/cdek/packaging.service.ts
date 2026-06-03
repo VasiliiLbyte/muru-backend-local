@@ -1,10 +1,16 @@
+import {
+  PRODUCT_DEFAULT_DIM_HEIGHT_CM,
+  PRODUCT_DEFAULT_DIM_LENGTH_CM,
+  PRODUCT_DEFAULT_DIM_WIDTH_CM,
+  PRODUCT_DEFAULT_WEIGHT_GRAMS,
+} from '../../constants/product-shipping-defaults'
 import { pool } from '../../utils/db'
 import type { CalcPackage } from './calc.service'
 
 export const buildPackagesFromCart = async (
   items: Array<{ sku: string; quantity: number }>,
 ): Promise<CalcPackage[]> => {
-  if (items.length === 0) return [{ weight: 500 }]
+  if (items.length === 0) return [{ weight: PRODUCT_DEFAULT_WEIGHT_GRAMS }]
   const skus = items.map((i) => i.sku)
   const res = await pool.query<{
     sku: string
@@ -23,10 +29,10 @@ export const buildPackagesFromCart = async (
   let height = 0
   for (const item of items) {
     const row = map.get(item.sku)
-    const w = row?.weight_grams ?? 500
-    const l = row?.dim_length_cm ?? 20
-    const wd = row?.dim_width_cm ?? 20
-    const h = row?.dim_height_cm ?? 20
+    const w = row?.weight_grams ?? PRODUCT_DEFAULT_WEIGHT_GRAMS
+    const l = row?.dim_length_cm ?? PRODUCT_DEFAULT_DIM_LENGTH_CM
+    const wd = row?.dim_width_cm ?? PRODUCT_DEFAULT_DIM_WIDTH_CM
+    const h = row?.dim_height_cm ?? PRODUCT_DEFAULT_DIM_HEIGHT_CM
     weight += w * item.quantity
     length = Math.max(length, l)
     width = Math.max(width, wd)

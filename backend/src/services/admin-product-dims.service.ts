@@ -1,3 +1,9 @@
+import {
+  PRODUCT_DEFAULT_DIM_HEIGHT_CM,
+  PRODUCT_DEFAULT_DIM_LENGTH_CM,
+  PRODUCT_DEFAULT_DIM_WIDTH_CM,
+  PRODUCT_DEFAULT_WEIGHT_GRAMS,
+} from '../constants/product-shipping-defaults'
 import { pool } from '../utils/db'
 
 import type { ProductDimsUpdateInput } from './admin-product-dims.validation'
@@ -32,7 +38,9 @@ export const listProductDims = async (
     where.push(`(p.sku ILIKE $${params.length} OR p.name ILIKE $${params.length})`)
   }
   if (filter === 'default') {
-    where.push(`(p.dim_length_cm = 20 AND p.dim_width_cm = 20 AND p.dim_height_cm = 20)`)
+    where.push(
+      `(p.weight_grams = ${PRODUCT_DEFAULT_WEIGHT_GRAMS} AND p.dim_length_cm = ${PRODUCT_DEFAULT_DIM_LENGTH_CM} AND p.dim_width_cm = ${PRODUCT_DEFAULT_DIM_WIDTH_CM} AND p.dim_height_cm = ${PRODUCT_DEFAULT_DIM_HEIGHT_CM})`,
+    )
   } else if (filter === 'manual') {
     where.push(`(p.dims_source = 'manual' OR p.weight_source = 'manual')`)
   }

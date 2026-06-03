@@ -1,3 +1,9 @@
+import {
+  PRODUCT_DEFAULT_DIM_HEIGHT_CM,
+  PRODUCT_DEFAULT_DIM_LENGTH_CM,
+  PRODUCT_DEFAULT_DIM_WIDTH_CM,
+  PRODUCT_DEFAULT_WEIGHT_GRAMS,
+} from '../../constants/product-shipping-defaults'
 import { pool } from '../../utils/db'
 import { env } from '../../utils/env'
 import { notifyAdminsCdekError } from '../order-notifications.service'
@@ -61,6 +67,12 @@ export const createCdekOrder = async (orderId: number): Promise<{ uuid: string }
     return null
   }
 
+  if (order.cdek_tariff_code === env.cdek.tariffPvz && !order.cdek_pvz_code) {
+    log.warn({ orderId }, 'pvz tariff but pvz code missing')
+    await markCdekError(orderId, 'missing pvz code')
+    return null
+  }
+
   const prof = await pool.query<{ full_name: string; phone: string }>(
     `SELECT full_name, phone FROM user_profiles WHERE telegram_user_id = $1`,
     [order.telegram_user_id],
@@ -107,16 +119,16 @@ export const createCdekOrder = async (orderId: number): Promise<{ uuid: string }
   const wMap = new Map(weights.rows.map((w) => [w.sku, w]))
 
   let totalWeight = 0
-  let length = 20
-  let width = 20
-  let height = 20
+  let length = PRODUCT_DEFAULT_DIM_LENGTH_CM
+  let width = PRODUCT_DEFAULT_DIM_WIDTH_CM
+  let height = PRODUCT_DEFAULT_DIM_HEIGHT_CM
   const cdekItems = items.rows.map((it) => {
     const w = wMap.get(it.product_sku)
-    const itemWeight = w?.weight_grams ?? 500
+    const itemWeight = w?.weight_grams ?? PRODUCT_DEFAULT_WEIGHT_GRAMS
     totalWeight += itemWeight * it.quantity
-    length = Math.max(length, w?.dim_length_cm ?? 20)
-    width = Math.max(width, w?.dim_width_cm ?? 20)
-    height = Math.max(height, w?.dim_height_cm ?? 20)
+    length = Math.max(length, w?.dim_length_cm ?? PRODUCT_DEFAULT_DIM_LENGTH_CM)
+    width = Math.max(width, w?.dim_width_cm ?? PRODUCT_DEFAULT_DIM_WIDTH_CM)
+    height = Math.max(height, w?.dim_height_cm ?? PRODUCT_DEFAULT_DIM_HEIGHT_CM)
     return {
       name: it.product_name.slice(0, 100),
       ware_key: it.product_sku,
@@ -127,7 +139,7 @@ export const createCdekOrder = async (orderId: number): Promise<{ uuid: string }
     }
   })
 
-  const isPvz = !!order.cdek_pvz_code
+  const isPvzTariff = order.cdek_tariff_code === env.cdek.tariffPvz
 
   const body: Record<string, unknown> = {
     type: 1,
@@ -136,6 +148,7 @@ export const createCdekOrder = async (orderId: number): Promise<{ uuid: string }
     comment: order.comment || undefined,
     from_location: {
       code: env.cdek.senderCityCode,
+      postal_code: env.cdek.senderPostalCode,
       address: env.cdek.senderAddress,
     },
     sender: {
@@ -159,7 +172,7 @@ export const createCdekOrder = async (orderId: number): Promise<{ uuid: string }
     ],
   }
 
-  if (isPvz) {
+  if (isPvzTariff) {
     body.delivery_point = order.cdek_pvz_code
   } else {
     body.to_location = {

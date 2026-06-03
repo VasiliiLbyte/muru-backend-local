@@ -1,3 +1,8 @@
+import {
+  PRODUCT_DEFAULT_DIM_HEIGHT_CM,
+  PRODUCT_DEFAULT_DIM_LENGTH_CM,
+  PRODUCT_DEFAULT_DIM_WIDTH_CM,
+} from '../../constants/product-shipping-defaults'
 import { env } from '../../utils/env'
 import { cdekFetch, CdekApiError } from './client'
 
@@ -43,9 +48,9 @@ type CdekCalcResponse = {
 const buildCalcPackages = (packages: CalcPackage[]) =>
   packages.map((p) => ({
     weight: Math.max(100, Math.round(p.weight)),
-    length: p.length ?? 20,
-    width: p.width ?? 20,
-    height: p.height ?? 20,
+    length: p.length ?? PRODUCT_DEFAULT_DIM_LENGTH_CM,
+    width: p.width ?? PRODUCT_DEFAULT_DIM_WIDTH_CM,
+    height: p.height ?? PRODUCT_DEFAULT_DIM_HEIGHT_CM,
   }))
 
 const formatResultErrors = (errors?: Array<{ code?: string; message?: string }>) =>

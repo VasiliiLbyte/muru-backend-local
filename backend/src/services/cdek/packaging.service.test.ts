@@ -16,7 +16,7 @@ describe('buildPackagesFromCart', () => {
 
   it('returns default package for empty cart', async () => {
     const result = await buildPackagesFromCart([])
-    expect(result).toEqual([{ weight: 500 }])
+    expect(result).toEqual([{ weight: 3000 }])
     expect(poolQueryMock).not.toHaveBeenCalled()
   })
 
@@ -52,6 +52,6 @@ describe('buildPackagesFromCart', () => {
     poolQueryMock.mockResolvedValue({ rows: [] } as never)
 
     const result = await buildPackagesFromCart([{ sku: 'UNKNOWN', quantity: 1 }])
-    expect(result).toEqual([{ weight: 500, length: 20, width: 20, height: 20 }])
+    expect(result).toEqual([{ weight: 3000, length: 22, width: 12, height: 18 }])
   })
 })

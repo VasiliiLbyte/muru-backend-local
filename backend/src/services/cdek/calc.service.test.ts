@@ -3,9 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('../../utils/env', () => ({
   env: {
     cdek: {
-      senderCityCode: 44,
-      tariffDoor: 138,
-      tariffPvz: 139,
+      senderCityCode: 137,
+      tariffDoor: 139,
+      tariffPvz: 138,
     },
   },
 }))
@@ -51,7 +51,7 @@ describe('calculateTariff', () => {
     const [, init] = cdekFetchMock.mock.calls[0]!
     const body = JSON.parse(String(init?.body))
     expect(body.type).toBe(1)
-    expect(body.from_location).toEqual({ code: 44 })
+    expect(body.from_location).toEqual({ code: 137 })
     expect(body.to_location).toEqual({ code: 137 })
     expect(body.packages[0].weight).toBe(100)
   })

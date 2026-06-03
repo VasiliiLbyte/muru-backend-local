@@ -5,7 +5,7 @@ vi.mock('../../utils/db', () => ({
 }))
 
 vi.mock('../../utils/env', () => ({
-  env: { cdek: { tariffDoor: 137, tariffPvz: 136 } },
+  env: { cdek: { tariffDoor: 139, tariffPvz: 138 } },
 }))
 
 vi.mock('../promo.service', () => ({
@@ -112,9 +112,9 @@ describe('computeTrustedPricing', () => {
     poolQueryMock.mockResolvedValue({
       rows: [{ sku: 'MU0001', name: 'Ваза', price: '1000', discount_percent: '0', in_stock: 1 }],
     } as never)
-    buildPackagesMock.mockResolvedValue([{ weight: 500 }])
+    buildPackagesMock.mockResolvedValue([{ weight: 3000 }])
     calculateTariffMock.mockResolvedValue({
-      tariffCode: 137,
+      tariffCode: 139,
       deliverySum: 350,
       periodMin: 2,
       periodMax: 4,
@@ -123,14 +123,14 @@ describe('computeTrustedPricing', () => {
     const result = await computeTrustedPricing({
       ...baseInput,
       deliveryMode: 'delivery',
-      cdekTariffCode: 137,
+      cdekTariffCode: 139,
       cdekCityCode: 137,
     })
 
     expect(result.deliveryPrice).toBe(350)
     expect(result.total).toBe(2350)
     expect(calculateTariffMock).toHaveBeenCalledWith(
-      expect.objectContaining({ tariffCode: 137, toCityCode: 137 }),
+      expect.objectContaining({ tariffCode: 139, toCityCode: 137 }),
     )
   })
 
