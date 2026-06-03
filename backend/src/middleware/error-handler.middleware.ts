@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from 'express'
 import { ZodError } from 'zod'
 
 import { CdekApiError } from '../services/cdek/client'
+import { PaymentPricingError } from '../services/yookassa/pricing.service'
 import { PromoValidationError } from '../services/promo.service'
 import { YooKassaError } from '../services/yookassa/client'
 import { HttpError } from '../utils/api-response'
@@ -16,6 +17,14 @@ export const errorHandler = (err: unknown, req: Request, res: Response, _next: N
   }
 
   if (err instanceof PromoValidationError) {
+    return res.status(400).json({
+      success: false,
+      data: null,
+      error: { message: err.message, code: 'VALIDATION' },
+    })
+  }
+
+  if (err instanceof PaymentPricingError) {
     return res.status(400).json({
       success: false,
       data: null,

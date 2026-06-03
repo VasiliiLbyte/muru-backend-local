@@ -14,7 +14,7 @@ import {
   fetchOrderDraft,
   saveOrderDraft,
   validateOrderPromo,
-  type CheckoutSnapshotPayload,
+  type PaymentCheckoutPayload,
 } from '../lib/api'
 import { LEGAL_VERSION } from '../lib/legal'
 import type { CartItem, CheckoutForm, DraftOrder } from '../types/cart'
@@ -53,7 +53,7 @@ type CartContextValue = {
   updateCheckout: (patch: Partial<CheckoutForm>) => void
   persistDraft: (telegramUserId?: number) => Promise<void>
   submitOrder: (telegramUserId?: number) => Promise<DraftOrder>
-  buildPaymentSnapshot: (telegramUserId: number) => CheckoutSnapshotPayload
+  buildPaymentSnapshot: (telegramUserId: number) => PaymentCheckoutPayload
   clearCartAfterPayment: () => void
 }
 
@@ -312,20 +312,14 @@ export const CartProvider = ({ children, telegramUserId }: CartProviderProps) =>
   )
 
   const buildPaymentSnapshot = useCallback(
-    (_userId: number): CheckoutSnapshotPayload => ({
+    (_userId: number): PaymentCheckoutPayload => ({
       items: items.map((i) => ({
         sku: i.sku,
-        name: i.name,
-        price: i.price,
         quantity: i.quantity,
         color: i.color,
         size: i.size,
       })),
-      subtotal,
-      deliveryPrice: checkout.deliveryMode === 'pickup' ? 0 : checkout.deliveryPrice,
       promoCode: activatedPromo?.code ?? null,
-      promoDiscount: discount,
-      total,
       deliveryMode: checkout.deliveryMode,
       deliveryOption: checkout.deliveryOption ?? null,
       deliveryEta: checkout.deliveryMode === 'pickup' ? 'Самовывоз сегодня' : checkout.deliveryEta || null,
@@ -340,7 +334,7 @@ export const CartProvider = ({ children, telegramUserId }: CartProviderProps) =>
       cdekPvzCode: checkout.cdekExtras?.cdekPvzCode ?? null,
       cdekPvzAddress: checkout.cdekExtras?.cdekPvzAddress ?? null,
     }),
-    [items, checkout, subtotal, discount, total, activatedPromo],
+    [items, checkout, activatedPromo],
   )
 
   const clearCartAfterPayment = useCallback(() => {

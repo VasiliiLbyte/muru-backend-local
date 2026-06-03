@@ -850,20 +850,14 @@ export const createOrder = async (payloadBody: DraftPayload): Promise<DraftOrder
   return parseApi<DraftOrder>(response)
 }
 
-export type CheckoutSnapshotPayload = {
+export type PaymentCheckoutPayload = {
   items: Array<{
     sku: string
-    name: string
-    price: number
     quantity: number
     color?: string
     size?: string
   }>
-  subtotal: number
-  deliveryPrice: number
   promoCode: string | null
-  promoDiscount: number
-  total: number
   deliveryMode: 'delivery' | 'pickup'
   deliveryOption: string | null
   deliveryEta: string | null
@@ -880,7 +874,7 @@ export type CheckoutSnapshotPayload = {
 }
 
 export const createPayment = async (
-  snapshot: CheckoutSnapshotPayload,
+  snapshot: PaymentCheckoutPayload,
 ): Promise<{ paymentId: string; confirmationUrl: string }> => {
   const response = await safeFetch(`${API_BASE_URL}/api/payments/create`, {
     method: 'POST',

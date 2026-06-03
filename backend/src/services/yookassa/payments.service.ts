@@ -4,7 +4,27 @@ import { pool } from '../../utils/db'
 import { env } from '../../utils/env'
 
 import { ykFetch, type YkPayment } from './client'
+import { computeTrustedPricing } from './pricing.service'
 import { buildReceipt, receiptTotalKop } from './receipt'
+
+export type RawCheckoutInput = {
+  telegramUserId: number
+  items: Array<{ sku: string; quantity: number; color?: string; size?: string }>
+  promoCode: string | null
+  deliveryMode: 'delivery' | 'pickup'
+  deliveryOption: string | null
+  deliveryEta: string | null
+  address: string
+  comment: string
+  birthDate: string | null
+  recipientName: string
+  recipientPhone: string
+  cdekTariffCode: number | null
+  cdekCityCode: number | null
+  cdekCityName: string | null
+  cdekPvzCode: string | null
+  cdekPvzAddress: string | null
+}
 
 export type CheckoutSnapshot = {
   telegramUserId: number
@@ -37,13 +57,45 @@ const markIntentCanceled = async (intentId: number, raw: unknown) => {
 }
 
 export const createPayment = async (
-  snapshot: CheckoutSnapshot,
+  raw: RawCheckoutInput,
 ): Promise<{ paymentId: string; confirmationUrl: string }> => {
   if (!env.yookassa.enabled) {
     throw new Error('YooKassa is not configured')
   }
   if (!env.yookassa.returnUrl.trim()) {
     throw new Error('YOOKASSA_RETURN_URL is not configured')
+  }
+
+  const pricing = await computeTrustedPricing({
+    telegramUserId: raw.telegramUserId,
+    items: raw.items,
+    deliveryMode: raw.deliveryMode,
+    promoCode: raw.promoCode,
+    cdekTariffCode: raw.cdekTariffCode,
+    cdekCityCode: raw.cdekCityCode,
+  })
+
+  const snapshot: CheckoutSnapshot = {
+    telegramUserId: raw.telegramUserId,
+    items: pricing.items,
+    subtotal: pricing.subtotal,
+    deliveryPrice: pricing.deliveryPrice,
+    promoCode: pricing.promoCode,
+    promoDiscount: pricing.promoDiscount,
+    total: pricing.total,
+    deliveryMode: raw.deliveryMode,
+    deliveryOption: raw.deliveryOption,
+    deliveryEta: raw.deliveryEta,
+    address: raw.address,
+    comment: raw.comment,
+    birthDate: raw.birthDate,
+    recipientName: raw.recipientName,
+    recipientPhone: raw.recipientPhone,
+    cdekTariffCode: raw.cdekTariffCode,
+    cdekCityCode: raw.cdekCityCode,
+    cdekCityName: raw.cdekCityName,
+    cdekPvzCode: raw.cdekPvzCode,
+    cdekPvzAddress: raw.cdekPvzAddress,
   }
 
   const productItems = snapshot.items.map((i) => ({
