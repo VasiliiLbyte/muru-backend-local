@@ -6,9 +6,20 @@ export type ParsedDriveImage = {
   format: DriveImageFormat
 }
 
-/** Legacy: MU0001-1.webp / MU0001.webp. Cropped: MU0168_2_O.png */
+const MAX_CROPPED_IMAGE_ORDER = 3
+
+/** Maps Cyrillic О/о in cropped suffix to Latin O before parsing. */
+export const normalizeDriveImageBasename = (filename: string): string =>
+  filename.normalize('NFC').replace(
+    /^(MU\d{4})_(\d+)_[OОо]\.(webp|png|jpe?g)$/iu,
+    (_, sku, order, ext) => `${sku}_${order}_O.${ext}`,
+  )
+
+/** Legacy: MU0001-1.webp / MU0001.webp. Cropped: MU0168_2_O.png (Latin or Cyrillic О). */
 export const parseDriveImageFilename = (filename: string): ParsedDriveImage | null => {
-  const cropped = filename.match(/^(MU\d{4})_(\d+)_O\.(webp|png|jpe?g)$/i)
+  const normalized = normalizeDriveImageBasename(filename)
+
+  const cropped = normalized.match(/^(MU\d{4})_(\d+)_O\.(webp|png|jpe?g)$/i)
   if (cropped) {
     return {
       sku: cropped[1].toUpperCase(),
@@ -17,7 +28,7 @@ export const parseDriveImageFilename = (filename: string): ParsedDriveImage | nu
     }
   }
 
-  const legacyWithOrder = filename.match(/^(MU\d{4})-(\d+)\.\w+$/i)
+  const legacyWithOrder = normalized.match(/^(MU\d{4})-(\d+)\.\w+$/i)
   if (legacyWithOrder) {
     return {
       sku: legacyWithOrder[1].toUpperCase(),
@@ -26,7 +37,7 @@ export const parseDriveImageFilename = (filename: string): ParsedDriveImage | nu
     }
   }
 
-  const legacySimple = filename.match(/^(MU\d{4})\.\w+$/i)
+  const legacySimple = normalized.match(/^(MU\d{4})\.\w+$/i)
   if (legacySimple) {
     return {
       sku: legacySimple[1].toUpperCase(),
@@ -45,6 +56,13 @@ export const normalizeDriveFolderName = (name: string) =>
     .replace(/ё/g, 'е')
     .replace(/\s+/g, ' ')
 
+const IGNORED_DRIVE_FOLDER_NAMES = new Set([
+  normalizeDriveFolderName('Заголовки и подзаголовки'),
+])
+
+export const isIgnoredDriveFolder = (folderName: string): boolean =>
+  IGNORED_DRIVE_FOLDER_NAMES.has(normalizeDriveFolderName(folderName))
+
 export type DriveFolderImageKind = 'glavnoe_foto' | 'obrezannye' | 'dop_foto' | 'other'
 
 export const classifyDriveFolder = (folderName: string): DriveFolderImageKind => {
@@ -56,12 +74,12 @@ export const classifyDriveFolder = (folderName: string): DriveFolderImageKind =>
 }
 
 export const acceptsImageInFolder = (
-  folderKind: DriveFolderImageKind,
+  _folderKind: DriveFolderImageKind,
   parsed: ParsedDriveImage,
 ): boolean => {
   if (parsed.format === 'legacy') return true
-  if (folderKind === 'glavnoe_foto') return parsed.order === 1
-  if (folderKind === 'obrezannye') return parsed.order === 1
-  if (folderKind === 'dop_foto') return parsed.order === 2 || parsed.order === 3
+  if (parsed.format === 'cropped') {
+    return parsed.order >= 1 && parsed.order <= MAX_CROPPED_IMAGE_ORDER
+  }
   return false
 }

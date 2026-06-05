@@ -30,7 +30,7 @@ Copy `.env.example` to `.env` and fill values:
 - `GOOGLE_CATALOG_XLSX_SHEET_NAME` - optional worksheet name inside the xlsx; if empty, the first sheet with an «артикул» header row is used.
 - `ENABLE_SHEETS_STOCK_WRITE` - `false` for `CATALOG_SOURCE=xlsx` (no stock write-back to spreadsheet on orders; stock updates on full catalog sync only). Set `true` with `CATALOG_SOURCE=sheets` to restore Sheets stock deduction.
 - `GOOGLE_SHEET_ID` - used only when `CATALOG_SOURCE=sheets`.
-- `GOOGLE_DRIVE_FOLDER_ID` - root Drive folder for product photos ([пример](https://drive.google.com/drive/u/0/folders/1okABaQzSC-f9H6epKfhMH8sIImE2gLcQ)): раздел → … → товар → **Обрезанные** → **Главное фото** (`MUxxxx_1_O.*`) и **Доп фото** (`MUxxxx_2_O.*`, `MUxxxx_3_O.*`). В корне дерева — `muru_placeholder_600.webp`. В каталог попадают слоты **1** и **2**; legacy `MUxxxx-1.webp` в любой папке тоже поддерживается.
+- `GOOGLE_DRIVE_FOLDER_ID` - root Drive folder for product photos ([пример](https://drive.google.com/drive/u/0/folders/1okABaQzSC-f9H6epKfhMH8sIImE2gLcQ)): рекурсивный обход всего дерева. Имена cropped: `MUxxxx_1_O.*`, `MUxxxx_2_O.*`, `MUxxxx_3_O.*` — суффикс `_O` латиницей или кириллицей (`_О`). Слот берётся из имени файла; cropped принимаются в папках разделов («Вазы и аксессуары», «Распродажа», «Фото для выгрузки» и т.д.), а также в legacy-вложенности **Обрезанные** → **Главное фото** / **Доп фото**. Папка **Заголовки и подзаголовки** игнорируется. В корне — `muru_placeholder_600.webp`. В каталог до **3** слотов карусели; legacy `MUxxxx-N.webp` в любой папке тоже поддерживается.
 
 ## Google Access Setup
 
@@ -341,7 +341,7 @@ curl --max-time 600 -X POST http://127.0.0.1:4000/api/admin/sync \
 - Auth: header `x-telegram-user-id` (или body `telegramUserId`) в `ADMIN_TELEGRAM_IDS`.
 - Sync behavior:
   - reads products from Google Sheets,
-  - recursively scans Drive tree (`MUxxxx_1_O` / `_2_O` / `_3_O` in **Главное фото** / **Доп фото**, legacy `MUxxxx-N.webp`),
+  - recursively scans Drive tree (`MUxxxx_N_O` / `MUxxxx_N_О`, slots 1–3 from filename in any section folder; legacy `MUxxxx-N.webp`),
   - сохраняет до **3** URL в `image_urls` (карусель: главное + 2 доп.),
   - publishes matched files and upserts products/categories/variants into PostgreSQL.
 

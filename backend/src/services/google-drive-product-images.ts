@@ -3,6 +3,8 @@ import type { drive_v3 } from 'googleapis'
 import {
   acceptsImageInFolder,
   classifyDriveFolder,
+  isIgnoredDriveFolder,
+  normalizeDriveImageBasename,
   parseDriveImageFilename,
 } from './google-drive-filename'
 import { setDriveFilenameIndexFromFiles } from './drive-filename-index-cache'
@@ -89,6 +91,8 @@ export const scanProductImagesFromDriveTree = async (
         placeholderFileId = hit.fileId
         return
       }
+
+      if (isIgnoredDriveFolder(hit.parentFolderName)) return
 
       const parsed = parseDriveImageFilename(hit.fileName)
       if (!parsed) return

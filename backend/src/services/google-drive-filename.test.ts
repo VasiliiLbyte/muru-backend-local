@@ -3,8 +3,22 @@ import { describe, expect, it } from 'vitest'
 import {
   acceptsImageInFolder,
   classifyDriveFolder,
+  isIgnoredDriveFolder,
+  normalizeDriveImageBasename,
   parseDriveImageFilename,
 } from './google-drive-filename'
+
+describe('normalizeDriveImageBasename', () => {
+  it('maps Cyrillic О/о in cropped suffix to Latin O', () => {
+    expect(normalizeDriveImageBasename('MU0168_1_О.webp')).toBe('MU0168_1_O.webp')
+    expect(normalizeDriveImageBasename('MU0168_2_о.png')).toBe('MU0168_2_O.png')
+  })
+
+  it('leaves Latin O and legacy names unchanged', () => {
+    expect(normalizeDriveImageBasename('MU0168_1_O.webp')).toBe('MU0168_1_O.webp')
+    expect(normalizeDriveImageBasename('MU0001-2.webp')).toBe('MU0001-2.webp')
+  })
+})
 
 describe('parseDriveImageFilename', () => {
   it('parses cropped _O format', () => {
@@ -16,6 +30,19 @@ describe('parseDriveImageFilename', () => {
     expect(parseDriveImageFilename('mu0168_1_O.webp')).toEqual({
       sku: 'MU0168',
       order: 1,
+      format: 'cropped',
+    })
+  })
+
+  it('parses cropped suffix with Cyrillic О', () => {
+    expect(parseDriveImageFilename('MU0168_1_О.webp')).toEqual({
+      sku: 'MU0168',
+      order: 1,
+      format: 'cropped',
+    })
+    expect(parseDriveImageFilename('MU0168_2_о.png')).toEqual({
+      sku: 'MU0168',
+      order: 2,
       format: 'cropped',
     })
   })
@@ -36,6 +63,15 @@ describe('parseDriveImageFilename', () => {
   it('rejects unrelated filenames', () => {
     expect(parseDriveImageFilename('cover_floristika.jpg')).toBeNull()
     expect(parseDriveImageFilename('MU0168_2.png')).toBeNull()
+    expect(parseDriveImageFilename('ЗАГЛУШКА_O.png')).toBeNull()
+  })
+})
+
+describe('isIgnoredDriveFolder', () => {
+  it('ignores banner/header folders', () => {
+    expect(isIgnoredDriveFolder('Заголовки и подзаголовки')).toBe(true)
+    expect(isIgnoredDriveFolder('Распродажа')).toBe(false)
+    expect(isIgnoredDriveFolder('Фото для выгрузки')).toBe(false)
   })
 })
 
@@ -53,14 +89,15 @@ describe('classifyDriveFolder', () => {
 describe('acceptsImageInFolder', () => {
   const cropped1 = { sku: 'MU0168', order: 1, format: 'cropped' as const }
   const cropped2 = { sku: 'MU0168', order: 2, format: 'cropped' as const }
+  const cropped4 = { sku: 'MU0168', order: 4, format: 'cropped' as const }
   const legacy2 = { sku: 'MU0001', order: 2, format: 'legacy' as const }
 
-  it('allows order 1 _O in Главное фото and Обрезанные', () => {
-    expect(acceptsImageInFolder('glavnoe_foto', cropped1)).toBe(true)
-    expect(acceptsImageInFolder('glavnoe_foto', cropped2)).toBe(false)
-    expect(acceptsImageInFolder('obrezannye', cropped1)).toBe(true)
-    expect(acceptsImageInFolder('obrezannye', cropped2)).toBe(false)
-    expect(acceptsImageInFolder('dop_foto', cropped2)).toBe(true)
+  it('allows cropped slots 1-3 in any folder kind', () => {
+    expect(acceptsImageInFolder('other', cropped1)).toBe(true)
+    expect(acceptsImageInFolder('other', cropped2)).toBe(true)
+    expect(acceptsImageInFolder('glavnoe_foto', cropped2)).toBe(true)
+    expect(acceptsImageInFolder('dop_foto', cropped1)).toBe(true)
+    expect(acceptsImageInFolder('other', cropped4)).toBe(false)
   })
 
   it('allows legacy in any folder', () => {
