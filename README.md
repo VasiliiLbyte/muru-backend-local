@@ -221,7 +221,7 @@ bash deploy.sh
 - `TELEGRAM_MINI_APP_URL` - публичный **HTTPS** URL Mini App для кнопок `web_app` в меню бота (например, `https://murushop.online`). Не используй `t.me/...` — Telegram откроет Mini App только с прямым HTTPS URL.
 - `BOT_WELCOME_DESCRIPTION` - текст профиля бота до кнопки СТАРТ (backend вызывает `setMyDescription` при старте).
 - `BOT_WELCOME_MESSAGE` - подпись к фото после `/start` (по умолчанию зашит в код).
-- `BOT_SITE_URL`, `BOT_CHANNEL_URL`, `BOT_CARE_URL`, `BOT_DELIVERY_URL` - внешние кнопки в inline-меню после `/start`.
+- `BOT_SITE_URL`, `BOT_CHANNEL_URL`, `BOT_CARE_URL`, `BOT_DELIVERY_URL` - внешние кнопки в inline-меню после `/start`. Дефолты backend: `BOT_SITE_URL` → `https://muru.ru`, `BOT_CHANNEL_URL` → `https://t.me/muru_online` ([канал MURU HOME DESIGN](https://t.me/muru_online)); пустые значения в `.env` подставляются автоматически.
 - `VITE_API_BASE_URL` - публичный backend URL (если frontend ходит не на same-origin).
 - `VITE_ADMIN_IDS`, `ADMIN_TELEGRAM_IDS` - Telegram ID админов.
 - `ORDER_NOTIFY_TELEGRAM_IDS` - Telegram ID для уведомлений по заказам.

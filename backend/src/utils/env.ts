@@ -163,8 +163,8 @@ export const env = {
   botWelcomeDescription:
     parsed.data.BOT_WELCOME_DESCRIPTION?.trim() || DEFAULT_BOT_WELCOME_DESCRIPTION,
   botWelcomeMessage: parsed.data.BOT_WELCOME_MESSAGE?.trim() || DEFAULT_BOT_WELCOME_MESSAGE,
-  botSiteUrl: parsed.data.BOT_SITE_URL?.trim() ?? '',
-  botChannelUrl: parsed.data.BOT_CHANNEL_URL?.trim() ?? '',
+  botSiteUrl: parsed.data.BOT_SITE_URL?.trim() || 'https://muru.ru',
+  botChannelUrl: parsed.data.BOT_CHANNEL_URL?.trim() || 'https://t.me/muru_online',
   botCareUrl: parsed.data.BOT_CARE_URL?.trim() ?? '',
   botDeliveryUrl: parsed.data.BOT_DELIVERY_URL?.trim() ?? '',
   orderNotifyEmail: parsed.data.ORDER_NOTIFY_EMAIL || 'Muru_online@mail.ru',

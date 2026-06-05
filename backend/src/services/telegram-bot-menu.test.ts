@@ -37,8 +37,27 @@ describe('buildStartInlineKeyboard', () => {
     expect(keyboard[2][1]).toMatchObject({ text: '🤍 Избранное' })
     expect(keyboard[2][1]).toHaveProperty('web_app.url', 'https://murushop.online/catalog?tab=favorites')
     expect(keyboard[3][0].text).toBe('💬 Бюро заботы')
-    expect(keyboard[4][0].text).toBe('🏡 Сайт MURU')
-    expect(keyboard[5][0].text).toBe('📣 Telegram - канал MURU')
+    expect(keyboard[4][0]).toEqual({
+      text: '🏡 Сайт MURU',
+      url: fullMenu.siteUrl,
+    })
+    expect(keyboard[5][0]).toEqual({
+      text: '📣 Telegram - канал MURU',
+      url: fullMenu.channelUrl,
+    })
+  })
+
+  it('includes site and channel url buttons with production URLs', () => {
+    const keyboard = buildStartInlineKeyboard({
+      ...fullMenu,
+      siteUrl: 'https://muru.ru',
+      channelUrl: 'https://t.me/muru_online',
+    })
+    expect(keyboard[4][0]).toEqual({ text: '🏡 Сайт MURU', url: 'https://muru.ru' })
+    expect(keyboard[5][0]).toEqual({
+      text: '📣 Telegram - канал MURU',
+      url: 'https://t.me/muru_online',
+    })
   })
 
   it('omits rows with no valid buttons', () => {
