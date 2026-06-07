@@ -42,6 +42,7 @@ type CartContextValue = {
   promoCode: string
   discount: number
   subtotal: number
+  cartTotal: number
   total: number
   loadDraft: (telegramUserId?: number) => Promise<void>
   addProduct: (product: CatalogProduct | CatalogProductDetail) => void
@@ -115,6 +116,7 @@ export const CartProvider = ({ children, telegramUserId }: CartProviderProps) =>
   const discount = activatedPromo?.discount ?? 0
   const isPromoActive = activatedPromo != null
   const promoCode = activatedPromo?.code ?? ''
+  const cartTotal = useMemo(() => Math.max(0, subtotal - discount), [subtotal, discount])
   const total = useMemo(
     () => Math.max(0, subtotal - discount + (checkout.deliveryMode === 'pickup' ? 0 : checkout.deliveryPrice)),
     [subtotal, discount, checkout.deliveryMode, checkout.deliveryPrice],
@@ -391,6 +393,7 @@ export const CartProvider = ({ children, telegramUserId }: CartProviderProps) =>
       promoCode,
       discount,
       subtotal,
+      cartTotal,
       total,
       loadDraft,
       addProduct,
@@ -417,6 +420,7 @@ export const CartProvider = ({ children, telegramUserId }: CartProviderProps) =>
       promoCode,
       discount,
       subtotal,
+      cartTotal,
       total,
       loadDraft,
       addProduct,

@@ -17,7 +17,7 @@ export const CartPage = ({ userId, onGoCatalog, onCheckout }: CartPageProps) => 
     items,
     subtotal,
     discount,
-    total,
+    cartTotal,
     promoInput,
     setPromoInput,
     activatedPromo,
@@ -161,7 +161,7 @@ export const CartPage = ({ userId, onGoCatalog, onCheckout }: CartPageProps) => 
           ) : null}
           <div className="flex items-center justify-between font-semibold text-lg">
             <span>Итого</span>
-            <span className="tabular-nums">{formatPrice(total)}</span>
+            <span className="tabular-nums">{formatPrice(cartTotal)}</span>
           </div>
         </div>
         <div className="mt-3 grid gap-2">
