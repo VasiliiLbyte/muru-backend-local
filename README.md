@@ -19,10 +19,9 @@ shared/     Shared modules (reserved)
 
 Copy `.env.example` to `.env` and fill values:
 
-- `VITE_ADMIN_IDS` - comma-separated Telegram user IDs with admin access in frontend profile.
 - `VITE_API_BASE_URL` - backend URL for admin sync requests.
 - `PORT` - backend port.
-- `ADMIN_TELEGRAM_IDS` - comma-separated Telegram user IDs allowed to run `/api/admin/sync`.
+- `ADMIN_TELEGRAM_IDS` - comma-separated Telegram user IDs allowed to access admin API (checked server-side after JWT auth).
 - `DATABASE_URL` - PostgreSQL connection string.
 - `GOOGLE_SERVICE_ACCOUNT_EMAIL` and `GOOGLE_PRIVATE_KEY` - service account credentials.
 - `CATALOG_SOURCE` - `xlsx` (default): read client **.xlsx** from Drive; `sheets`: legacy Google Sheets API.
@@ -223,7 +222,7 @@ bash deploy.sh
 - `BOT_WELCOME_MESSAGE` - подпись к фото после `/start` (по умолчанию зашит в код).
 - `BOT_SITE_URL`, `BOT_CHANNEL_URL`, `BOT_CARE_URL`, `BOT_DELIVERY_URL` - внешние кнопки в inline-меню после `/start`. Дефолты backend: `BOT_SITE_URL` → `https://muru.ru`, `BOT_CHANNEL_URL` → `https://t.me/muru_online` ([канал MURU HOME DESIGN](https://t.me/muru_online)); пустые значения в `.env` подставляются автоматически.
 - `VITE_API_BASE_URL` - публичный backend URL (если frontend ходит не на same-origin).
-- `VITE_ADMIN_IDS`, `ADMIN_TELEGRAM_IDS` - Telegram ID админов.
+- `ADMIN_TELEGRAM_IDS` - Telegram ID админов (проверка на backend после JWT).
 - `ORDER_NOTIFY_TELEGRAM_IDS` - Telegram ID для уведомлений по заказам.
 - `DATABASE_URL`, `JWT_SECRET`, Google (`GOOGLE_*`) - обязательные backend-переменные.
 
@@ -278,7 +277,7 @@ curl -sS http://127.0.0.1:4000/api/health
 - `https://murushop.online` открывается.
 - Mini App открывается из Telegram через кнопку бота.
 - Новый чат с ботом: видно description и СТАРТ; `/start` — приветствие и 6 рядов кнопок; «Корзина» / «Избранное» открывают Mini App на нужной вкладке.
-- Вкладка `Профиль` -> `Админ` видна только для ID из `VITE_ADMIN_IDS`.
+- Вкладка `Профиль` -> `Админ` видна только после Telegram auth и если `GET /api/admin/me` вернул `isAdmin: true` (список `ADMIN_TELEGRAM_IDS` на сервере).
 - Создание заказа отправляет уведомления на `ORDER_NOTIFY_TELEGRAM_IDS`.
 
 ### 5) Image proxy (`/img/`)
@@ -348,9 +347,7 @@ curl --max-time 600 -X POST http://127.0.0.1:4000/api/admin/sync \
 
 ## Как запустить админку
 
-1. В `.env` укажи админские Telegram ID:
-   - `VITE_ADMIN_IDS` для фронтенда,
-   - `ADMIN_TELEGRAM_IDS` для бэкенда.
+1. В `.env` укажи `ADMIN_TELEGRAM_IDS` (comma-separated Telegram user IDs).
 2. Запусти backend:
    - `cd backend`
    - `npm install`

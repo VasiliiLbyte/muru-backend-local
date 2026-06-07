@@ -4,15 +4,6 @@ import { authenticateWithTelegram, clearToken } from '../lib/auth'
 import { fetchAdminAccess } from '../lib/api'
 import type { TelegramWebApp } from '../types/telegram'
 
-const parseAdminIds = (rawValue?: string): number[] => {
-  if (!rawValue) return []
-
-  return rawValue
-    .split(',')
-    .map((item) => Number(item.trim()))
-    .filter((value) => Number.isInteger(value))
-}
-
 const parseUserIdFromInitData = (rawInitData?: string): number | undefined => {
   if (!rawInitData) return undefined
 
@@ -71,11 +62,6 @@ export const useTelegramWebApp = () => {
   const [authUserId, setAuthUserId] = useState<number | undefined>(undefined)
   const [isAdmin, setIsAdmin] = useState(false)
 
-  const viteAdminIds = useMemo(
-    () => parseAdminIds(import.meta.env.VITE_ADMIN_IDS),
-    [],
-  )
-
   useEffect(() => {
     if (!webApp) return
 
@@ -129,25 +115,25 @@ export const useTelegramWebApp = () => {
   }, [authUserId, webApp])
 
   useEffect(() => {
-    if (!Number.isInteger(userId)) {
+    if (!Number.isInteger(authUserId)) {
       setIsAdmin(false)
       return
     }
 
     let cancelled = false
 
-    void fetchAdminAccess(userId!)
+    void fetchAdminAccess(authUserId!)
       .then((fromApi) => {
         if (!cancelled) setIsAdmin(fromApi)
       })
       .catch(() => {
-        if (!cancelled) setIsAdmin(viteAdminIds.includes(userId!))
+        if (!cancelled) setIsAdmin(false)
       })
 
     return () => {
       cancelled = true
     }
-  }, [userId, viteAdminIds])
+  }, [authUserId])
 
   return {
     webApp,

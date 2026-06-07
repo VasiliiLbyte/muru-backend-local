@@ -169,11 +169,26 @@ const getAuthHeaders = (): HeadersInit => {
   return { Authorization: `Bearer ${token}` }
 }
 
+const adminTelegramHeadersGet = (telegramUserId: number): HeadersInit => ({
+  'x-telegram-user-id': String(telegramUserId),
+  ...getAuthHeaders(),
+})
+
+const adminTelegramHeadersPost = (telegramUserId: number): HeadersInit => ({
+  'Content-Type': 'application/json',
+  'x-telegram-user-id': String(telegramUserId),
+  ...getAuthHeaders(),
+})
+
+const adminTelegramHeadersPatch = (telegramUserId: number): HeadersInit => ({
+  'Content-Type': 'application/json',
+  'x-telegram-user-id': String(telegramUserId),
+  ...getAuthHeaders(),
+})
+
 export const fetchCatalogSyncStatus = async (telegramUserId: number): Promise<CatalogSyncJobState> => {
   const response = await safeFetch(`${API_BASE_URL}/api/admin/sync/status`, {
-    headers: {
-      'x-telegram-user-id': String(telegramUserId),
-    },
+    headers: adminTelegramHeadersGet(telegramUserId),
   })
 
   return parseApi<CatalogSyncJobState>(response)
@@ -186,9 +201,7 @@ export const fetchCatalogSyncHistory = async (
   const response = await safeFetch(
     `${API_BASE_URL}/api/admin/sync/history?limit=${encodeURIComponent(String(limit))}`,
     {
-      headers: {
-        'x-telegram-user-id': String(telegramUserId),
-      },
+      headers: adminTelegramHeadersGet(telegramUserId),
     },
   )
 
@@ -228,10 +241,7 @@ export const triggerCatalogSync = async (
   try {
     response = await safeFetch(`${API_BASE_URL}/api/admin/sync`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-telegram-user-id': String(telegramUserId),
-      },
+      headers: adminTelegramHeadersPost(telegramUserId),
       body: JSON.stringify({ telegramUserId }),
     })
   } catch (error) {
@@ -259,11 +269,6 @@ export const triggerCatalogSync = async (
   return payload.data as SyncApiResult
 }
 
-/** Admin catalog routes only check x-telegram-user-id; omit Authorization so a bad JWT cannot break WebKit fetch. */
-const adminTelegramHeadersGet = (telegramUserId: number): HeadersInit => ({
-  'x-telegram-user-id': String(telegramUserId),
-})
-
 /** Admin flag from backend ADMIN_TELEGRAM_IDS (not baked VITE_ADMIN_IDS). */
 export const fetchAdminAccess = async (telegramUserId: number): Promise<boolean> => {
   const response = await safeFetch(`${API_BASE_URL}/api/admin/me`, {
@@ -275,16 +280,6 @@ export const fetchAdminAccess = async (telegramUserId: number): Promise<boolean>
   }
   return Boolean((payload.data as { isAdmin?: boolean } | null)?.isAdmin)
 }
-
-const adminTelegramHeadersPost = (telegramUserId: number): HeadersInit => ({
-  'Content-Type': 'application/json',
-  'x-telegram-user-id': String(telegramUserId),
-})
-
-const adminTelegramHeadersPatch = (telegramUserId: number): HeadersInit => ({
-  'Content-Type': 'application/json',
-  'x-telegram-user-id': String(telegramUserId),
-})
 
 export type AdminOrderListItem = {
   id: number

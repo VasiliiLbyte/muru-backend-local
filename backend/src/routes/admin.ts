@@ -42,6 +42,8 @@ import {
   startCatalogSyncJob,
 } from '../services/sync-job-state'
 import { syncCatalogFromGoogle } from '../services/google-sync'
+import { requireAdmin } from '../middleware/admin.middleware'
+import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.middleware'
 import { env } from '../utils/env'
 import { fail, ok } from '../utils/api-response'
 
@@ -64,9 +66,14 @@ const isAdminRequest = (req: { header: (name: string) => string | undefined; bod
 const adminForbidden = (res: Response) =>
   fail(res, 403, 'Forbidden: admin access required', 'FORBIDDEN')
 
-adminRouter.get('/me', (req, res) => {
-  return ok(res, { isAdmin: isAdminRequest(req) })
+adminRouter.get('/me', requireAuth, (req, res) => {
+  const telegramId = (req as AuthenticatedRequest).auth?.telegramId
+  return ok(res, {
+    isAdmin: Boolean(telegramId && env.adminTelegramIds.includes(telegramId)),
+  })
 })
+
+adminRouter.use(requireAuth, requireAdmin)
 
 adminRouter.get('/orders', (req, res, next) => {
   if (!isAdminRequest(req)) return adminForbidden(res)
