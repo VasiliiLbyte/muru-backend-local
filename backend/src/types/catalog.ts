@@ -63,6 +63,8 @@ export type SyncResult = {
   driveImagesSeen?: number
   driveImagesMatched?: number
   driveSkusWithImages?: number
+  deletedProducts?: number
+  deletedSkusSample?: string[]
 }
 
 export type CatalogNode = {

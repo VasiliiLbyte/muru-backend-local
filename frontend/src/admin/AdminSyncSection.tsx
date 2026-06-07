@@ -250,6 +250,14 @@ export const AdminSyncSection = ({ userId, onOpenCategories }: AdminSyncSectionP
           ) : null}
           <p className="mt-1">Строк в таблице: {lastResult.totalRows}</p>
           <p>Синхронизировано: {lastResult.syncedProducts}</p>
+          {typeof lastResult.deletedProducts === 'number' && lastResult.deletedProducts > 0 ? (
+            <p>
+              Удалено из каталога (нет в таблице): {lastResult.deletedProducts}
+              {lastResult.deletedSkusSample && lastResult.deletedSkusSample.length > 0
+                ? ` — ${lastResult.deletedSkusSample.join(', ')}${lastResult.deletedProducts > lastResult.deletedSkusSample.length ? '…' : ''}`
+                : ''}
+            </p>
+          ) : null}
           <p>Пропущено: {lastResult.skippedProducts}</p>
           {typeof lastResult.skippedByRule === 'number' ? (
             <p>Не MU (правило артикула): {lastResult.skippedByRule}</p>

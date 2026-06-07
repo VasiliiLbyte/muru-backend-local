@@ -36,6 +36,8 @@ export type SyncApiResult = {
   driveImagesSeen?: number
   driveImagesMatched?: number
   driveSkusWithImages?: number
+  deletedProducts?: number
+  deletedSkusSample?: string[]
 }
 
 export type CatalogSyncJobState = {

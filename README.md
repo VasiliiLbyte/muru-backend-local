@@ -342,6 +342,7 @@ curl --max-time 600 -X POST http://127.0.0.1:4000/api/admin/sync \
 - Sync behavior:
   - reads products from Google Sheets,
   - recursively scans Drive tree (`MUxxxx_N_O` / `MUxxxx_N_О`, slots 1–3 from filename in any section folder; legacy `MUxxxx-N.webp`),
+  - upserts products from the spreadsheet and **deletes** `MU*` SKUs absent from the current xlsx snapshot (catalog mirror; order history keeps SKU text in `order_items`),
   - сохраняет до **3** URL в `image_urls` (карусель: главное + 2 доп.),
   - publishes matched files and upserts products/categories/variants into PostgreSQL.
 

@@ -32,6 +32,12 @@ import {
   parseColorTags,
   parseDimensionsLabel,
 } from './google-sync-dimensions'
+import {
+  collectActiveSkus,
+  dedupeProductsBySkuLastWins,
+  formatStalePurgeWarning,
+  purgeProductsAbsentFromSheet,
+} from './google-sync-stale-products'
 import { PRODUCT_UPSERT_VALUES_SQL } from './google-sync-upsert-sql'
 import { extractDriveFileId } from '../utils/drive-file-id'
 
@@ -428,8 +434,37 @@ export const syncCatalogFromGoogle = async (
     processedProducts: 0,
   })
 
-  const { synced, errors: dbErrors } = await upsertProductsBatched(productsToUpsert, report)
+  const dedupedProducts = dedupeProductsBySkuLastWins(productsToUpsert)
+  const activeSkus = collectActiveSkus(dedupedProducts)
+
+  const { synced, errors: dbErrors } = await upsertProductsBatched(dedupedProducts, report)
   errors.push(...dbErrors)
+
+  let deletedProducts = 0
+  let deletedSkus: string[] = []
+  if (activeSkus.length > 0) {
+    const purgeClient = await pool.connect()
+    try {
+      report({
+        phase: 'database',
+        message: 'Удаляем позиции, которых нет в таблице…',
+        processedProducts: synced,
+        totalProducts: dedupedProducts.length,
+      })
+      const purge = await purgeProductsAbsentFromSheet(purgeClient, activeSkus)
+      deletedProducts = purge.deletedCount
+      deletedSkus = purge.deletedSkus
+      if (deletedProducts > 0) {
+        console.log(
+          `[sync] Purged ${deletedProducts} stale product(s): ${deletedSkus.slice(0, 10).join(', ')}${deletedSkus.length > 10 ? '…' : ''}`,
+        )
+        const purgeWarning = formatStalePurgeWarning(deletedSkus)
+        if (purgeWarning) warnings.push(purgeWarning)
+      }
+    } finally {
+      purgeClient.release()
+    }
+  }
 
   if (touchedFileIds.size > 0) {
     try {
@@ -446,9 +481,12 @@ export const syncCatalogFromGoogle = async (
 
   report({
     phase: 'done',
-    message: `Готово: синхронизировано ${synced} товаров за ${Math.round(durationMs / 1000)} с.`,
+    message:
+      deletedProducts > 0
+        ? `Готово: синхронизировано ${synced} товаров, удалено ${deletedProducts} устаревших за ${Math.round(durationMs / 1000)} с.`
+        : `Готово: синхронизировано ${synced} товаров за ${Math.round(durationMs / 1000)} с.`,
     processedProducts: synced,
-    totalProducts: productsToUpsert.length,
+    totalProducts: dedupedProducts.length,
   })
 
   return {
@@ -456,6 +494,8 @@ export const syncCatalogFromGoogle = async (
     syncedProducts: synced,
     skippedProducts,
     skippedByRule,
+    deletedProducts,
+    deletedSkusSample: deletedSkus.slice(0, 10),
     errors: cappedErrors,
     errorGroups,
     durationMs,
