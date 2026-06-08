@@ -13,12 +13,14 @@ export const normalizeApiBaseUrl = (raw: unknown): string => {
 }
 
 export const getViteApiBaseUrl = (): string => {
+  // Production mini app is served from the same nginx host — always use current origin.
+  // Avoids www↔apex mismatch (www returns 301 without CORS → "Load failed" in Telegram WebView).
+  if (import.meta.env.PROD && typeof window !== 'undefined' && window.location?.origin) {
+    return window.location.origin.replace(/\/+$/, '')
+  }
   const fromEnv = import.meta.env.VITE_API_BASE_URL
   if (typeof fromEnv === 'string' && fromEnv.trim()) {
     return normalizeApiBaseUrl(fromEnv)
-  }
-  if (import.meta.env.PROD && typeof window !== 'undefined' && window.location?.origin) {
-    return window.location.origin
   }
   return normalizeApiBaseUrl(undefined)
 }

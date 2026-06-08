@@ -28,6 +28,8 @@ const isProd = env.nodeEnv === 'production'
 // проект на *.vercel.app смог бы дёргать API с credentials. Новые домены добавляются
 // через переменную окружения ALLOWED_ORIGINS (точные origin'ы через запятую).
 const PRODUCTION_ORIGINS = [
+  'https://murushop.ru',
+  'https://www.murushop.ru',
   'https://murushop.online',
   'https://www.murushop.online',
   'https://muru-blue.vercel.app',
