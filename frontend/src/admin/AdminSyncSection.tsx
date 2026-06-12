@@ -95,17 +95,32 @@ export const AdminSyncSection = ({ userId, onOpenCategories }: AdminSyncSectionP
     }
   }
 
-  const loadPersistedState = useCallback(async () => {
+  const loadSchedule = useCallback(async () => {
     try {
-      const [items, job, scheduleSettings] = await Promise.all([
-        fetchCatalogSyncHistory(userId, 3),
-        fetchCatalogSyncStatus(userId),
-        fetchSyncSchedule(userId),
-      ])
-      setHistoryItems(items)
+      const scheduleSettings = await fetchSyncSchedule(userId)
       setSchedule(scheduleSettings)
       setScheduleEnabled(scheduleSettings.enabled)
       setScheduleHourMsk(scheduleSettings.hourMsk)
+      setScheduleError(null)
+    } catch (e) {
+      setSchedule(null)
+      setScheduleError(
+        e instanceof Error
+          ? e.message
+          : 'Не удалось загрузить настройки автосинхронизации. Перезагрузите backend (pm2 reload).',
+      )
+    }
+  }, [userId])
+
+  const loadPersistedState = useCallback(async () => {
+    void loadSchedule()
+
+    try {
+      const [items, job] = await Promise.all([
+        fetchCatalogSyncHistory(userId, 3),
+        fetchCatalogSyncStatus(userId),
+      ])
+      setHistoryItems(items)
 
       if (job.status === 'running') {
         setSyncStatus('in-progress')
@@ -138,7 +153,7 @@ export const AdminSyncSection = ({ userId, onOpenCategories }: AdminSyncSectionP
     } catch {
       // Non-blocking: section still allows manual sync
     }
-  }, [userId])
+  }, [userId, loadSchedule])
 
   useEffect(() => {
     void loadPersistedState()
@@ -270,16 +285,24 @@ export const AdminSyncSection = ({ userId, onOpenCategories }: AdminSyncSectionP
           придёт уведомление в Telegram.
         </p>
 
-        <label className="mt-3 flex items-center gap-2">
-          <input
-            type="checkbox"
-            className="h-4 w-4 rounded border-[#d8cfbc]"
-            checked={scheduleEnabled}
-            disabled={scheduleSaving || schedule == null}
-            onChange={(e) => setScheduleEnabled(e.target.checked)}
-          />
+        <button
+          type="button"
+          className={`${pressableDisabled} mt-3 flex w-full items-center gap-3 rounded-lg border border-[#d8cfbc] bg-white px-3 py-2.5 text-left`}
+          disabled={scheduleSaving}
+          onClick={() => setScheduleEnabled((v) => !v)}
+        >
+          <span
+            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
+              scheduleEnabled
+                ? 'border-muru-olive bg-muru-olive text-muru-ivory'
+                : 'border-[#d8cfbc] bg-white'
+            }`}
+            aria-hidden
+          >
+            {scheduleEnabled ? '✓' : ''}
+          </span>
           <span>Включить автосинхронизацию</span>
-        </label>
+        </button>
 
         <div className="mt-3">
           <span className="text-xs font-medium text-[#5c5346]">Время запуска (МСК)</span>
@@ -293,7 +316,7 @@ export const AdminSyncSection = ({ userId, onOpenCategories }: AdminSyncSectionP
                     ? 'bg-muru-olive text-muru-ivory'
                     : 'bg-white text-muru-olive'
                 }`}
-                disabled={scheduleSaving || schedule == null}
+                disabled={scheduleSaving}
                 onClick={() => setScheduleHourMsk(preset.hourMsk)}
               >
                 {preset.label}
@@ -314,7 +337,7 @@ export const AdminSyncSection = ({ userId, onOpenCategories }: AdminSyncSectionP
         <button
           type="button"
           className={`${pressableDisabled} mt-3 rounded-xl bg-muru-olive px-4 py-2 text-sm font-semibold text-muru-ivory`}
-          disabled={scheduleSaving || schedule == null}
+          disabled={scheduleSaving}
           onClick={() => void handleSaveSchedule()}
         >
           {scheduleSaving ? 'Сохранение…' : 'Сохранить'}
