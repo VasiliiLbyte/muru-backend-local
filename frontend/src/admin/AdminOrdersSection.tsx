@@ -87,7 +87,7 @@ export const AdminOrdersSection = ({ userId }: AdminOrdersSectionProps) => {
           <input
             type="search"
             className="mt-1 w-full rounded-lg border border-[#d8cfbc] bg-white px-3 py-2 text-sm"
-            placeholder="№, адрес, телефон, имя"
+            placeholder="№, адрес, телефон, имя, TG ID"
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
@@ -157,6 +157,7 @@ export const AdminOrdersSection = ({ userId }: AdminOrdersSectionProps) => {
                     <td className="py-2 pr-2">
                       <div>{row.customerName || '—'}</div>
                       <div className="text-xs text-[#7a7165]">{row.customerPhone || ''}</div>
+                      <div className="text-xs text-[#7a7165]">TG: {row.telegramUserId}</div>
                     </td>
                     <td className="py-2 pr-2">
                       <span
@@ -191,6 +192,7 @@ export const AdminOrdersSection = ({ userId }: AdminOrdersSectionProps) => {
                   </div>
                   <p className="mt-1 text-xs text-[#7a7165]">{formatOrderDate(row.createdAt)}</p>
                   <p className="mt-1">{row.customerName || '—'}</p>
+                  <p className="text-xs text-[#7a7165]">TG: {row.telegramUserId}</p>
                   <p className="font-medium">{formatMoney(row.total)}</p>
                 </button>
               </li>

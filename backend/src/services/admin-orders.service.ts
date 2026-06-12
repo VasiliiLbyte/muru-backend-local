@@ -104,7 +104,7 @@ const buildListFilters = (filters: AdminOrdersListFilters, includeStatus: boolea
     params.push(`%${q}%`)
     const idx = params.length
     where.push(
-      `(o.id::text ILIKE $${idx} OR o.address ILIKE $${idx} OR up.phone ILIKE $${idx} OR up.full_name ILIKE $${idx})`,
+      `(o.id::text ILIKE $${idx} OR o.telegram_user_id::text ILIKE $${idx} OR o.address ILIKE $${idx} OR up.phone ILIKE $${idx} OR up.full_name ILIKE $${idx})`,
     )
   }
 
