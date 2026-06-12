@@ -132,6 +132,18 @@ export const notifyClientPaymentReceived = async (order: OrderDraft): Promise<vo
   }
 }
 
+export const notifyAdminsAutoSyncFailed = async (errorMessage: string): Promise<void> => {
+  const text = `⚠️ Автосинхронизация каталога не удалась.\n\nОшибка: ${errorMessage}\n\nЗапустите синхронизацию вручную в админке, когда будет возможность.`
+  const targetIds = env.orderNotifyTelegramIds.length > 0 ? env.orderNotifyTelegramIds : env.adminTelegramIds
+
+  for (const chatId of targetIds) {
+    await callTelegramApi('sendMessage', {
+      chat_id: chatId,
+      text,
+    }).catch(() => undefined)
+  }
+}
+
 export const notifyAdminsCdekError = async (orderId: number, errMsg: string): Promise<void> => {
   const text = `⚠️ Заказ #${orderId}: не удалось создать в СДЭК\n${errMsg}\nПовторить в админке.`
   const targetIds = env.orderNotifyTelegramIds.length > 0 ? env.orderNotifyTelegramIds : env.adminTelegramIds

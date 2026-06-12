@@ -3,10 +3,13 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   fetchCatalogSyncHistory,
   fetchCatalogSyncStatus,
+  fetchSyncSchedule,
   triggerCatalogSync,
+  updateSyncSchedule,
   type CatalogSyncHistoryItem,
   type CatalogSyncProgress,
   type SyncApiResult,
+  type SyncScheduleSettings,
 } from '../lib/api'
 import { pressable, pressableDisabled } from '../lib/uiClasses'
 
@@ -28,14 +31,24 @@ const formatFinishedAt = (iso: string): string => {
   }
 }
 
+const formatHistoryWho = (adminTelegramId: number): string =>
+  adminTelegramId === 0 ? 'автоматически' : `админ ${adminTelegramId}`
+
 const formatHistoryLine = (entry: CatalogSyncHistoryItem): string => {
   const when = formatFinishedAt(entry.finishedAt)
+  const who = formatHistoryWho(entry.adminTelegramId)
   if (entry.status === 'success') {
-    return `${when} — успешно — ${entry.syncedProducts} товаров — админ ${entry.adminTelegramId}`
+    return `${when} — успешно — ${entry.syncedProducts} товаров — ${who}`
   }
   const err = entry.errorMessage ? ` — ${entry.errorMessage}` : ''
-  return `${when} — ошибка — админ ${entry.adminTelegramId}${err}`
+  return `${when} — ошибка — ${who}${err}`
 }
+
+const SYNC_HOUR_PRESETS: { hourMsk: number; label: string }[] = [
+  { hourMsk: 2, label: '02:00' },
+  { hourMsk: 4, label: '04:00' },
+  { hourMsk: 6, label: '06:00' },
+]
 
 const historyToPartialResult = (entry: CatalogSyncHistoryItem): SyncApiResult => ({
   totalRows: entry.totalRows ?? 0,
@@ -54,6 +67,12 @@ export const AdminSyncSection = ({ userId, onOpenCategories }: AdminSyncSectionP
   const [historyItems, setHistoryItems] = useState<CatalogSyncHistoryItem[]>([])
   const [error, setError] = useState<string | null>(null)
   const [syncProgress, setSyncProgress] = useState<CatalogSyncProgress | null>(null)
+  const [schedule, setSchedule] = useState<SyncScheduleSettings | null>(null)
+  const [scheduleEnabled, setScheduleEnabled] = useState(false)
+  const [scheduleHourMsk, setScheduleHourMsk] = useState(4)
+  const [scheduleSaving, setScheduleSaving] = useState(false)
+  const [scheduleNote, setScheduleNote] = useState<string | null>(null)
+  const [scheduleError, setScheduleError] = useState<string | null>(null)
 
   const hydrateSummaryFromHistory = (items: CatalogSyncHistoryItem[]) => {
     const latest = items[0]
@@ -78,11 +97,15 @@ export const AdminSyncSection = ({ userId, onOpenCategories }: AdminSyncSectionP
 
   const loadPersistedState = useCallback(async () => {
     try {
-      const [items, job] = await Promise.all([
+      const [items, job, scheduleSettings] = await Promise.all([
         fetchCatalogSyncHistory(userId, 3),
         fetchCatalogSyncStatus(userId),
+        fetchSyncSchedule(userId),
       ])
       setHistoryItems(items)
+      setSchedule(scheduleSettings)
+      setScheduleEnabled(scheduleSettings.enabled)
+      setScheduleHourMsk(scheduleSettings.hourMsk)
 
       if (job.status === 'running') {
         setSyncStatus('in-progress')
@@ -126,6 +149,26 @@ export const AdminSyncSection = ({ userId, onOpenCategories }: AdminSyncSectionP
     setHistoryItems(items)
     return items
   }, [userId])
+
+  const handleSaveSchedule = async () => {
+    setScheduleSaving(true)
+    setScheduleError(null)
+    setScheduleNote(null)
+    try {
+      const saved = await updateSyncSchedule(userId, {
+        enabled: scheduleEnabled,
+        hourMsk: scheduleHourMsk,
+      })
+      setSchedule(saved)
+      setScheduleEnabled(saved.enabled)
+      setScheduleHourMsk(saved.hourMsk)
+      setScheduleNote('Сохранено.')
+    } catch (e) {
+      setScheduleError(e instanceof Error ? e.message : 'Не удалось сохранить настройки')
+    } finally {
+      setScheduleSaving(false)
+    }
+  }
 
   const handleSync = async () => {
     setIsLoading(true)
@@ -219,6 +262,64 @@ export const AdminSyncSection = ({ userId, onOpenCategories }: AdminSyncSectionP
       </div>
 
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
+
+      <div className="rounded-xl bg-[#efe8d8] p-3 text-sm">
+        <h3 className="font-semibold text-muru-olive">Автосинхронизация</h3>
+        <p className="mt-1 text-[#5c5346]">
+          Каталог будет обновляться автоматически раз в сутки в выбранное время (МСК). При ошибке
+          придёт уведомление в Telegram.
+        </p>
+
+        <label className="mt-3 flex items-center gap-2">
+          <input
+            type="checkbox"
+            className="h-4 w-4 rounded border-[#d8cfbc]"
+            checked={scheduleEnabled}
+            disabled={scheduleSaving || schedule == null}
+            onChange={(e) => setScheduleEnabled(e.target.checked)}
+          />
+          <span>Включить автосинхронизацию</span>
+        </label>
+
+        <div className="mt-3">
+          <span className="text-xs font-medium text-[#5c5346]">Время запуска (МСК)</span>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {SYNC_HOUR_PRESETS.map((preset) => (
+              <button
+                key={preset.hourMsk}
+                type="button"
+                className={`${pressable} rounded-lg px-3 py-1.5 text-xs font-medium ${
+                  scheduleHourMsk === preset.hourMsk
+                    ? 'bg-muru-olive text-muru-ivory'
+                    : 'bg-white text-muru-olive'
+                }`}
+                disabled={scheduleSaving || schedule == null}
+                onClick={() => setScheduleHourMsk(preset.hourMsk)}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {schedule?.lastAutoRunAt ? (
+          <p className="mt-2 text-xs text-[#7a7165]">
+            Последний автозапуск: {formatFinishedAt(schedule.lastAutoRunAt)}
+          </p>
+        ) : null}
+
+        {scheduleError ? <p className="mt-2 text-sm text-red-700">{scheduleError}</p> : null}
+        {scheduleNote ? <p className="mt-2 text-sm text-muru-olive">{scheduleNote}</p> : null}
+
+        <button
+          type="button"
+          className={`${pressableDisabled} mt-3 rounded-xl bg-muru-olive px-4 py-2 text-sm font-semibold text-muru-ivory`}
+          disabled={scheduleSaving || schedule == null}
+          onClick={() => void handleSaveSchedule()}
+        >
+          {scheduleSaving ? 'Сохранение…' : 'Сохранить'}
+        </button>
+      </div>
 
       {isLoading && syncProgress ? (
         <div className="rounded-lg border border-[#d8cfbc] bg-[#fff5df] px-3 py-2 text-sm text-[#5c5346]">

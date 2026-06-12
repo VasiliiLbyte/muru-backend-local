@@ -61,6 +61,12 @@ export type CatalogSyncHistoryItem = {
   durationMs: number | null
 }
 
+export type SyncScheduleSettings = {
+  enabled: boolean
+  hourMsk: number
+  lastAutoRunAt: string | null
+}
+
 const SYNC_POLL_INTERVAL_MS = 4000
 const SYNC_POLL_TIMEOUT_MS = 10 * 60 * 1000
 
@@ -185,6 +191,25 @@ const adminTelegramHeadersPatch = (telegramUserId: number): HeadersInit => ({
   'x-telegram-user-id': String(telegramUserId),
   ...getAuthHeaders(),
 })
+
+export const fetchSyncSchedule = async (telegramUserId: number): Promise<SyncScheduleSettings> => {
+  const response = await safeFetch(`${API_BASE_URL}/api/admin/sync-schedule`, {
+    headers: adminTelegramHeadersGet(telegramUserId),
+  })
+  return parseApi<SyncScheduleSettings>(response)
+}
+
+export const updateSyncSchedule = async (
+  telegramUserId: number,
+  body: { enabled: boolean; hourMsk: number },
+): Promise<SyncScheduleSettings> => {
+  const response = await safeFetch(`${API_BASE_URL}/api/admin/sync-schedule`, {
+    method: 'PUT',
+    headers: adminTelegramHeadersPost(telegramUserId),
+    body: JSON.stringify(body),
+  })
+  return parseApi<SyncScheduleSettings>(response)
+}
 
 export const fetchCatalogSyncStatus = async (telegramUserId: number): Promise<CatalogSyncJobState> => {
   const response = await safeFetch(`${API_BASE_URL}/api/admin/sync/status`, {

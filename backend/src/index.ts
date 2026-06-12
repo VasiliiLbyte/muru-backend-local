@@ -116,6 +116,16 @@ app.listen(port, () => {
     setTimeout(runExpiry, 60_000)
     setInterval(runExpiry, 60 * 60 * 1000)
   }
+
+  if (process.env.NODE_ENV !== 'test') {
+    const runSyncScheduler = () => {
+      void import('./services/sync-scheduler')
+        .then((m) => m.runSyncSchedulerTick())
+        .catch((e) => console.error('[sync-scheduler] tick import failed', e))
+    }
+    setTimeout(runSyncScheduler, 60_000)
+    setInterval(runSyncScheduler, 10 * 60 * 1000)
+  }
 })
 
 process.on('SIGTERM', () => {

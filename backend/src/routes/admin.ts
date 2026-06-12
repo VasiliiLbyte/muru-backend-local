@@ -158,6 +158,30 @@ adminRouter.post('/images/invalidate', async (req, res, next) => {
   }
 })
 
+adminRouter.get('/sync-schedule', async (req, res, next) => {
+  if (!isAdminRequest(req)) return adminForbidden(res)
+
+  try {
+    const { getSyncSchedule } = await import('../services/sync-schedule.service')
+    return ok(res, await getSyncSchedule())
+  } catch (error) {
+    next(error)
+  }
+})
+
+adminRouter.put('/sync-schedule', async (req, res, next) => {
+  if (!isAdminRequest(req)) return adminForbidden(res)
+
+  try {
+    const enabled = Boolean(req.body?.enabled)
+    const hourMsk = Number(req.body?.hourMsk)
+    const { updateSyncSchedule } = await import('../services/sync-schedule.service')
+    return ok(res, await updateSyncSchedule({ enabled, hourMsk }))
+  } catch (error) {
+    next(error)
+  }
+})
+
 adminRouter.get('/sync/history', async (req, res, next) => {
   if (!isAdminRequest(req)) return adminForbidden(res)
 
