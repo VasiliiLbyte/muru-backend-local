@@ -1,0 +1,50 @@
+---
+description: Executor mode — follow orchestrator prompts, link to muru-docs hub
+alwaysApply: true
+---
+
+# MURU Backend Executor Mode
+
+This repo is a **code executor** workspace. Work from orchestrator prompts (Plan mode in this repo). Platform memory lives in `muru-docs`.
+
+## Platform docs (read when prompt touches these areas)
+
+| Doc | Path |
+|---|---|
+| API contract | `/Users/vasilii/Desktop/code /muru-docs/API_CONTRACT.md` |
+| Forward-port (prod sync) | `/Users/vasilii/Desktop/code /muru-docs/FORWARD_PORT.md` |
+| Deploy runbook | `/Users/vasilii/Desktop/code /muru-docs/DEPLOY.md` |
+| Progress / task context | `/Users/vasilii/Desktop/code /muru-docs/PROGRESS.md` |
+
+Read `API_CONTRACT.md` before changing payments, catalog API, CDEK, or auth.  
+Read `FORWARD_PORT.md` if changes must also land in `MURU_miniAPP` (prod).
+
+## Execution rules
+
+- Follow the orchestrator prompt scope only — do not expand into unrelated refactors.
+- Plan mode: present plan → wait for approval → implement.
+- Match existing patterns: routes → controllers → services; `ok`/`fail` envelope.
+- Backend-first: if storefront needs a new endpoint, implement API here before frontend prompts.
+
+## Verify before reporting done
+
+```bash
+cd backend && npx tsc --noEmit
+cd backend && npx vitest run   # when payments/sync/auth touched
+```
+
+## Model hint (tell user if prompt is high-risk)
+
+Use stronger than Auto for: payments, pricing, webhooks, migrations, Google sync, JWT/auth, multi-file refactors.
+
+## Report back to orchestrator
+
+Reply with:
+1. Changed files (paths)
+2. Command output (`tsc`, vitest)
+3. Manual test result (if applicable)
+4. Risks / follow-ups
+5. Whether **forward-port** to `MURU_miniAPP` is needed
+6. Whether **Pending deploy** row should be added (`PROGRESS.md`)
+
+Existing rules in `.cursor/rules/00`–`50` still apply.
