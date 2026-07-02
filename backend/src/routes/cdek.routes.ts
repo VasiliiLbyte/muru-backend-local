@@ -2,6 +2,7 @@ import { Router } from 'express'
 
 import {
   calculateHandler,
+  calculateWebHandler,
   getAddressSuggestionsHandler,
   getCdekHealthHandler,
   getCitiesHandler,
@@ -22,6 +23,11 @@ cdekRouter.get(
   getAddressSuggestionsHandler,
 )
 cdekRouter.get('/pickup-points', getPvzHandler)
+cdekRouter.post(
+  '/web/calculate',
+  rateLimitByIp('cdek:web:calculate', 20),
+  calculateWebHandler,
+)
 cdekRouter.post(
   '/calculate',
   requireAuth,

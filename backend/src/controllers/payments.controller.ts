@@ -7,6 +7,7 @@ import {
   createPayment,
   getPaymentIntentStatusForUser,
   getPaymentStatusForUser,
+  getWebPaymentStatus,
   type RawCheckoutInput,
 } from '../services/yookassa/payments.service'
 import { env } from '../utils/env'
@@ -25,6 +26,7 @@ export const snapshotSchema = z
       )
       .min(1),
     promoCode: z.string().nullable().default(null),
+    email: z.string().trim().email('Некорректный e-mail').nullable().default(null),
     deliveryMode: z.enum(['delivery', 'pickup']),
     deliveryOption: z.string().nullable().default(null),
     deliveryEta: z.string().nullable().default(null),
@@ -39,6 +41,11 @@ export const snapshotSchema = z
     cdekPvzCode: z.string().nullable().default(null),
     cdekPvzAddress: z.string().nullable().default(null),
   })
+  .strict()
+
+const webSnapshotSchema = snapshotSchema
+  .omit({ promoCode: true })
+  .extend({ email: z.string().trim().email('Некорректный e-mail') })
   .strict()
 
 export const parseCheckoutBody = (
@@ -65,6 +72,30 @@ export const parseCheckoutBody = (
   return {
     ...parsed.data,
     telegramUserId,
+    channel: 'telegram',
+  }
+}
+
+export const parseWebCheckoutBody = (
+  req: Request,
+  res: Response,
+): RawCheckoutInput | null => {
+  const parsed = webSnapshotSchema.safeParse(req.body)
+  if (!parsed.success) {
+    fail(res, 400, 'Некорректные данные заказа', 'VALIDATION', parsed.error.issues)
+    return null
+  }
+
+  if (parsed.data.deliveryMode === 'delivery' && !parsed.data.address.trim()) {
+    fail(res, 400, 'Address is required for delivery', 'VALIDATION')
+    return null
+  }
+
+  return {
+    ...parsed.data,
+    telegramUserId: null,
+    channel: 'web',
+    promoCode: null,
   }
 }
 
@@ -79,6 +110,37 @@ export const createPaymentHandler = async (req: Request, res: Response, next: Ne
 
     const result = await createPayment(raw)
     return ok(res, result)
+  } catch (e) {
+    next(e)
+  }
+}
+
+export const createWebPaymentHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (!env.yookassa.enabled) {
+      return fail(res, 503, 'Оплата временно недоступна', 'UPSTREAM')
+    }
+
+    const raw = parseWebCheckoutBody(req, res)
+    if (!raw) return
+
+    const result = await createPayment(raw)
+    return ok(res, result)
+  } catch (e) {
+    next(e)
+  }
+}
+
+export const getWebPaymentStatusHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const paymentId = String(req.params.paymentId)
+    const status = await getWebPaymentStatus(paymentId)
+    if (!status) return fail(res, 404, 'Платёж не найден', 'NOT_FOUND')
+    return ok(res, status)
   } catch (e) {
     next(e)
   }

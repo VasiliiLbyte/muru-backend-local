@@ -11,9 +11,11 @@ const restockPayloadSchema = z.object({
   productName: z.string().min(1),
 })
 
-export const getCatalogTreeHandler = async (_req: Request, res: Response, next: NextFunction) => {
+export const getCatalogTreeHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const tree = await getCatalogTree()
+    const withSubcategories =
+      req.query.subcategories === '1' || req.query.levels === '2'
+    const tree = await getCatalogTree(withSubcategories)
     return ok(res, tree)
   } catch (error) {
     next(error)
@@ -36,14 +38,10 @@ export const getCatalogProductsHandler = async (req: Request, res: Response, nex
     const debugEnabled = req.query.debug === '1'
 
     if (debugEnabled) {
-      const effectiveCategorySlug = filters.subcategorySlug || filters.categorySlug || null
-      const effectiveCategoryName = filters.subcategory || filters.category || null
       console.log(
         '[catalog-debug] filters',
         JSON.stringify({
           ...filters,
-          effectiveCategorySlug,
-          effectiveCategoryName,
           results: products.length,
         }),
       )
@@ -51,8 +49,6 @@ export const getCatalogProductsHandler = async (req: Request, res: Response, nex
         products,
         debug: {
           filters,
-          effectiveCategorySlug,
-          effectiveCategoryName,
           results: products.length,
         },
       })

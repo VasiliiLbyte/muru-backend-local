@@ -37,6 +37,7 @@ import { fulfillPaidPayment, fulfillPaidIntent, validatePreCheckoutIntent } from
 
 const snap = {
   telegramUserId: 123,
+  channel: 'telegram' as const,
   items: [{ sku: 'MU0001', name: 'Vase', price: 1000, quantity: 1 }],
   subtotal: 1000,
   deliveryPrice: 0,
@@ -61,6 +62,12 @@ const snap = {
 describe('fulfillPaidPayment', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockPoolQuery.mockImplementation(async (sql: string) => {
+      if (sql.includes('SELECT channel FROM payments')) {
+        return { rows: [{ channel: 'telegram' }] }
+      }
+      return { rows: [] }
+    })
     mockGetYkPayment.mockResolvedValue({
       id: 'yk-1',
       status: 'succeeded',
@@ -113,6 +120,9 @@ describe('fulfillPaidPayment', () => {
     }
     mockPoolConnect.mockResolvedValue(client)
     mockPoolQuery.mockImplementation(async (sql: string) => {
+      if (sql.includes('SELECT channel FROM payments')) {
+        return { rows: [{ channel: 'telegram' }] }
+      }
       if (sql.includes('order_id IS NULL RETURNING')) {
         return { rows: [{ id: 1 }] }
       }
@@ -142,6 +152,9 @@ describe('fulfillPaidPayment', () => {
     }
     mockPoolConnect.mockResolvedValue(client)
     mockPoolQuery.mockImplementation(async (sql: string) => {
+      if (sql.includes('SELECT channel FROM payments')) {
+        return { rows: [{ channel: 'telegram' }] }
+      }
       if (sql.includes('order_id IS NULL RETURNING')) return { rows: [] }
       if (sql.includes('SELECT order_id FROM payments')) return { rows: [{ order_id: 42 }] }
       return { rows: [] }

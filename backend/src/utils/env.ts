@@ -66,7 +66,10 @@ const envSchema = z.object({
   DADATA_SECRET_KEY: z.string().optional(),
   YOOKASSA_SHOP_ID: z.string().optional(),
   YOOKASSA_SECRET_KEY: z.string().optional(),
+  YOOKASSA_WEB_SHOP_ID: z.string().optional(),
+  YOOKASSA_WEB_SECRET_KEY: z.string().optional(),
   YOOKASSA_RETURN_URL: z.string().optional(),
+  YOOKASSA_WEB_RETURN_URL: z.string().optional(),
   YOOKASSA_VAT_CODE: z.string().optional(),
   YOOKASSA_VERIFY_IP: z.string().optional(),
 })
@@ -89,7 +92,10 @@ if (parsed.data.CDEK_ENV === 'production') {
 
 const yookassaShopId = parsed.data.YOOKASSA_SHOP_ID?.trim() ?? ''
 const yookassaSecretKey = parsed.data.YOOKASSA_SECRET_KEY?.trim() ?? ''
+const yookassaWebShopId = parsed.data.YOOKASSA_WEB_SHOP_ID?.trim() ?? ''
+const yookassaWebSecretKey = parsed.data.YOOKASSA_WEB_SECRET_KEY?.trim() ?? ''
 const yookassaReturnUrl = parsed.data.YOOKASSA_RETURN_URL?.trim() ?? ''
+const yookassaWebReturnUrl = parsed.data.YOOKASSA_WEB_RETURN_URL?.trim() ?? ''
 const yookassaVatCode = Number.parseInt(parsed.data.YOOKASSA_VAT_CODE?.trim() || '1', 10)
 const yookassaVerifyIp = parsed.data.YOOKASSA_VERIFY_IP?.trim().toLowerCase() !== 'false'
 const yookassaEnabled = Boolean(yookassaShopId && yookassaSecretKey)
@@ -201,7 +207,10 @@ export const env = {
   yookassa: {
     shopId: yookassaShopId,
     secretKey: yookassaSecretKey,
+    webShopId: yookassaWebShopId,
+    webSecretKey: yookassaWebSecretKey,
     returnUrl: yookassaReturnUrl,
+    webReturnUrl: yookassaWebReturnUrl,
     vatCode: Number.isFinite(yookassaVatCode) ? yookassaVatCode : 1,
     enabled: yookassaEnabled,
     verifyIp: yookassaVerifyIp,

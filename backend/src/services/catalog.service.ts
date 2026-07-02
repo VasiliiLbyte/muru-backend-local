@@ -26,6 +26,8 @@ type ProductRow = {
   image_url_2: string
   image_urls: string[] | null
   category_name: string | null
+  subcategory: string | null
+  subcategory_slug: string | null
   product_color: string | null
   dimensions_label: string | null
   color_tags: string[] | null
@@ -39,6 +41,14 @@ type ProductDetailRow = ProductRow & {
   specs: Record<string, string> | null
 }
 
+type SubcategoryAggRow = {
+  category: string
+  category_slug: string
+  subcategory: string
+  subcategory_slug: string
+  cnt: number
+}
+
 const normalizeImageUrls = (
   imageUrls: string[] | null | undefined,
   imageUrl1: string | null | undefined,
@@ -49,6 +59,11 @@ const normalizeImageUrls = (
     return imageUrls.filter(Boolean)
   }
   return [imageUrl1, imageUrl2].filter((url): url is string => Boolean(url))
+}
+
+const mapSubcategorySlug = (raw: string | null | undefined): string | undefined => {
+  const trimmed = raw?.trim()
+  return trimmed || undefined
 }
 
 const buildCatalogTree = (categoryPaths: string[]) => {
@@ -89,7 +104,34 @@ const mergeCoverUrlsIntoTree = (nodes: CatalogNode[], coversBySlug: Map<string, 
   }
 }
 
-export const getCatalogTree = async (): Promise<CatalogNode[]> => {
+const attachProductSubcategories = async (nodes: CatalogNode[]): Promise<void> => {
+  const result = await pool.query<SubcategoryAggRow>(
+    `SELECT c.name AS category, c.slug AS category_slug,
+            p.subcategory, p.subcategory_slug, count(*)::int AS cnt
+     FROM products p
+     JOIN categories c ON c.id = p.category_id
+     WHERE p.subcategory IS NOT NULL AND trim(p.subcategory) <> ''
+     GROUP BY c.name, c.slug, p.subcategory, p.subcategory_slug`,
+  )
+
+  const byCategorySlug = new Map<string, SubcategoryAggRow[]>()
+  for (const row of result.rows) {
+    const list = byCategorySlug.get(row.category_slug) ?? []
+    list.push(row)
+    byCategorySlug.set(row.category_slug, list)
+  }
+
+  for (const node of nodes) {
+    const rows = (byCategorySlug.get(node.slug) ?? []).sort((a, b) => b.cnt - a.cnt)
+    node.children = rows.map((row) => ({
+      name: row.subcategory,
+      slug: row.subcategory_slug,
+      children: [],
+    }))
+  }
+}
+
+export const getCatalogTree = async (withSubcategories = false): Promise<CatalogNode[]> => {
   const result = await pool.query<{ name: string }>('SELECT name FROM categories')
   const categoryNames = result.rows.map((row) => row.name)
   const fullTree = buildCatalogTree(categoryNames)
@@ -110,6 +152,10 @@ export const getCatalogTree = async (): Promise<CatalogNode[]> => {
   const coverMap = new Map(covers.rows.map((row) => [row.slug, row.cover_image_url]))
   mergeCoverUrlsIntoTree(filtered, coverMap)
 
+  if (withSubcategories) {
+    await attachProductSubcategories(filtered)
+  }
+
   return filtered
 }
 
@@ -127,17 +173,22 @@ export const getCatalogProducts = async (params: {
   const conditions: string[] = []
   const values: Array<string | number> = []
 
-  // Subcategory filter is more specific; apply only one category slug filter to avoid contradictory conditions.
-  const effectiveCategorySlug = subcategorySlug || categorySlug
-  const effectiveCategoryName = subcategory || category
-
-  if (effectiveCategorySlug) {
-    values.push(effectiveCategorySlug)
+  if (categorySlug) {
+    values.push(categorySlug)
     conditions.push(`c.slug = $${values.length}`)
-  } else if (effectiveCategoryName) {
-    values.push(`%${effectiveCategoryName}%`)
+  } else if (category) {
+    values.push(`%${category}%`)
     conditions.push(`c.name ILIKE $${values.length}`)
   }
+
+  if (subcategorySlug) {
+    values.push(subcategorySlug)
+    conditions.push(`p.subcategory_slug = $${values.length}`)
+  } else if (subcategory) {
+    values.push(`%${subcategory}%`)
+    conditions.push(`p.subcategory ILIKE $${values.length}`)
+  }
+
   if (q) {
     const textSearch = buildProductTextSearchCondition(values, q)
     if (textSearch) conditions.push(textSearch)
@@ -172,6 +223,8 @@ export const getCatalogProducts = async (params: {
        p.image_url_2,
        p.image_urls,
        c.name AS category_name,
+       p.subcategory,
+       p.subcategory_slug,
        p.color AS product_color,
        p.dimensions_label,
        p.color_tags,
@@ -188,11 +241,6 @@ export const getCatalogProducts = async (params: {
 
   const grouped = new Map<string, CatalogProductListItem>()
   for (const row of result.rows) {
-    const categoryPath = row.category_name ?? 'Без категории'
-    const pathParts = parseCategoryPath(categoryPath)
-    const categoryName = pathParts[0] ?? categoryPath
-    const subcategoryName = pathParts[1] ?? 'Общее'
-
     if (!grouped.has(row.sku)) {
       const item: CatalogProductListItem = {
         sku: row.sku,
@@ -203,9 +251,11 @@ export const getCatalogProducts = async (params: {
         imageUrls: normalizeImageUrls(row.image_urls, row.image_url_1, row.image_url_2),
         colors: [],
         sizes: [],
-        category: categoryName,
-        subcategory: subcategoryName,
+        category: row.category_name ?? 'Без категории',
+        subcategory: row.subcategory?.trim() ?? '',
       }
+      const subSlug = mapSubcategorySlug(row.subcategory_slug)
+      if (subSlug) item.subcategorySlug = subSlug
       if (row.product_color) {
         item.color = row.product_color
       }
@@ -251,6 +301,8 @@ export const getCatalogProductBySku = async (sku: string): Promise<CatalogProduc
        p.description,
        p.specs,
        c.name AS category_name,
+       p.subcategory,
+       p.subcategory_slug,
        p.color AS product_color,
        p.dimensions_label,
        p.color_tags,
@@ -266,8 +318,6 @@ export const getCatalogProductBySku = async (sku: string): Promise<CatalogProduc
 
   if (result.rows.length === 0) return null
   const first = result.rows[0]
-  const categoryPath = first.category_name ?? 'Без категории'
-  const [category = categoryPath, subcategory = 'Общее'] = parseCategoryPath(categoryPath)
 
   const variantSet = new Set<string>()
   const variants: Variant[] = []
@@ -303,13 +353,15 @@ export const getCatalogProductBySku = async (sku: string): Promise<CatalogProduc
     imageUrls: normalizeImageUrls(first.image_urls, first.image_url_1, first.image_url_2),
     colors: dotColors,
     sizes: Array.from(sizes),
-    category,
-    subcategory,
+    category: first.category_name ?? 'Без категории',
+    subcategory: first.subcategory?.trim() ?? '',
     description: first.description ?? '',
     specs: first.specs ?? {},
     variants,
   }
 
+  const subSlug = mapSubcategorySlug(first.subcategory_slug)
+  if (subSlug) detail.subcategorySlug = subSlug
   if (first.product_color) detail.color = first.product_color
   if (first.dimensions_label?.trim()) detail.dimensionsLabel = first.dimensions_label.trim()
   if (first.color_tags?.length) detail.colorTags = first.color_tags

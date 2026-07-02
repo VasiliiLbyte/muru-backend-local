@@ -108,9 +108,35 @@ describe('computeTrustedPricing', () => {
     await expect(computeTrustedPricing(baseInput)).rejects.toBeInstanceOf(PaymentPricingError)
   })
 
+  it('rejects when product is out of stock', async () => {
+    poolQueryMock.mockResolvedValue({
+      rows: [{ sku: 'MU0001', name: 'Ваза', price: '1000', discount_percent: '0', in_stock: 0 }],
+    } as never)
+
+    await expect(
+      computeTrustedPricing({
+        ...baseInput,
+        items: [{ sku: 'MU0001', quantity: 1 }],
+      }),
+    ).rejects.toBeInstanceOf(PaymentPricingError)
+  })
+
+  it('rejects when requested quantity exceeds stock', async () => {
+    poolQueryMock.mockResolvedValue({
+      rows: [{ sku: 'MU0001', name: 'Ваза', price: '1000', discount_percent: '0', in_stock: 2 }],
+    } as never)
+
+    await expect(
+      computeTrustedPricing({
+        ...baseInput,
+        items: [{ sku: 'MU0001', quantity: 3 }],
+      }),
+    ).rejects.toBeInstanceOf(PaymentPricingError)
+  })
+
   it('computes delivery via CDEK for delivery mode', async () => {
     poolQueryMock.mockResolvedValue({
-      rows: [{ sku: 'MU0001', name: 'Ваза', price: '1000', discount_percent: '0', in_stock: 1 }],
+      rows: [{ sku: 'MU0001', name: 'Ваза', price: '1000', discount_percent: '0', in_stock: 2 }],
     } as never)
     buildPackagesMock.mockResolvedValue([{ weight: 3000 }])
     calculateTariffMock.mockResolvedValue({
@@ -151,7 +177,7 @@ describe('computeTrustedPricing', () => {
 
   it('throws PromoValidationError when promo is invalid', async () => {
     poolQueryMock.mockResolvedValue({
-      rows: [{ sku: 'MU0001', name: 'Ваза', price: '1000', discount_percent: '0', in_stock: 1 }],
+      rows: [{ sku: 'MU0001', name: 'Ваза', price: '1000', discount_percent: '0', in_stock: 2 }],
     } as never)
     validatePromoMock.mockResolvedValue({ valid: false, reason: 'Промокод не найден' })
 
@@ -162,7 +188,7 @@ describe('computeTrustedPricing', () => {
 
   it('applies valid promo discount from server validation', async () => {
     poolQueryMock.mockResolvedValue({
-      rows: [{ sku: 'MU0001', name: 'Ваза', price: '1000', discount_percent: '0', in_stock: 1 }],
+      rows: [{ sku: 'MU0001', name: 'Ваза', price: '1000', discount_percent: '0', in_stock: 2 }],
     } as never)
     validatePromoMock.mockResolvedValue({
       valid: true,

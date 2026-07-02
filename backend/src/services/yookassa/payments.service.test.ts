@@ -42,7 +42,7 @@ describe('getPaymentStatusForUser', () => {
 
   it('returns local status when already succeeded', async () => {
     poolQueryMock.mockResolvedValue({
-      rows: [{ status: 'succeeded', order_id: 42, telegram_user_id: '123' }],
+      rows: [{ status: 'succeeded', order_id: 42, telegram_user_id: '123', channel: 'telegram' }],
     } as never)
 
     const result = await getPaymentStatusForUser('yk-1', 123)
@@ -53,7 +53,7 @@ describe('getPaymentStatusForUser', () => {
 
   it('self-heals via YooKassa when local status is pending', async () => {
     poolQueryMock.mockResolvedValue({
-      rows: [{ status: 'pending', order_id: null, telegram_user_id: '123' }],
+      rows: [{ status: 'pending', order_id: null, telegram_user_id: '123', channel: 'telegram' }],
     } as never)
     getYkPaymentMock.mockResolvedValue({
       id: 'yk-1',
@@ -65,14 +65,14 @@ describe('getPaymentStatusForUser', () => {
 
     const result = await getPaymentStatusForUser('yk-1', 123)
 
-    expect(getYkPaymentMock).toHaveBeenCalledWith('yk-1')
+    expect(getYkPaymentMock).toHaveBeenCalledWith('yk-1', 'telegram')
     expect(fulfillMock).toHaveBeenCalledWith('yk-1')
     expect(result).toEqual({ status: 'succeeded', orderId: 99 })
   })
 
   it('marks canceled when YooKassa reports canceled', async () => {
     poolQueryMock.mockResolvedValue({
-      rows: [{ status: 'pending', order_id: null, telegram_user_id: '123' }],
+      rows: [{ status: 'pending', order_id: null, telegram_user_id: '123', channel: 'telegram' }],
     } as never)
     getYkPaymentMock.mockResolvedValue({
       id: 'yk-1',
@@ -90,7 +90,7 @@ describe('getPaymentStatusForUser', () => {
 
   it('returns null for wrong user', async () => {
     poolQueryMock.mockResolvedValue({
-      rows: [{ status: 'pending', order_id: null, telegram_user_id: '999' }],
+      rows: [{ status: 'pending', order_id: null, telegram_user_id: '999', channel: 'telegram' }],
     } as never)
 
     const result = await getPaymentStatusForUser('yk-1', 123)

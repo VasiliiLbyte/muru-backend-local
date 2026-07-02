@@ -120,6 +120,7 @@ export const notifyAdminsPaymentReceived = async (order: OrderDraft): Promise<vo
 }
 
 export const notifyClientPaymentReceived = async (order: OrderDraft): Promise<void> => {
+  if (order.telegramUserId == null) return
   if (!env.telegramBotToken) return
 
   try {

@@ -107,6 +107,7 @@ export type CatalogProductListItem = {
   sizes: string[]
   category: string
   subcategory: string
+  subcategorySlug?: string
   color?: string
   dimensionsLabel?: string
   colorTags?: string[]

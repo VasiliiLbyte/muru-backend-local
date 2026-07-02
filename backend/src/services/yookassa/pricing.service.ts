@@ -31,7 +31,7 @@ export type TrustedPricing = {
 }
 
 export type PricingInput = {
-  telegramUserId: number
+  telegramUserId: number | null
   items: Array<{ sku: string; quantity: number; color?: string; size?: string }>
   deliveryMode: 'delivery' | 'pickup'
   promoCode: string | null
@@ -69,6 +69,13 @@ export const computeTrustedPricing = async (input: PricingInput): Promise<Truste
     }
     if (line.quantity < 1) {
       throw new PaymentPricingError(`Некорректное количество для ${line.sku}`)
+    }
+    if (db.in_stock < line.quantity) {
+      throw new PaymentPricingError(
+        db.in_stock <= 0
+          ? `Товара нет в наличии: ${db.name}`
+          : `Недостаточно товара «${db.name}»: в наличии ${db.in_stock} шт.`,
+      )
     }
     const basePrice = Number(db.price)
     const discountPct = Number(db.discount_percent) || 0
@@ -115,6 +122,9 @@ export const computeTrustedPricing = async (input: PricingInput): Promise<Truste
   let promoDiscount = 0
   let promoCode: string | null = null
   if (input.promoCode?.trim()) {
+    if (input.telegramUserId == null) {
+      throw new PromoValidationError('Промокоды недоступны для гостевого оформления')
+    }
     const validation = await validatePromoCode({
       code: input.promoCode,
       telegramUserId: input.telegramUserId,

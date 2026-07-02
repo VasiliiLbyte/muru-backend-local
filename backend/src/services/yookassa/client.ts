@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 
 import { env } from '../../utils/env'
+import type { OrderChannel } from '../../types/order'
 
 const BASE_URL = 'https://api.yookassa.ru/v3'
 const TIMEOUT_MS = 20_000
@@ -16,21 +17,47 @@ export class YooKassaError extends Error {
   }
 }
 
-const authHeader = (): string =>
-  'Basic ' + Buffer.from(`${env.yookassa.shopId}:${env.yookassa.secretKey}`).toString('base64')
+const credsFor = (channel: OrderChannel): { shopId: string; secretKey: string } => {
+  if (channel === 'web') {
+    if (env.yookassa.webShopId && env.yookassa.webSecretKey) {
+      return { shopId: env.yookassa.webShopId, secretKey: env.yookassa.webSecretKey }
+    }
+    if (process.env.NODE_ENV === 'production') {
+      throw new YooKassaError(
+        0,
+        null,
+        'YOOKASSA_WEB_SHOP_ID/SECRET_KEY not configured for web channel',
+      )
+    }
+    console.warn('[yookassa] web credentials not set, falling back to primary (dev only)')
+  }
+  return { shopId: env.yookassa.shopId, secretKey: env.yookassa.secretKey }
+}
+
+const authHeader = (channel: OrderChannel): string => {
+  const creds = credsFor(channel)
+  return 'Basic ' + Buffer.from(`${creds.shopId}:${creds.secretKey}`).toString('base64')
+}
 
 type RequestOptions = {
   method: 'GET' | 'POST'
   path: string
+  channel: OrderChannel
   body?: unknown
   idempotenceKey?: string
 }
 
-export const ykFetch = async <T>({ method, path, body, idempotenceKey }: RequestOptions): Promise<T> => {
+export const ykFetch = async <T>({
+  method,
+  path,
+  channel,
+  body,
+  idempotenceKey,
+}: RequestOptions): Promise<T> => {
   const ac = new AbortController()
   const timer = setTimeout(() => ac.abort(), TIMEOUT_MS)
   const headers: Record<string, string> = {
-    Authorization: authHeader(),
+    Authorization: authHeader(channel),
     'Content-Type': 'application/json',
   }
   if (method === 'POST') {
@@ -73,5 +100,5 @@ export type YkPayment = {
   metadata?: Record<string, string>
 }
 
-export const getYkPayment = (paymentId: string) =>
-  ykFetch<YkPayment>({ method: 'GET', path: `/payments/${paymentId}` })
+export const getYkPayment = (paymentId: string, channel: OrderChannel) =>
+  ykFetch<YkPayment>({ method: 'GET', path: `/payments/${paymentId}`, channel })

@@ -35,7 +35,7 @@ const PRODUCTION_ORIGINS = [
   'https://muru-blue.vercel.app',
 ]
 
-const DEV_ORIGINS = ['http://localhost:5173', 'http://localhost:4173']
+const DEV_ORIGINS = ['http://localhost:5173', 'http://localhost:4173', 'http://localhost:3000']
 
 const ALLOWED_ORIGINS = Array.from(
   new Set([

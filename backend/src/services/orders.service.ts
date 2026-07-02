@@ -19,7 +19,7 @@ const calculateSubtotal = (items: OrderItemInput[]) =>
 
 type OrderRowForDraft = {
   id: number
-  telegram_user_id: string
+  telegram_user_id: string | null
   status: string
   delivery_mode: 'delivery' | 'pickup'
   delivery_option: string | null
@@ -63,7 +63,7 @@ const mapOrderDraft = (
   }>,
 ): OrderDraft => ({
   id: orderRow.id,
-  telegramUserId: Number(orderRow.telegram_user_id),
+  telegramUserId: orderRow.telegram_user_id != null ? Number(orderRow.telegram_user_id) : null,
   status: orderRow.status,
   deliveryMode: orderRow.delivery_mode,
   deliveryOption: orderRow.delivery_option,
@@ -149,7 +149,7 @@ export const saveDraftOrder = async (input: CheckoutDraftInput): Promise<OrderDr
     await client.query('BEGIN')
     const existingDraft = await client.query<{ id: number }>(
       `SELECT id FROM orders WHERE telegram_user_id = $1 AND is_draft = TRUE ORDER BY updated_at DESC LIMIT 1`,
-      [input.telegramUserId],
+      [input.telegramUserId!],
     )
 
     let orderId: number
@@ -233,7 +233,7 @@ export const saveDraftOrder = async (input: CheckoutDraftInput): Promise<OrderDr
     client.release()
   }
 
-  const saved = await getDraftOrderByTelegramUserId(input.telegramUserId)
+  const saved = await getDraftOrderByTelegramUserId(input.telegramUserId!)
   if (!saved) throw new Error('Failed to save draft order')
   return saved
 }
@@ -258,6 +258,9 @@ export const createOrder = async (input: CheckoutDraftInput): Promise<OrderDraft
       promoCodeId = promoRow.rows[0]?.id ?? null
     }
   } else if (input.promoCode?.trim()) {
+    if (input.telegramUserId == null) {
+      throw new PromoValidationError('Промокоды недоступны для гостевого оформления')
+    }
     const validation = await validatePromoCode({
       code: input.promoCode,
       telegramUserId: input.telegramUserId,
@@ -275,6 +278,10 @@ export const createOrder = async (input: CheckoutDraftInput): Promise<OrderDraft
   const client = await pool.connect()
   let createdOrderId: number | null = null
 
+  if (promoCodeId != null && input.telegramUserId == null) {
+    throw new PromoValidationError('Промокоды недоступны для гостевого оформления')
+  }
+
   try {
     await client.query('BEGIN')
     const consentAccepted = input.consentAccepted === true
@@ -286,8 +293,8 @@ export const createOrder = async (input: CheckoutDraftInput): Promise<OrderDraft
         cdek_recipient_name, cdek_recipient_phone,
         consent_accepted, consent_version, consent_accepted_at,
         payment_id, payment_status, paid_at,
-        is_draft, created_at, updated_at
-      ) VALUES ($1, 'Новый', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, CASE WHEN $20 THEN NOW() ELSE NULL END, $22, $23, CASE WHEN $23 = 'succeeded' THEN NOW() ELSE NULL END, FALSE, NOW(), NOW())
+        channel, is_draft, created_at, updated_at
+      ) VALUES ($1, 'Новый', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, CASE WHEN $20 THEN NOW() ELSE NULL END, $22, $23, CASE WHEN $23 = 'succeeded' THEN NOW() ELSE NULL END, $24, FALSE, NOW(), NOW())
       RETURNING id, telegram_user_id, status, delivery_mode, delivery_option, delivery_price::text,
                 delivery_eta, address, comment, birth_date::text, subtotal::text, total::text,
                 promo_code, promo_discount::text,
@@ -317,6 +324,7 @@ export const createOrder = async (input: CheckoutDraftInput): Promise<OrderDraft
         input.consentVersion ?? null,
         input.paymentId ?? null,
         input.paymentStatus ?? null,
+        input.channel ?? 'telegram',
       ],
     )
     const order = inserted.rows[0]
@@ -330,7 +338,7 @@ export const createOrder = async (input: CheckoutDraftInput): Promise<OrderDraft
     }
     await client.query(
       `DELETE FROM orders WHERE telegram_user_id = $1 AND is_draft = TRUE`,
-      [input.telegramUserId],
+      [input.telegramUserId!],
     )
     await client.query('COMMIT')
 
@@ -340,7 +348,7 @@ export const createOrder = async (input: CheckoutDraftInput): Promise<OrderDraft
         await usageClient.query('BEGIN')
         await applyPromoCodeOnOrder(usageClient, {
           promoCodeId,
-          telegramUserId: input.telegramUserId,
+          telegramUserId: input.telegramUserId!,
           orderId: createdOrderId,
         })
         await usageClient.query('COMMIT')

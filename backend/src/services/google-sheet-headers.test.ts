@@ -4,6 +4,7 @@ import {
   columnIndexToA1,
   findHeaderRowIndex,
   normalizeHeaderKey,
+  resolveCatalogSubsection,
   resolveSheetDiscountPercent,
   resolveSheetPrice,
   resolveSkuFromRow,
@@ -83,6 +84,31 @@ describe('resolveSkuFromRow', () => {
 
   it('finds embedded MU sku in any column', () => {
     expect(resolveSkuFromRow({ misc: 'prefix MU12345 suffix' })).toBe('MU12345')
+  })
+})
+
+describe('resolveCatalogSubsection', () => {
+  it('reads главный раздел каталога 2-й уровень', () => {
+    expect(
+      resolveCatalogSubsection({ 'главный раздел каталога 2-й уровень': 'Подсвечники' }),
+    ).toBe('Подсвечники')
+  })
+
+  it('falls back to раздел каталога 2-й уровень', () => {
+    expect(resolveCatalogSubsection({ 'раздел каталога 2-й уровень': 'Вазы' })).toBe('Вазы')
+  })
+
+  it('prefers главный раздел over fallback key', () => {
+    expect(
+      resolveCatalogSubsection({
+        'главный раздел каталога 2-й уровень': 'Подсвечники',
+        'раздел каталога 2-й уровень': 'Вазы',
+      }),
+    ).toBe('Подсвечники')
+  })
+
+  it('returns empty string when column is missing', () => {
+    expect(resolveCatalogSubsection({})).toBe('')
   })
 })
 

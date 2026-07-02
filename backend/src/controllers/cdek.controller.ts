@@ -57,6 +57,12 @@ const calcSchema = z.object({
     .min(1),
 })
 
+const calculateCdekPrice = async (body: unknown) => {
+  const parsed = calcSchema.parse(body)
+  const packages = await buildPackagesFromCart(parsed.items)
+  return calculateBothTariffs(parsed.toCityCode, packages)
+}
+
 export const listTariffsHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const toCityCode = Number(req.query.toCityCode)
@@ -90,9 +96,16 @@ export const getAddressSuggestionsHandler = async (
 
 export const calculateHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const parsed = calcSchema.parse(req.body)
-    const packages = await buildPackagesFromCart(parsed.items)
-    const result = await calculateBothTariffs(parsed.toCityCode, packages)
+    const result = await calculateCdekPrice(req.body)
+    return ok(res, result)
+  } catch (error) {
+    next(error)
+  }
+}
+
+export const calculateWebHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await calculateCdekPrice(req.body)
     return ok(res, result)
   } catch (error) {
     next(error)

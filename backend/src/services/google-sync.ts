@@ -14,6 +14,7 @@ import {
   type DriveImageRef,
 } from './google-drive-product-images'
 import {
+  resolveCatalogSubsection,
   resolvePrimaryCatalogSection,
   resolveSheetDiscountPercent,
   resolveSheetPrice,
@@ -40,6 +41,11 @@ import {
 } from './google-sync-stale-products'
 import { PRODUCT_UPSERT_VALUES_SQL } from './google-sync-upsert-sql'
 import { extractDriveFileId } from '../utils/drive-file-id'
+
+type SyncProduct = Product & {
+  subcategory: string | null
+  subcategorySlug: string | null
+}
 
 const rowSchema = z.object({
   sku: z.string().min(1),
@@ -102,9 +108,12 @@ const normalizeProduct = (
   source: Record<string, string>,
   imageRefs: DriveImageRef[] | undefined,
   placeholderThumbnailUrl: string | null,
-): Product | null => {
+): SyncProduct | null => {
   const skuValue = resolveSkuFromRow(source)
   const primarySection = resolvePrimaryCatalogSection(source)
+  const subsection = resolveCatalogSubsection(source)
+  const subcategory = subsection || null
+  const subcategorySlug = subsection ? slugify(subsection) : null
   const normalizedCategories = primarySection.trim()
   const parsed = rowSchema.safeParse({
     sku: skuValue,
@@ -182,6 +191,8 @@ const normalizeProduct = (
     dimensionsLabel: dimsLabel,
     parsedDims,
     weightGramsEstimated,
+    subcategory,
+    subcategorySlug,
   }
 }
 
@@ -209,13 +220,13 @@ const ensureCategoryId = async (
 
 const upsertProductWithClient = async (
   client: PoolClient,
-  product: Product,
+  product: SyncProduct,
   categoryId: number,
 ): Promise<void> => {
   const imageUrl1 = product.imageUrls[0] ?? DEFAULT_IMAGE_URL
   const imageUrl2 = product.imageUrls[1] ?? imageUrl1
   const productResult = await client.query<{ id: number }>(
-    `INSERT INTO products (sku, name, description, price, discount_percent, in_stock, specs, image_url_1, image_url_2, image_urls, category_id, color, color_tags, size, dimensions_label, updated_at)
+    `INSERT INTO products (sku, name, description, price, discount_percent, in_stock, specs, image_url_1, image_url_2, image_urls, category_id, color, color_tags, size, dimensions_label, subcategory, subcategory_slug, updated_at)
      VALUES ${PRODUCT_UPSERT_VALUES_SQL}
      ON CONFLICT (sku)
      DO UPDATE SET
@@ -233,6 +244,8 @@ const upsertProductWithClient = async (
        color_tags = EXCLUDED.color_tags,
        size = EXCLUDED.size,
        dimensions_label = EXCLUDED.dimensions_label,
+       subcategory = EXCLUDED.subcategory,
+       subcategory_slug = EXCLUDED.subcategory_slug,
        updated_at = NOW()
      RETURNING id`,
     [
@@ -251,6 +264,8 @@ const upsertProductWithClient = async (
       product.colorTags ?? [],
       product.size ?? null,
       product.dimensionsLabel ?? '',
+      product.subcategory,
+      product.subcategorySlug,
     ],
   )
 
@@ -266,7 +281,7 @@ const upsertProductWithClient = async (
   }
 }
 
-const upsertOneProductIsolated = async (product: Product): Promise<void> => {
+const upsertOneProductIsolated = async (product: SyncProduct): Promise<void> => {
   const client = await pool.connect()
   try {
     await client.query('BEGIN')
@@ -283,7 +298,7 @@ const upsertOneProductIsolated = async (product: Product): Promise<void> => {
 }
 
 const upsertProductsBatched = async (
-  products: Product[],
+  products: SyncProduct[],
   onProgress?: (progress: CatalogSyncProgress) => void,
 ): Promise<{ synced: number; errors: SyncError[] }> => {
   const errors: SyncError[] = []
@@ -383,7 +398,7 @@ export const syncCatalogFromGoogle = async (
   const errors: SyncError[] = []
   let skippedProducts = 0
   let skippedByRule = 0
-  const productsToUpsert: Product[] = []
+  const productsToUpsert: SyncProduct[] = []
   const touchedFileIds = new Set<string>()
 
   if (placeholderFileId) {
@@ -434,7 +449,7 @@ export const syncCatalogFromGoogle = async (
     processedProducts: 0,
   })
 
-  const dedupedProducts = dedupeProductsBySkuLastWins(productsToUpsert)
+  const dedupedProducts = dedupeProductsBySkuLastWins(productsToUpsert) as SyncProduct[]
   const activeSkus = collectActiveSkus(dedupedProducts)
 
   const { synced, errors: dbErrors } = await upsertProductsBatched(dedupedProducts, report)

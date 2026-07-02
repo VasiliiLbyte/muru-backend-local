@@ -6,7 +6,7 @@ import {
   notifyAdminsPaymentReceived,
   notifyClientPaymentReceived,
 } from '../order-notifications.service'
-import type { DeliveryMode } from '../../types/order'
+import type { DeliveryMode, OrderChannel } from '../../types/order'
 
 import { getYkPayment } from './client'
 import type { CheckoutSnapshot } from './payments.service'
@@ -35,6 +35,7 @@ const snapshotToOrderInput = (snap: CheckoutSnapshot, paymentChargeId: string) =
   consentAccepted: true,
   paymentId: paymentChargeId,
   paymentStatus: 'succeeded',
+  channel: snap.channel,
 })
 
 const cancelOrphanOrder = async (orderId: number, items: { sku: string; quantity: number }[]) => {
@@ -109,7 +110,16 @@ const completeOrderAfterPayment = async (
  * Processes successful YooKassa redirect payment. Idempotent: returns existing order id if already linked.
  */
 export const fulfillPaidPayment = async (yookassaPaymentId: string): Promise<number | null> => {
-  const ykPayment = await getYkPayment(yookassaPaymentId)
+  const chRes = await pool.query<{ channel: OrderChannel }>(
+    `SELECT channel FROM payments WHERE yookassa_payment_id=$1`,
+    [yookassaPaymentId],
+  )
+  const channel = chRes.rows[0]?.channel
+  if (!channel) {
+    log.warn?.('[yk-fulfill] unknown payment id', { id: yookassaPaymentId })
+    return null
+  }
+  const ykPayment = await getYkPayment(yookassaPaymentId, channel)
   if (ykPayment.status !== 'succeeded' || !ykPayment.paid) {
     log.warn?.('[yk-fulfill] payment not succeeded', {
       id: yookassaPaymentId,

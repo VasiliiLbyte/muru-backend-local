@@ -8,6 +8,7 @@ type ReceiptItemInput = { description: string; priceKop: number; quantity: numbe
  */
 export const buildReceipt = (params: {
   phone: string
+  email?: string | null
   productItems: ReceiptItemInput[]
   deliveryKop: number
   discountKop: number
@@ -64,7 +65,10 @@ export const buildReceipt = (params: {
   }
 
   return {
-    customer: { phone: normalizePhoneForReceipt(params.phone) },
+    customer: {
+      phone: normalizePhoneForReceipt(params.phone),
+      ...(params.email ? { email: params.email } : {}),
+    },
     items,
   }
 }

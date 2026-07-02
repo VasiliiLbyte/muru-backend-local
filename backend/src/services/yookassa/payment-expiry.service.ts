@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 
 import { pool } from '../../utils/db'
+import type { OrderChannel } from '../../types/order'
 
 import { ykFetch } from './client'
 
@@ -8,8 +9,8 @@ const log = console
 
 /** Cancels pending payments older than 24h (DB + YooKassa when possible). */
 export const cancelStalePayments = async (): Promise<void> => {
-  const stale = await pool.query<{ yookassa_payment_id: string | null; id: number }>(
-    `SELECT id, yookassa_payment_id FROM payments
+  const stale = await pool.query<{ yookassa_payment_id: string | null; id: number; channel: OrderChannel }>(
+    `SELECT id, yookassa_payment_id, channel FROM payments
      WHERE status IN ('pending','waiting_for_capture')
        AND created_at < NOW() - INTERVAL '24 hours'
      LIMIT 100`,
@@ -20,6 +21,7 @@ export const cancelStalePayments = async (): Promise<void> => {
         await ykFetch({
           method: 'POST',
           path: `/payments/${row.yookassa_payment_id}/cancel`,
+          channel: row.channel,
           idempotenceKey: randomUUID(),
         }).catch(() => undefined)
       }

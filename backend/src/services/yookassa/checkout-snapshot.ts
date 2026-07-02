@@ -20,9 +20,11 @@ export const buildSnapshotFromPricing = (
   birthDate: raw.birthDate,
   recipientName: raw.recipientName,
   recipientPhone: raw.recipientPhone,
+  email: raw.email,
   cdekTariffCode: raw.cdekTariffCode,
   cdekCityCode: raw.cdekCityCode,
   cdekCityName: raw.cdekCityName,
   cdekPvzCode: raw.cdekPvzCode,
   cdekPvzAddress: raw.cdekPvzAddress,
+  channel: raw.channel,
 })

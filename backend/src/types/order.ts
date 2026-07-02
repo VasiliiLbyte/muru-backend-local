@@ -1,3 +1,5 @@
+export type OrderChannel = 'telegram' | 'web'
+
 export type DeliveryMode = 'delivery' | 'pickup'
 
 export type OrderItemInput = {
@@ -10,7 +12,8 @@ export type OrderItemInput = {
 }
 
 export type CheckoutDraftInput = {
-  telegramUserId: number
+  telegramUserId: number | null
+  channel?: OrderChannel
   items: OrderItemInput[]
   deliveryMode: DeliveryMode
   deliveryOption?: string
@@ -37,7 +40,7 @@ export type CheckoutDraftInput = {
 
 export type OrderDraft = {
   id: number
-  telegramUserId: number
+  telegramUserId: number | null
   status: string
   deliveryMode: DeliveryMode
   deliveryOption: string | null

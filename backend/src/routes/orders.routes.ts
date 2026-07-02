@@ -1,7 +1,6 @@
 import { Router } from 'express'
 
 import {
-  createOrderHandler,
   getDraftOrderHandler,
   getMyOrdersHandler,
   saveDraftOrderHandler,
@@ -16,6 +15,5 @@ ordersRouter.get('/draft/:telegramUserId', getDraftOrderHandler)
 ordersRouter.get('/my', getMyOrdersHandler)
 ordersRouter.post('/draft/save', saveDraftOrderHandler)
 ordersRouter.post('/promo/validate', validatePromoHandler)
-ordersRouter.post('/create', createOrderHandler)
 
 export { ordersRouter }

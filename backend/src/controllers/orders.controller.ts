@@ -2,11 +2,8 @@ import type { NextFunction, Request, Response } from 'express'
 import { z } from 'zod'
 
 import type { AuthenticatedRequest } from '../middleware/auth.middleware'
-import { decreaseStockInSheets } from '../services/google-sheets-write.service'
-import { env } from '../utils/env'
-import { notifyAdminsByTelegram, notifyByEmail, notifyClientByTelegram } from '../services/order-notifications.service'
 import { validatePromoCode } from '../services/promo.service'
-import { createOrder, getDraftOrderByTelegramUserId, getOrdersByTelegramUserId, saveDraftOrder } from '../services/orders.service'
+import { getDraftOrderByTelegramUserId, getOrdersByTelegramUserId, saveDraftOrder } from '../services/orders.service'
 import { fail, HttpError, ok, zodErrorMessage } from '../utils/api-response'
 
 const itemSchema = z.object({
@@ -72,56 +69,6 @@ export const saveDraftOrderHandler = async (req: Request, res: Response, next: N
 
     const draft = await saveDraftOrder({ ...parsed.data, telegramUserId })
     return ok(res, draft)
-  } catch (error) {
-    next(error)
-  }
-}
-
-export const createOrderHandler = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const telegramUserId = (req as AuthenticatedRequest).auth?.telegramId
-    if (!telegramUserId) return fail(res, 401, 'Unauthorized', 'UNAUTHORIZED')
-
-    const parsed = draftPayloadSchema.safeParse(req.body)
-    if (!parsed.success) {
-      throw new HttpError(400, zodErrorMessage(parsed.error.issues), 'VALIDATION', parsed.error.issues)
-    }
-    if (parsed.data.items.length === 0) {
-      return fail(res, 400, 'Order items are required', 'VALIDATION')
-    }
-    if (parsed.data.deliveryMode === 'delivery' && !parsed.data.address?.trim()) {
-      return fail(res, 400, 'Address is required for delivery', 'VALIDATION')
-    }
-    if (parsed.data.consentAccepted !== true) {
-      return fail(res, 400, 'Consent to terms and privacy policy is required', 'VALIDATION')
-    }
-
-    const order = await createOrder({ ...parsed.data, telegramUserId })
-    const stockUpdates = order.items.map((item) => ({
-      sku: item.sku,
-      quantity: item.quantity,
-    }))
-
-    if (env.enableSheetsStockWrite) {
-      void decreaseStockInSheets(stockUpdates).catch((err) => {
-        console.error('[sheets-write:error]', err)
-      })
-    } else {
-      console.log(
-        '[sheets-write] skipped (CATALOG_SOURCE=xlsx or ENABLE_SHEETS_STOCK_WRITE=false); stock is DB-only until next catalog sync',
-      )
-    }
-
-    void notifyAdminsByTelegram(order).catch((notifyError) => {
-      console.error('[telegram-order-notify:error]', notifyError)
-    })
-    void notifyClientByTelegram(order).catch((err) => {
-      console.error('[telegram-client-notify:error]', err)
-    })
-    void notifyByEmail(order).catch((notifyError) => {
-      console.error('[email-order-notify:error]', notifyError)
-    })
-    return ok(res, order)
   } catch (error) {
     next(error)
   }

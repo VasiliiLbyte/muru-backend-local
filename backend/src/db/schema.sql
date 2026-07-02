@@ -43,6 +43,8 @@ ALTER TABLE products ADD COLUMN IF NOT EXISTS weight_source TEXT NOT NULL DEFAUL
 ALTER TABLE products ADD COLUMN IF NOT EXISTS color_tags TEXT[] NOT NULL DEFAULT '{}';
 ALTER TABLE products
   ADD COLUMN IF NOT EXISTS discount_percent NUMERIC(5,2) NOT NULL DEFAULT 0;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS subcategory TEXT;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS subcategory_slug TEXT;
 CREATE INDEX IF NOT EXISTS idx_products_color_tags ON products USING gin(color_tags);
 
 UPDATE products
@@ -223,3 +225,18 @@ CREATE TABLE IF NOT EXISTS payments (
 CREATE INDEX IF NOT EXISTS idx_payments_yk_id ON payments(yookassa_payment_id);
 CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status) WHERE status IN ('pending','waiting_for_capture');
 CREATE INDEX IF NOT EXISTS idx_payments_user ON payments(telegram_user_id);
+
+-- web identity (см. migrations/014_web_identity.sql)
+ALTER TABLE orders   ALTER COLUMN telegram_user_id DROP NOT NULL;
+ALTER TABLE payments ALTER COLUMN telegram_user_id DROP NOT NULL;
+ALTER TABLE orders   ADD COLUMN IF NOT EXISTS channel TEXT NOT NULL DEFAULT 'telegram';
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS channel TEXT NOT NULL DEFAULT 'telegram';
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'orders_channel_check') THEN
+    ALTER TABLE orders ADD CONSTRAINT orders_channel_check CHECK (channel IN ('telegram','web'));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'payments_channel_check') THEN
+    ALTER TABLE payments ADD CONSTRAINT payments_channel_check CHECK (channel IN ('telegram','web'));
+  END IF;
+END$$;

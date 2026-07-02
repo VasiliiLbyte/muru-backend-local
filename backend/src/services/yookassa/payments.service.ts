@@ -11,11 +11,13 @@ import {
   markPaymentCanceled,
 } from './order-from-payment.service'
 import { buildReceipt, receiptTotalKop } from './receipt'
+import type { OrderChannel } from '../../types/order'
 
 const log = console
 
 export type RawCheckoutInput = {
-  telegramUserId: number
+  telegramUserId: number | null
+  channel: OrderChannel
   items: Array<{ sku: string; quantity: number; color?: string; size?: string }>
   promoCode: string | null
   deliveryMode: 'delivery' | 'pickup'
@@ -26,6 +28,7 @@ export type RawCheckoutInput = {
   birthDate: string | null
   recipientName: string
   recipientPhone: string
+  email: string | null
   cdekTariffCode: number | null
   cdekCityCode: number | null
   cdekCityName: string | null
@@ -34,7 +37,8 @@ export type RawCheckoutInput = {
 }
 
 export type CheckoutSnapshot = {
-  telegramUserId: number
+  telegramUserId: number | null
+  channel: OrderChannel
   items: Array<{ sku: string; name: string; price: number; quantity: number; color?: string; size?: string }>
   subtotal: number
   deliveryPrice: number
@@ -49,6 +53,7 @@ export type CheckoutSnapshot = {
   birthDate: string | null
   recipientName: string
   recipientPhone: string
+  email: string | null
   cdekTariffCode: number | null
   cdekCityCode: number | null
   cdekCityName: string | null
@@ -69,8 +74,13 @@ export const createPayment = async (
   if (!env.yookassa.enabled) {
     throw new Error('YooKassa is not configured')
   }
-  if (!env.yookassa.returnUrl.trim()) {
-    throw new Error('YOOKASSA_RETURN_URL is not configured')
+  const returnUrl = raw.channel === 'web' ? env.yookassa.webReturnUrl : env.yookassa.returnUrl
+  if (!returnUrl.trim()) {
+    throw new Error(
+      raw.channel === 'web'
+        ? 'YOOKASSA_WEB_RETURN_URL is not configured'
+        : 'YOOKASSA_RETURN_URL is not configured',
+    )
   }
 
   const pricing = await computeTrustedPricing({
@@ -102,16 +112,17 @@ export const createPayment = async (
   const idempotenceKey = randomUUID()
 
   const intent = await pool.query<{ id: number }>(
-    `INSERT INTO payments (status, amount, telegram_user_id, checkout_snapshot, idempotence_key)
-     VALUES ('pending', $1, $2, $3::jsonb, $4)
+    `INSERT INTO payments (status, amount, telegram_user_id, checkout_snapshot, idempotence_key, channel)
+     VALUES ('pending', $1, $2, $3::jsonb, $4, $5)
      RETURNING id`,
-    [amountValue, snapshot.telegramUserId, JSON.stringify(snapshot), idempotenceKey],
+    [amountValue, snapshot.telegramUserId, JSON.stringify(snapshot), idempotenceKey, snapshot.channel],
   )
   const intentId = intent.rows[0].id
 
   try {
     const receipt = buildReceipt({
       phone: snapshot.recipientPhone,
+      email: snapshot.email,
       productItems,
       deliveryKop,
       discountKop,
@@ -120,11 +131,14 @@ export const createPayment = async (
     const body = {
       amount: { value: amountValue, currency: 'RUB' },
       capture: true,
-      confirmation: { type: 'redirect', return_url: env.yookassa.returnUrl },
+      confirmation: { type: 'redirect', return_url: returnUrl },
       description: `Заказ MURU (платёж ${intentId})`,
       metadata: {
         payment_intent_id: String(intentId),
-        telegram_user_id: String(snapshot.telegramUserId),
+        channel: snapshot.channel,
+        ...(snapshot.telegramUserId != null
+          ? { telegram_user_id: String(snapshot.telegramUserId) }
+          : {}),
       },
       receipt,
     }
@@ -132,6 +146,7 @@ export const createPayment = async (
     const payment = await ykFetch<YkPayment>({
       method: 'POST',
       path: '/payments',
+      channel: snapshot.channel,
       body,
       idempotenceKey,
     })
@@ -164,8 +179,9 @@ export const getPaymentStatusForUser = async (
     status: string
     order_id: number | null
     telegram_user_id: string
+    channel: OrderChannel
   }>(
-    `SELECT status, order_id, telegram_user_id FROM payments WHERE yookassa_payment_id=$1`,
+    `SELECT status, order_id, telegram_user_id, channel FROM payments WHERE yookassa_payment_id=$1`,
     [yookassaPaymentId],
   )
   const row = r.rows[0]
@@ -178,7 +194,7 @@ export const getPaymentStatusForUser = async (
 
   const isPending = row.status === 'pending' || row.status === 'waiting_for_capture'
   if (isPending && yookassaPaymentId) {
-    const yk = await getYkPayment(yookassaPaymentId).catch(() => null)
+    const yk = await getYkPayment(yookassaPaymentId, row.channel).catch(() => null)
     if (yk?.status === 'succeeded' && yk.paid) {
       const orderId = await fulfillPaidPayment(yookassaPaymentId).catch((e) => {
         console.error('[yk-status] self-heal fulfill failed', e)
@@ -186,6 +202,45 @@ export const getPaymentStatusForUser = async (
       })
       if (orderId) {
         log.log?.('[yk-status] self-heal succeeded', { paymentId: yookassaPaymentId, orderId })
+      }
+      return { status: 'succeeded', orderId: orderId ?? row.order_id }
+    }
+    if (yk?.status === 'canceled') {
+      await markPaymentCanceled(yookassaPaymentId).catch(() => undefined)
+      return { status: 'canceled', orderId: null }
+    }
+  }
+
+  return { status: row.status, orderId: row.order_id }
+}
+
+export const getWebPaymentStatus = async (
+  yookassaPaymentId: string,
+): Promise<{ status: string; orderId: number | null } | null> => {
+  const r = await pool.query<{
+    status: string
+    order_id: number | null
+  }>(
+    `SELECT status, order_id FROM payments WHERE yookassa_payment_id=$1 AND channel='web'`,
+    [yookassaPaymentId],
+  )
+  const row = r.rows[0]
+  if (!row) return null
+
+  if (row.status === 'succeeded' || row.order_id) {
+    return { status: row.status, orderId: row.order_id }
+  }
+
+  const isPending = row.status === 'pending' || row.status === 'waiting_for_capture'
+  if (isPending) {
+    const yk = await getYkPayment(yookassaPaymentId, 'web').catch(() => null)
+    if (yk?.status === 'succeeded' && yk.paid) {
+      const orderId = await fulfillPaidPayment(yookassaPaymentId).catch((e) => {
+        console.error('[yk-web-status] self-heal fulfill failed', e)
+        return null
+      })
+      if (orderId) {
+        log.log?.('[yk-web-status] self-heal succeeded', { paymentId: yookassaPaymentId, orderId })
       }
       return { status: 'succeeded', orderId: orderId ?? row.order_id }
     }

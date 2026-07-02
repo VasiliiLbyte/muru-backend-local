@@ -104,6 +104,11 @@ export const resolvePrimaryCatalogSection = (source: Record<string, string>) =>
   source['категории'] ??
   ''
 
+export const resolveCatalogSubsection = (source: Record<string, string>) =>
+  source['главный раздел каталога 2-й уровень'] ??
+  source['раздел каталога 2-й уровень'] ??
+  ''
+
 /**
  * Resolves site SKU from a row record (handles shifted columns in client xlsx).
  */
