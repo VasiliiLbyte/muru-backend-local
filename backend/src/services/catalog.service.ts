@@ -1,7 +1,16 @@
 import { TOP_LEVEL_CATEGORIES } from '../constants/catalog-top-level'
 import { buildProductTextSearchCondition } from './catalog-product-search'
 import { pool } from '../utils/db'
-import type { CatalogNode, CatalogProductDetail, CatalogProductListItem, Variant } from '../types/catalog'
+import type {
+  CatalogNode,
+  CatalogProductDetail,
+  CatalogProductListItem,
+  Variant,
+  WebCrossPlacementRef,
+  WebSubcategoryRef,
+} from '../types/catalog'
+
+const isWebChannel = (channel?: string) => channel === 'web'
 
 const parseCategoryPath = (value: string) =>
   value
@@ -28,6 +37,12 @@ type ProductRow = {
   category_name: string | null
   subcategory: string | null
   subcategory_slug: string | null
+  web_subcategory_name: string | null
+  web_subcategory_slug: string | null
+  cross_category_name: string | null
+  cross_category_slug: string | null
+  cross_subcategory_name: string | null
+  cross_subcategory_slug: string | null
   product_color: string | null
   dimensions_label: string | null
   color_tags: string[] | null
@@ -159,7 +174,42 @@ export const getCatalogTree = async (withSubcategories = false): Promise<Catalog
   return filtered
 }
 
+const mapWebPrimarySubcategory = (
+  name: string | null | undefined,
+  slug: string | null | undefined,
+): WebSubcategoryRef | undefined => {
+  const trimmedName = name?.trim()
+  const trimmedSlug = slug?.trim()
+  if (!trimmedName || !trimmedSlug) return undefined
+  return { name: trimmedName, slug: trimmedSlug }
+}
+
+const mapWebCrossPlacement = (row: ProductRow): WebCrossPlacementRef | undefined => {
+  const category = row.cross_category_name?.trim()
+  const categorySlug = row.cross_category_slug?.trim()
+  if (!category || !categorySlug) return undefined
+  const placement: WebCrossPlacementRef = { category, categorySlug }
+  const subName = row.cross_subcategory_name?.trim()
+  const subSlug = row.cross_subcategory_slug?.trim()
+  if (subName) placement.subcategoryName = subName
+  if (subSlug) placement.subcategorySlug = subSlug
+  return placement
+}
+
+const attachWebFields = (
+  item: CatalogProductListItem,
+  row: ProductRow,
+  web: boolean,
+): void => {
+  if (!web) return
+  const primary = mapWebPrimarySubcategory(row.web_subcategory_name, row.web_subcategory_slug)
+  if (primary) item.webPrimarySubcategory = primary
+  const cross = mapWebCrossPlacement(row)
+  if (cross) item.webCrossPlacement = cross
+}
+
 export const getCatalogProducts = async (params: {
+  channel?: string
   category?: string
   categorySlug?: string
   subcategory?: string
@@ -169,24 +219,65 @@ export const getCatalogProducts = async (params: {
   size?: string
   priceMax?: number
 }) => {
-  const { category, categorySlug, subcategory, subcategorySlug, q, color, size, priceMax } = params
+  const {
+    channel,
+    category,
+    categorySlug,
+    subcategory,
+    subcategorySlug,
+    q,
+    color,
+    size,
+    priceMax,
+  } = params
+  const web = isWebChannel(channel)
   const conditions: string[] = []
   const values: Array<string | number> = []
 
-  if (categorySlug) {
-    values.push(categorySlug)
-    conditions.push(`c.slug = $${values.length}`)
-  } else if (category) {
-    values.push(`%${category}%`)
-    conditions.push(`c.name ILIKE $${values.length}`)
-  }
-
-  if (subcategorySlug) {
-    values.push(subcategorySlug)
-    conditions.push(`p.subcategory_slug = $${values.length}`)
-  } else if (subcategory) {
-    values.push(`%${subcategory}%`)
-    conditions.push(`p.subcategory ILIKE $${values.length}`)
+  if (web) {
+    if (categorySlug) {
+      values.push(categorySlug)
+      const catIdx = values.length
+      if (subcategorySlug) {
+        values.push(subcategorySlug)
+        const subIdx = values.length
+        conditions.push(
+          `((c.slug = $${catIdx} AND p.web_subcategory_slug = $${subIdx}) OR (c_cross.slug = $${catIdx} AND pwcp.subcategory_slug = $${subIdx}))`,
+        )
+      } else {
+        conditions.push(`(c.slug = $${catIdx} OR c_cross.slug = $${catIdx})`)
+      }
+    } else if (category) {
+      values.push(`%${category}%`)
+      const catIdx = values.length
+      if (subcategory) {
+        values.push(`%${subcategory}%`)
+        const subIdx = values.length
+        conditions.push(
+          `((c.name ILIKE $${catIdx} AND p.web_subcategory_name ILIKE $${subIdx}) OR (c_cross.name ILIKE $${catIdx} AND pwcp.subcategory_name ILIKE $${subIdx}))`,
+        )
+      } else {
+        conditions.push(`(c.name ILIKE $${catIdx} OR c_cross.name ILIKE $${catIdx})`)
+      }
+    } else if (subcategorySlug) {
+      values.push(subcategorySlug)
+      conditions.push(
+        `(p.web_subcategory_slug = $${values.length} OR pwcp.subcategory_slug = $${values.length})`,
+      )
+    } else if (subcategory) {
+      values.push(`%${subcategory}%`)
+      conditions.push(
+        `(p.web_subcategory_name ILIKE $${values.length} OR pwcp.subcategory_name ILIKE $${values.length})`,
+      )
+    }
+  } else {
+    if (categorySlug) {
+      values.push(categorySlug)
+      conditions.push(`c.slug = $${values.length}`)
+    } else if (category) {
+      values.push(`%${category}%`)
+      conditions.push(`c.name ILIKE $${values.length}`)
+    }
   }
 
   if (q) {
@@ -212,6 +303,21 @@ export const getCatalogProducts = async (params: {
   }
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
+  const webSelect = web
+    ? `,
+       p.web_subcategory_name,
+       p.web_subcategory_slug,
+       c_cross.name AS cross_category_name,
+       c_cross.slug AS cross_category_slug,
+       pwcp.subcategory_name AS cross_subcategory_name,
+       pwcp.subcategory_slug AS cross_subcategory_slug`
+    : ''
+  const webJoins = web
+    ? `
+     LEFT JOIN product_web_cross_placements pwcp ON pwcp.product_id = p.id
+     LEFT JOIN categories c_cross ON c_cross.id = pwcp.category_id`
+    : ''
+
   const result = await pool.query<ProductRow>(
     `SELECT
        p.sku,
@@ -230,9 +336,9 @@ export const getCatalogProducts = async (params: {
        p.color_tags,
        p.weight_grams,
        v.color AS variant_color,
-       v.size AS variant_size
+       v.size AS variant_size${webSelect}
      FROM products p
-     LEFT JOIN categories c ON c.id = p.category_id
+     LEFT JOIN categories c ON c.id = p.category_id${webJoins}
      LEFT JOIN variants v ON v.product_id = p.id
      ${whereClause}
      ORDER BY p.updated_at DESC`,
@@ -268,6 +374,7 @@ export const getCatalogProducts = async (params: {
       } else if (row.product_color) {
         item.colors = [row.product_color]
       }
+      attachWebFields(item, row, web)
       grouped.set(row.sku, item)
     }
 
@@ -287,7 +394,26 @@ export const getCatalogProducts = async (params: {
   return Array.from(grouped.values())
 }
 
-export const getCatalogProductBySku = async (sku: string): Promise<CatalogProductDetail | null> => {
+export const getCatalogProductBySku = async (
+  sku: string,
+  channel?: string,
+): Promise<CatalogProductDetail | null> => {
+  const web = isWebChannel(channel)
+  const webSelect = web
+    ? `,
+       p.web_subcategory_name,
+       p.web_subcategory_slug,
+       c_cross.name AS cross_category_name,
+       c_cross.slug AS cross_category_slug,
+       pwcp.subcategory_name AS cross_subcategory_name,
+       pwcp.subcategory_slug AS cross_subcategory_slug`
+    : ''
+  const webJoins = web
+    ? `
+     LEFT JOIN product_web_cross_placements pwcp ON pwcp.product_id = p.id
+     LEFT JOIN categories c_cross ON c_cross.id = pwcp.category_id`
+    : ''
+
   const result = await pool.query<ProductDetailRow>(
     `SELECT
        p.sku,
@@ -308,9 +434,9 @@ export const getCatalogProductBySku = async (sku: string): Promise<CatalogProduc
        p.color_tags,
        p.weight_grams,
        v.color AS variant_color,
-       v.size AS variant_size
+       v.size AS variant_size${webSelect}
      FROM products p
-     LEFT JOIN categories c ON c.id = p.category_id
+     LEFT JOIN categories c ON c.id = p.category_id${webJoins}
      LEFT JOIN variants v ON v.product_id = p.id
      WHERE p.sku = $1`,
     [sku],
@@ -366,6 +492,7 @@ export const getCatalogProductBySku = async (sku: string): Promise<CatalogProduc
   if (first.dimensions_label?.trim()) detail.dimensionsLabel = first.dimensions_label.trim()
   if (first.color_tags?.length) detail.colorTags = first.color_tags
   detail.weightGrams = first.weight_grams
+  attachWebFields(detail, first, web)
 
   return detail
 }

@@ -96,12 +96,73 @@ export const resolveSheetDiscountPercent = (source: Record<string, string>): num
   return parsed
 }
 
+export const TOP_LEVEL_CATALOG_HEADER = 'раздел каталога 1-й уровень'
+
+export const WEB_PRIMARY_TOP_KEY = '__webPrimaryTop'
+export const WEB_PRIMARY_SUB_KEY = '__webPrimarySub'
+export const WEB_CROSS_TOP_KEY = '__webCrossTop'
+export const WEB_CROSS_SUB_KEY = '__webCrossSub'
+
+export type WebCatalogCells = {
+  primaryTop: string
+  primarySub: string
+  crossTop: string
+  crossSub: string
+}
+
+export const resolveWebCatalogColumnIndices = (
+  header: string[],
+): { primaryTop: number; primarySub: number; crossTop: number | null; crossSub: number | null } | null => {
+  const topLevelKey = normalizeHeaderKey(TOP_LEVEL_CATALOG_HEADER)
+  const topIndices: number[] = []
+  header.forEach((cell, index) => {
+    if (normalizeHeaderKey(cell) === topLevelKey) topIndices.push(index)
+  })
+  if (topIndices.length === 0) return null
+
+  const primaryTop = topIndices[0]
+  const primarySub = primaryTop + 1
+  const crossTop = topIndices.length > 1 ? topIndices[1] : null
+  const crossSub = crossTop != null ? crossTop + 1 : null
+  return { primaryTop, primarySub, crossTop, crossSub }
+}
+
+const cellAt = (row: string[], index: number | null | undefined): string => {
+  if (index == null || index < 0 || index >= row.length) return ''
+  return String(row[index] ?? '').trim()
+}
+
+export const readWebCatalogCells = (header: string[], row: string[]): WebCatalogCells => {
+  const indices = resolveWebCatalogColumnIndices(header)
+  if (!indices) {
+    return { primaryTop: '', primarySub: '', crossTop: '', crossSub: '' }
+  }
+  return {
+    primaryTop: cellAt(row, indices.primaryTop),
+    primarySub: cellAt(row, indices.primarySub),
+    crossTop: cellAt(row, indices.crossTop),
+    crossSub: cellAt(row, indices.crossSub),
+  }
+}
+
+export const attachWebCatalogCells = (
+  record: Record<string, string>,
+  cells: WebCatalogCells,
+): Record<string, string> => ({
+  ...record,
+  [WEB_PRIMARY_TOP_KEY]: cells.primaryTop,
+  [WEB_PRIMARY_SUB_KEY]: cells.primarySub,
+  [WEB_CROSS_TOP_KEY]: cells.crossTop,
+  [WEB_CROSS_SUB_KEY]: cells.crossSub,
+})
+
 export const resolvePrimaryCatalogSection = (source: Record<string, string>) =>
-  source['раздел каталога 1-й уровень'] ??
-  source.section ??
-  source['раздел'] ??
-  source.categories ??
-  source['категории'] ??
+  source[WEB_PRIMARY_TOP_KEY]?.trim() ||
+  source['раздел каталога 1-й уровень'] ||
+  source.section ||
+  source['раздел'] ||
+  source.categories ||
+  source['категории'] ||
   ''
 
 export const resolveCatalogSubsection = (source: Record<string, string>) =>

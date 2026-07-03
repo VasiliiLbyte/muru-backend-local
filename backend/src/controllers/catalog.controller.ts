@@ -25,6 +25,7 @@ export const getCatalogTreeHandler = async (req: Request, res: Response, next: N
 export const getCatalogProductsHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const filters = {
+      channel: req.query.channel ? String(req.query.channel) : undefined,
       category: req.query.category ? String(req.query.category) : undefined,
       categorySlug: req.query.categorySlug ? String(req.query.categorySlug) : undefined,
       subcategory: req.query.subcategory ? String(req.query.subcategory) : undefined,
@@ -67,7 +68,8 @@ export const getCatalogProductBySkuHandler = async (req: Request, res: Response,
       return fail(res, 400, 'SKU is required', 'VALIDATION')
     }
 
-    const product = await getCatalogProductBySku(sku)
+    const channel = req.query.channel ? String(req.query.channel) : undefined
+    const product = await getCatalogProductBySku(sku, channel)
     if (!product) {
       return fail(res, 404, 'Product not found', 'NOT_FOUND')
     }

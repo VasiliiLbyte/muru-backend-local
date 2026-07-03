@@ -4,10 +4,12 @@ import {
   columnIndexToA1,
   findHeaderRowIndex,
   normalizeHeaderKey,
+  readWebCatalogCells,
   resolveCatalogSubsection,
   resolveSheetDiscountPercent,
   resolveSheetPrice,
   resolveSkuFromRow,
+  resolveWebCatalogColumnIndices,
   rowToRecord,
 } from './google-sheet-headers'
 
@@ -28,6 +30,60 @@ describe('rowToRecord', () => {
     const row = ['MU0001', 'Вазы и аксессуары', 'Подсвечники', 'Кухня и столовая']
     const record = rowToRecord(header, row)
     expect(record['раздел каталога 1-й уровень']).toBe('Вазы и аксессуары')
+  })
+})
+
+describe('resolveWebCatalogColumnIndices', () => {
+  const duplicateHeader = [
+    'артикул товара для сайта',
+    'раздел каталога 1-й уровень',
+    'главный раздел каталога 2-й уровень',
+    'раздел каталога 1-й уровень',
+    'раздел каталога 2-й уровень',
+  ]
+
+  it('maps E/F/G/H by duplicate top-level header indices', () => {
+    expect(resolveWebCatalogColumnIndices(duplicateHeader)).toEqual({
+      primaryTop: 1,
+      primarySub: 2,
+      crossTop: 3,
+      crossSub: 4,
+    })
+  })
+
+  it('returns null when top-level header is missing', () => {
+    expect(resolveWebCatalogColumnIndices(['артикул'])).toBeNull()
+  })
+})
+
+describe('readWebCatalogCells', () => {
+  const header = [
+    'артикул товара для сайта',
+    'раздел каталога 1-й уровень',
+    'главный раздел каталога 2-й уровень',
+    'раздел каталога 1-й уровень',
+    'раздел каталога 2-й уровень',
+  ]
+
+  it('reads E/F/G/H cells by column index', () => {
+    const row = ['MU0001', 'Флористика', 'Подсвечники', 'Кухня и столовая', 'Сервировка']
+    expect(readWebCatalogCells(header, row)).toEqual({
+      primaryTop: 'Флористика',
+      primarySub: 'Подсвечники',
+      crossTop: 'Кухня и столовая',
+      crossSub: 'Сервировка',
+    })
+  })
+
+  it('returns empty cross cells when second top-level header is absent', () => {
+    const singleTopHeader = header.slice(0, 3)
+    const row = ['MU0001', 'Флористика', 'Подсвечники']
+    expect(readWebCatalogCells(singleTopHeader, row)).toEqual({
+      primaryTop: 'Флористика',
+      primarySub: 'Подсвечники',
+      crossTop: '',
+      crossSub: '',
+    })
   })
 })
 

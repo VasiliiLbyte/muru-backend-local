@@ -96,6 +96,15 @@ export type CategoryCoverSyncResult = {
   warnings?: string[]
 }
 
+export type WebSubcategoryRef = { name: string; slug: string }
+
+export type WebCrossPlacementRef = {
+  category: string
+  categorySlug: string
+  subcategoryName?: string
+  subcategorySlug?: string
+}
+
 export type CatalogProductListItem = {
   sku: string
   name: string
@@ -108,6 +117,8 @@ export type CatalogProductListItem = {
   category: string
   subcategory: string
   subcategorySlug?: string
+  webPrimarySubcategory?: WebSubcategoryRef
+  webCrossPlacement?: WebCrossPlacementRef
   color?: string
   dimensionsLabel?: string
   colorTags?: string[]

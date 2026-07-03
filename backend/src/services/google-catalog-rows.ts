@@ -1,7 +1,9 @@
 import {
+  attachWebCatalogCells,
   findHeaderRowIndex,
   isSkuHeader,
   normalizeHeaderKey,
+  readWebCatalogCells,
   rowToRecord,
 } from './google-sheet-headers'
 
@@ -29,9 +31,13 @@ export const matrixToCatalogRows = (
   const header = rows[headerRowIndex].map((cell) => normalizeHeaderKey(cell))
   if (!header.some((key) => isSkuHeader(key))) return null
 
-  const dataRows = rows
-    .slice(headerRowIndex + 1)
-    .map((row) => rowToRecord(header, row))
+  const rawHeader = rows[headerRowIndex].map((cell) => String(cell ?? ''))
+  const dataRows = rows.slice(headerRowIndex + 1).map((row) => {
+    const stringRow = row.map((cell) => String(cell ?? ''))
+    const record = rowToRecord(header, stringRow)
+    const webCells = readWebCatalogCells(rawHeader, stringRow)
+    return attachWebCatalogCells(record, webCells)
+  })
 
   return { title: sheetTitle, rows: dataRows }
 }

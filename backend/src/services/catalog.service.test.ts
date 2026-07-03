@@ -22,8 +22,14 @@ const baseProductRow = {
   image_url_2: 'https://example.com/1.webp',
   image_urls: ['https://example.com/1.webp'],
   category_name: 'Кухня и столовая',
-  subcategory: 'Посуда',
-  subcategory_slug: 'посуда',
+  subcategory: null,
+  subcategory_slug: null,
+  web_subcategory_name: null,
+  web_subcategory_slug: null,
+  cross_category_name: null,
+  cross_category_slug: null,
+  cross_subcategory_name: null,
+  cross_subcategory_slug: null,
   product_color: null,
   dimensions_label: null,
   color_tags: null,
@@ -37,8 +43,10 @@ describe('getCatalogProducts', () => {
     queryMock.mockReset()
   })
 
-  it('maps real subcategory and subcategorySlug from DB columns', async () => {
-    queryMock.mockResolvedValueOnce({ rows: [baseProductRow] })
+  it('maps legacy subcategory fields from DB columns when present', async () => {
+    queryMock.mockResolvedValueOnce({
+      rows: [{ ...baseProductRow, subcategory: 'Посуда', subcategory_slug: 'посуда' }],
+    })
 
     const products = await getCatalogProducts({})
 
@@ -46,12 +54,11 @@ describe('getCatalogProducts', () => {
     expect(products[0].category).toBe('Кухня и столовая')
     expect(products[0].subcategory).toBe('Посуда')
     expect(products[0].subcategorySlug).toBe('посуда')
-    expect(products[0].subcategory).not.toBe('Общее')
   })
 
   it('uses empty subcategory when DB value is null', async () => {
     queryMock.mockResolvedValueOnce({
-      rows: [{ ...baseProductRow, subcategory: null, subcategory_slug: null }],
+      rows: [{ ...baseProductRow }],
     })
 
     const products = await getCatalogProducts({})
@@ -60,7 +67,7 @@ describe('getCatalogProducts', () => {
     expect(products[0].subcategorySlug).toBeUndefined()
   })
 
-  it('applies independent level-1 and level-2 slug filters', async () => {
+  it('filters only by primary category slug without channel', async () => {
     queryMock.mockResolvedValueOnce({ rows: [] })
 
     await getCatalogProducts({
@@ -72,11 +79,29 @@ describe('getCatalogProducts', () => {
     const values = queryMock.mock.calls[0][1] as unknown[]
 
     expect(sql).toContain('c.slug = $1')
-    expect(sql).toContain('p.subcategory_slug = $2')
-    expect(values).toEqual(['кухня-и-столовая', 'посуда'])
+    expect(sql).not.toContain('pwcp')
+    expect(sql).not.toContain('web_subcategory_slug')
+    expect(values).toEqual(['кухня-и-столовая'])
   })
 
-  it('applies ILIKE fallbacks for category and subcategory names', async () => {
+  it('ignores subcategory filters for telegram channel', async () => {
+    queryMock.mockResolvedValueOnce({ rows: [] })
+
+    await getCatalogProducts({
+      channel: 'telegram',
+      categorySlug: 'кухня-и-столовая',
+      subcategorySlug: 'посуда',
+    })
+
+    const sql = String(queryMock.mock.calls[0][0])
+    const values = queryMock.mock.calls[0][1] as unknown[]
+
+    expect(sql).toContain('c.slug = $1')
+    expect(sql).not.toMatch(/WHERE[\s\S]*p\.subcategory_slug/)
+    expect(values).toEqual(['кухня-и-столовая'])
+  })
+
+  it('applies ILIKE fallback for category name without subcategory filter', async () => {
     queryMock.mockResolvedValueOnce({ rows: [] })
 
     await getCatalogProducts({
@@ -88,8 +113,72 @@ describe('getCatalogProducts', () => {
     const values = queryMock.mock.calls[0][1] as unknown[]
 
     expect(sql).toContain('c.name ILIKE $1')
-    expect(sql).toContain('p.subcategory ILIKE $2')
-    expect(values).toEqual(['%Кухня%', '%Посуда%'])
+    expect(sql).not.toContain('p.subcategory ILIKE')
+    expect(values).toEqual(['%Кухня%'])
+  })
+
+  it('joins cross placements and filters primary or cross for web channel', async () => {
+    queryMock.mockResolvedValueOnce({ rows: [] })
+
+    await getCatalogProducts({
+      channel: 'web',
+      categorySlug: 'кухня-и-столовая',
+      subcategorySlug: 'сервировка',
+    })
+
+    const sql = String(queryMock.mock.calls[0][0])
+    const values = queryMock.mock.calls[0][1] as unknown[]
+
+    expect(sql).toContain('product_web_cross_placements pwcp')
+    expect(sql).toContain('c_cross.slug')
+    expect(sql).toContain('p.web_subcategory_slug')
+    expect(values).toEqual(['кухня-и-столовая', 'сервировка'])
+  })
+
+  it('maps web-only DTO fields when channel=web', async () => {
+    queryMock.mockResolvedValueOnce({
+      rows: [
+        {
+          ...baseProductRow,
+          web_subcategory_name: 'Подсвечники',
+          web_subcategory_slug: 'подсвечники',
+          cross_category_name: 'Кухня и столовая',
+          cross_category_slug: 'кухня-и-столовая',
+          cross_subcategory_name: 'Сервировка',
+          cross_subcategory_slug: 'сервировка',
+        },
+      ],
+    })
+
+    const products = await getCatalogProducts({ channel: 'web' })
+
+    expect(products[0].webPrimarySubcategory).toEqual({
+      name: 'Подсвечники',
+      slug: 'подсвечники',
+    })
+    expect(products[0].webCrossPlacement).toEqual({
+      category: 'Кухня и столовая',
+      categorySlug: 'кухня-и-столовая',
+      subcategoryName: 'Сервировка',
+      subcategorySlug: 'сервировка',
+    })
+  })
+
+  it('omits web-only DTO fields without channel', async () => {
+    queryMock.mockResolvedValueOnce({
+      rows: [
+        {
+          ...baseProductRow,
+          web_subcategory_name: 'Подсвечники',
+          web_subcategory_slug: 'подсвечники',
+        },
+      ],
+    })
+
+    const products = await getCatalogProducts({})
+
+    expect(products[0].webPrimarySubcategory).toBeUndefined()
+    expect(products[0].webCrossPlacement).toBeUndefined()
   })
 })
 
@@ -100,7 +189,15 @@ describe('getCatalogProductBySku', () => {
 
   it('maps real subcategory fields in detail DTO', async () => {
     queryMock.mockResolvedValueOnce({
-      rows: [{ ...baseProductRow, description: 'Описание', specs: { Материал: 'Керамика' } }],
+      rows: [
+        {
+          ...baseProductRow,
+          subcategory: 'Посуда',
+          subcategory_slug: 'посуда',
+          description: 'Описание',
+          specs: { Материал: 'Керамика' },
+        },
+      ],
     })
 
     const detail = await getCatalogProductBySku('MU0001')
@@ -116,8 +213,6 @@ describe('getCatalogProductBySku', () => {
       rows: [
         {
           ...baseProductRow,
-          subcategory: null,
-          subcategory_slug: null,
           description: '',
           specs: {},
         },
@@ -128,6 +223,33 @@ describe('getCatalogProductBySku', () => {
 
     expect(detail!.subcategory).toBe('')
     expect(detail!.subcategorySlug).toBeUndefined()
+  })
+
+  it('includes web fields when channel=web', async () => {
+    queryMock.mockResolvedValueOnce({
+      rows: [
+        {
+          ...baseProductRow,
+          description: 'Описание',
+          specs: {},
+          web_subcategory_name: 'Подсвечники',
+          web_subcategory_slug: 'подсвечники',
+          cross_category_name: 'Кухня и столовая',
+          cross_category_slug: 'кухня-и-столовая',
+          cross_subcategory_name: 'Сервировка',
+          cross_subcategory_slug: 'сервировка',
+        },
+      ],
+    })
+
+    const detail = await getCatalogProductBySku('MU0001', 'web')
+
+    expect(String(queryMock.mock.calls[0][0])).toContain('product_web_cross_placements pwcp')
+    expect(detail!.webPrimarySubcategory).toEqual({
+      name: 'Подсвечники',
+      slug: 'подсвечники',
+    })
+    expect(detail!.webCrossPlacement?.categorySlug).toBe('кухня-и-столовая')
   })
 })
 
