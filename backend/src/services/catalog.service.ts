@@ -35,8 +35,6 @@ type ProductRow = {
   image_url_2: string
   image_urls: string[] | null
   category_name: string | null
-  subcategory: string | null
-  subcategory_slug: string | null
   web_subcategory_name: string | null
   web_subcategory_slug: string | null
   cross_category_name: string | null
@@ -122,11 +120,14 @@ const mergeCoverUrlsIntoTree = (nodes: CatalogNode[], coversBySlug: Map<string, 
 const attachProductSubcategories = async (nodes: CatalogNode[]): Promise<void> => {
   const result = await pool.query<SubcategoryAggRow>(
     `SELECT c.name AS category, c.slug AS category_slug,
-            p.subcategory, p.subcategory_slug, count(*)::int AS cnt
+            p.web_subcategory_name AS subcategory,
+            p.web_subcategory_slug AS subcategory_slug,
+            count(*)::int AS cnt
      FROM products p
      JOIN categories c ON c.id = p.category_id
-     WHERE p.subcategory IS NOT NULL AND trim(p.subcategory) <> ''
-     GROUP BY c.name, c.slug, p.subcategory, p.subcategory_slug`,
+     WHERE p.web_subcategory_name IS NOT NULL AND trim(p.web_subcategory_name) <> ''
+       AND p.web_subcategory_slug IS NOT NULL AND trim(p.web_subcategory_slug) <> ''
+     GROUP BY c.name, c.slug, p.web_subcategory_name, p.web_subcategory_slug`,
   )
 
   const byCategorySlug = new Map<string, SubcategoryAggRow[]>()
@@ -329,8 +330,6 @@ export const getCatalogProducts = async (params: {
        p.image_url_2,
        p.image_urls,
        c.name AS category_name,
-       p.subcategory,
-       p.subcategory_slug,
        p.color AS product_color,
        p.dimensions_label,
        p.color_tags,
@@ -358,10 +357,12 @@ export const getCatalogProducts = async (params: {
         colors: [],
         sizes: [],
         category: row.category_name ?? 'Без категории',
-        subcategory: row.subcategory?.trim() ?? '',
+        subcategory: web ? (row.web_subcategory_name?.trim() ?? '') : '',
       }
-      const subSlug = mapSubcategorySlug(row.subcategory_slug)
-      if (subSlug) item.subcategorySlug = subSlug
+      if (web) {
+        const subSlug = mapSubcategorySlug(row.web_subcategory_slug)
+        if (subSlug) item.subcategorySlug = subSlug
+      }
       if (row.product_color) {
         item.color = row.product_color
       }
@@ -427,8 +428,6 @@ export const getCatalogProductBySku = async (
        p.description,
        p.specs,
        c.name AS category_name,
-       p.subcategory,
-       p.subcategory_slug,
        p.color AS product_color,
        p.dimensions_label,
        p.color_tags,
@@ -480,14 +479,16 @@ export const getCatalogProductBySku = async (
     colors: dotColors,
     sizes: Array.from(sizes),
     category: first.category_name ?? 'Без категории',
-    subcategory: first.subcategory?.trim() ?? '',
+    subcategory: web ? (first.web_subcategory_name?.trim() ?? '') : '',
     description: first.description ?? '',
     specs: first.specs ?? {},
     variants,
   }
 
-  const subSlug = mapSubcategorySlug(first.subcategory_slug)
-  if (subSlug) detail.subcategorySlug = subSlug
+  if (web) {
+    const subSlug = mapSubcategorySlug(first.web_subcategory_slug)
+    if (subSlug) detail.subcategorySlug = subSlug
+  }
   if (first.product_color) detail.color = first.product_color
   if (first.dimensions_label?.trim()) detail.dimensionsLabel = first.dimensions_label.trim()
   if (first.color_tags?.length) detail.colorTags = first.color_tags
