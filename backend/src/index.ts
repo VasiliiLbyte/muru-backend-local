@@ -29,6 +29,7 @@ const isProd = env.nodeEnv === 'production'
 // через переменную окружения ALLOWED_ORIGINS (точные origin'ы через запятую).
 const PRODUCTION_ORIGINS = [
   'https://murushop.ru',
+  'https://web.murushop.ru',
   'https://www.murushop.ru',
   'https://murushop.online',
   'https://www.murushop.online',

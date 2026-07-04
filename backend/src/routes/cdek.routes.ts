@@ -22,7 +22,7 @@ cdekRouter.get(
   rateLimitByIp('cdek:address-suggest', 60),
   getAddressSuggestionsHandler,
 )
-cdekRouter.get('/pickup-points', getPvzHandler)
+cdekRouter.get('/pickup-points', rateLimitByIp('cdek:pickup-points', 30), getPvzHandler)
 cdekRouter.post(
   '/web/calculate',
   rateLimitByIp('cdek:web:calculate', 20),
