@@ -10,13 +10,11 @@ import {
 } from 'react'
 
 import {
-  createOrder,
   fetchOrderDraft,
   saveOrderDraft,
   validateOrderPromo,
   type PaymentCheckoutPayload,
 } from '../lib/api'
-import { LEGAL_VERSION } from '../lib/legal'
 import type { CartItem, CheckoutForm, DraftOrder } from '../types/cart'
 import { hapticImpact } from '../lib/haptics'
 import type { CatalogProduct, CatalogProductDetail } from '../types/catalog'
@@ -53,7 +51,6 @@ type CartContextValue = {
   clearPromo: () => void
   updateCheckout: (patch: Partial<CheckoutForm>) => void
   persistDraft: (telegramUserId?: number) => Promise<void>
-  submitOrder: (telegramUserId?: number) => Promise<DraftOrder>
   buildPaymentSnapshot: (telegramUserId: number) => PaymentCheckoutPayload
   clearCartAfterPayment: () => void
 }
@@ -351,35 +348,6 @@ export const CartProvider = ({ children, telegramUserId }: CartProviderProps) =>
     clearPromo()
   }, [telegramUserId, clearPromo])
 
-  const submitOrder = useCallback(
-    async (userId?: number) => {
-      const id = userId ?? telegramUserId
-      if (!id) throw new Error('Не удалось определить Telegram user ID')
-      setIsLoading(true)
-      setError(null)
-      try {
-        const createdOrder = await createOrder({
-          ...buildDraftPayload(id),
-          promoCode: activatedPromo?.code,
-          consentAccepted: true,
-          consentVersion: LEGAL_VERSION,
-        })
-        setItems([])
-        setCheckout(defaultCheckout)
-        clearCartSnapshot(id)
-        clearPromo()
-        return createdOrder
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Не удалось создать заказ'
-        setError(message)
-        throw new Error(message, { cause: err })
-      } finally {
-        setIsLoading(false)
-      }
-    },
-    [telegramUserId, buildDraftPayload, activatedPromo, clearPromo],
-  )
-
   const value = useMemo<CartContextValue>(
     () => ({
       items,
@@ -404,7 +372,6 @@ export const CartProvider = ({ children, telegramUserId }: CartProviderProps) =>
       clearPromo,
       updateCheckout,
       persistDraft,
-      submitOrder,
       buildPaymentSnapshot,
       clearCartAfterPayment,
     }),
@@ -430,7 +397,6 @@ export const CartProvider = ({ children, telegramUserId }: CartProviderProps) =>
       clearPromo,
       updateCheckout,
       persistDraft,
-      submitOrder,
       buildPaymentSnapshot,
       clearCartAfterPayment,
     ],

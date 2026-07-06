@@ -65,6 +65,8 @@ psql "$DATABASE_URL" -f backend/src/db/migrations/010_payments.sql
 psql "$DATABASE_URL" -f backend/src/db/migrations/011_product_discount.sql
 psql "$DATABASE_URL" -f backend/src/db/migrations/012_default_dims_update.sql
 psql "$DATABASE_URL" -f backend/src/db/migrations/013_sync_schedule_settings.sql
+psql "$DATABASE_URL" -f backend/src/db/migrations/014_web_identity.sql
+psql "$DATABASE_URL" -f backend/src/db/migrations/015_web_catalog_placements.sql
 ```
 
 ### ЮKassa (оплата до заказа)
@@ -112,10 +114,13 @@ SELECT COUNT(*) FILTER (WHERE dim_length_cm = 22 AND dim_width_cm = 12 AND dim_h
 sequenceDiagram
   participant U as Mini-app
   participant API as backend
+  participant YK as YooKassa/TelegramPayments
   participant CDEK as api.edu.cdek.ru
 
-  U->>API: POST /api/orders/create
-  API->>API: orders insert (is_draft=false)
+  U->>API: POST /api/payments/invoice или /api/payments/create
+  API->>YK: create payment/invoice
+  YK-->>API: payment.succeeded / successful_payment
+  API->>API: createOrder(snapshot) (is_draft=false)
   API->>CDEK: POST /orders (test creds)
   CDEK-->>API: entity.uuid
   Note over API: schedulePullTrackNumber 1m, 5m, 30m
@@ -368,11 +373,12 @@ curl --max-time 600 -X POST http://127.0.0.1:4000/api/admin/sync \
 - Данные корзины и формы checkout сохраняются как серверный черновик через:
   - `GET /api/orders/draft/:telegramUserId`
   - `POST /api/orders/draft/save`
-- Подтверждение заказа выполняется через:
-  - `POST /api/orders/create`
-- Заказ сохраняется в PostgreSQL со статусом `Черновик`.
-- После создания:
-  - клиент получает номер заказа и сообщение `Заказ принят. Ожидайте звонка менеджера`;
+- Подтверждение заказа выполняется через оплату:
+  - `POST /api/payments/invoice` (native Telegram Payments) или
+  - `POST /api/payments/create` (redirect fallback для YooKassa).
+- После успешной оплаты backend создаёт заказ из `payments.checkout_snapshot` и сохраняет его в PostgreSQL.
+- После создания заказа:
+  - клиент получает подтверждение оплаты и заказа в mini app;
   - backend отправляет уведомления Telegram-админам через Telegram Bot API;
   - email-уведомление на `Muru_online@mail.ru` пока работает в режиме `console.log` заглушки.
 

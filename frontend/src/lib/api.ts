@@ -863,15 +863,6 @@ export const saveOrderDraft = async (payloadBody: DraftPayload): Promise<DraftOr
   return parseApi<DraftOrder>(response)
 }
 
-export const createOrder = async (payloadBody: DraftPayload): Promise<DraftOrder> => {
-  const response = await safeFetch(`${API_BASE_URL}/api/orders/create`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-    body: JSON.stringify(payloadBody),
-  })
-  return parseApi<DraftOrder>(response)
-}
-
 export type PaymentCheckoutPayload = {
   items: Array<{
     sku: string
