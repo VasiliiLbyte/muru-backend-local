@@ -20,7 +20,14 @@ NODE_ENV=development npm install
 npm run build
 cd ..
 
-echo "[3/4] Restarting PM2..."
+echo "[3/4] Admin panel: install (with dev) -> build..."
+cd admin
+NODE_ENV=development rm -rf node_modules
+NODE_ENV=development npm install
+npm run build
+cd ..
+
+echo "[4/4] Restarting PM2..."
 pm2 reload ecosystem.config.js --update-env
 pm2 save
 

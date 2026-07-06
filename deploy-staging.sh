@@ -13,16 +13,22 @@ if ! grep -q "name: 'muru-backend-staging'" ecosystem.staging.config.js; then
   exit 1
 fi
 
-echo "[1/2] Backend: install (with dev) -> build -> prod deps..."
+echo "[1/3] Backend: install (with dev) -> build -> prod deps..."
 cd backend
 NODE_ENV=development npm ci
 npm run build
 npm ci --omit=dev
 cd ..
 
+echo "[2/3] Admin panel: install -> build (staging = build check only, not served)..."
+cd admin
+NODE_ENV=development npm install
+npm run build
+cd ..
+
 mkdir -p logs
 
-echo "[2/2] Starting/reloading PM2 staging process (muru-backend-staging only)..."
+echo "[3/3] Starting/reloading PM2 staging process (muru-backend-staging only)..."
 pm2 startOrReload ecosystem.staging.config.js --update-env
 pm2 save
 
