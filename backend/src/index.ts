@@ -1,8 +1,10 @@
 import cors from 'cors'
 import dotenv from 'dotenv'
 import express from 'express'
+import cookieParser from 'cookie-parser'
 
 import { adminRouter } from './routes/admin'
+import { adminAuthRouter } from './routes/admin-auth.routes'
 import { imageRouter } from './routes/images'
 import { authRouter } from './routes/auth.routes'
 import { cdekRouter } from './routes/cdek.routes'
@@ -48,6 +50,7 @@ const ALLOWED_ORIGINS = Array.from(
 
 app.use(express.json())
 app.use('/yookassa-webhook', yookassaWebhookRouter)
+app.use(cookieParser())
 
 app.use(
   cors({
@@ -65,6 +68,7 @@ app.use(
 )
 app.use(imageRouter)
 app.use('/api/auth', authRouter)
+app.use('/api/admin-auth', adminAuthRouter)
 app.use('/api/admin', adminRouter)
 app.use('/api/catalog', catalogRouter)
 app.use('/api/favorites', favoritesRouter)

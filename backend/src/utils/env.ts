@@ -22,6 +22,7 @@ const envSchema = z.object({
   PORT: z.string().optional(),
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
+  ADMIN_JWT_SECRET: z.string().optional(),
   DEV_TELEGRAM_USER_ID: z.string().optional(),
   ALLOWED_ORIGINS: z.string().optional(),
   ADMIN_TELEGRAM_IDS: z.string().default(''),
@@ -114,6 +115,11 @@ if (nodeEnvForYookassa === 'production') {
     console.error('[env] production requires YOOKASSA_RETURN_URL when YooKassa is configured')
     process.exit(1)
   }
+  const adminJwtSecret = parsed.data.ADMIN_JWT_SECRET?.trim() ?? ''
+  if (adminJwtSecret.length < 32) {
+    console.error('[env] production requires ADMIN_JWT_SECRET (>=32 chars)')
+    process.exit(1)
+  }
 }
 
 const rawAdminIds = parsed.data.ADMIN_TELEGRAM_IDS
@@ -159,6 +165,7 @@ export const env = {
   port: Number(parsed.data.PORT || 4000),
   databaseUrl: parsed.data.DATABASE_URL,
   jwtSecret: parsed.data.JWT_SECRET,
+  adminJwtSecret: parsed.data.ADMIN_JWT_SECRET?.trim() ?? '',
   devTelegramUserId: parsed.data.DEV_TELEGRAM_USER_ID ?? '',
   allowedOrigins,
   adminTelegramIds,
