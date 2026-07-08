@@ -10,6 +10,12 @@ echo "=== B6 prod deploy (DEP-010) ==="
 echo "Repo: $ROOT"
 
 echo ""
+echo "--- Sync repo to origin/master ---"
+git fetch origin
+git reset --hard origin/master
+echo "HEAD: $(git rev-parse --short HEAD)"
+
+echo ""
 echo "--- PM2 baseline ---"
 pm2 show muru-backend | grep -E 'restart time|status|uptime' || true
 RESTARTS_BEFORE="$(pm2 jlist 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(next((p['pm2_env'].get('restart_time',0) for p in d if p.get('name')=='muru-backend'),0))" 2>/dev/null || echo "?")"
