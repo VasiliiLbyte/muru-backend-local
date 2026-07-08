@@ -9,6 +9,8 @@ import { imageRouter } from './routes/images'
 import { authRouter } from './routes/auth.routes'
 import { cdekRouter } from './routes/cdek.routes'
 import { catalogRouter } from './routes/catalog.routes'
+import { contentCrmRouter } from './routes/content-crm.routes'
+import { contentPublicRouter } from './routes/content-public.routes'
 import { favoritesRouter } from './routes/favorites.routes'
 import { ordersRouter } from './routes/orders.routes'
 import { paymentsRouter } from './routes/payments.routes'
@@ -69,6 +71,8 @@ app.use(
 app.use(imageRouter)
 app.use('/api/auth', authRouter)
 app.use('/api/admin-auth', adminAuthRouter)
+app.use('/api/crm/content', contentCrmRouter)
+app.use('/api/content', contentPublicRouter)
 app.use('/api/admin', adminRouter)
 app.use('/api/catalog', catalogRouter)
 app.use('/api/favorites', favoritesRouter)
