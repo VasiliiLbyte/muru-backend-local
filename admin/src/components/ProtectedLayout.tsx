@@ -29,7 +29,9 @@ export const ProtectedLayout = () => {
           </Link>
           <span className="sidebar-muted">Товары</span>
           <span className="sidebar-muted">Заказы</span>
-          <span className="sidebar-muted">Контент</span>
+          <Link className="sidebar-link" to="/content">
+            Контент
+          </Link>
           <span className="sidebar-muted">Настройки</span>
         </nav>
         <button type="button" className="secondary-button" onClick={onLogout}>
