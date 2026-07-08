@@ -9,6 +9,9 @@ coverage/
 backend/cache/
 cache/
 
+# CMS uploads (local files, not in git)
+uploads/
+
 # env files
 .env
 .env.local

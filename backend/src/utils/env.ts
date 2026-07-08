@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { basename, resolve } from 'node:path'
 
 import dotenv from 'dotenv'
 import { z } from 'zod'
@@ -50,6 +50,7 @@ const envSchema = z.object({
   GOOGLE_SHEET_ID: z.string().default('13oevOsZad_qZ6K8LvCy0Xa-MnALX1dBChS9jMajvaWo'),
   GOOGLE_DRIVE_FOLDER_ID: z.string().min(1, 'GOOGLE_DRIVE_FOLDER_ID is required'),
   IMAGE_CACHE_DIR: z.string().optional(),
+  UPLOADS_DIR: z.string().optional(),
   CDEK_ENV: z.enum(['test', 'production']).default('test'),
   CDEK_CLIENT_ID: z.string().optional(),
   CDEK_CLIENT_SECRET: z.string().optional(),
@@ -159,9 +160,15 @@ const defaultImageCacheDir =
     ? '/var/www/muru/cache/img'
     : resolve(process.cwd(), 'cache', 'img')
 
+const defaultUploadsDir =
+  nodeEnv === 'production'
+    ? '/var/www/muru/uploads'
+    : resolve(process.cwd(), basename(process.cwd()) === 'backend' ? '../uploads' : 'uploads')
+
 export const env = {
   nodeEnv,
   imageCacheDir: parsed.data.IMAGE_CACHE_DIR?.trim() || defaultImageCacheDir,
+  uploadsDir: resolve(parsed.data.UPLOADS_DIR?.trim() || defaultUploadsDir),
   port: Number(parsed.data.PORT || 4000),
   databaseUrl: parsed.data.DATABASE_URL,
   jwtSecret: parsed.data.JWT_SECRET,

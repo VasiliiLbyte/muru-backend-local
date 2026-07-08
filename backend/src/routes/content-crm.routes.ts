@@ -24,11 +24,17 @@ import {
   updateLookbookHandler,
   updatePageHandler,
 } from '../controllers/content-crm.controller'
+import {
+  uploadHandler,
+  uploadMiddleware,
+} from '../controllers/content-upload.controller'
 import { requireCrmAuth } from '../middleware/require-crm-auth.middleware'
 
 export const contentCrmRouter = Router()
 
 contentCrmRouter.use(requireCrmAuth())
+
+contentCrmRouter.post('/upload', uploadMiddleware, uploadHandler)
 
 contentCrmRouter.get('/pages', listPagesHandler)
 contentCrmRouter.post('/pages', createPageHandler)
