@@ -45,9 +45,52 @@ export const crmCatalogStockSchema = z
   })
   .strict()
 
+export const createCrmCategorySchema = z
+  .object({
+    name: z.string().min(1),
+  })
+  .strict()
+
+export const patchCrmCategorySchema = z
+  .object({
+    name: z.string().min(1).optional(),
+    slug: z.string().min(1).optional(),
+    coverImageUrl: z.union([z.string().url(), z.null()]).optional(),
+  })
+  .strict()
+  .refine((data) => Object.keys(data).length > 0, { message: 'At least one field is required' })
+
+export const renameCrmSubcategorySchema = z
+  .object({
+    categoryId: z.number().int().positive(),
+    oldSubcategoryName: z.string().min(1),
+    newSubcategoryName: z.string().min(1),
+  })
+  .strict()
+
+export const createCrmCharacteristicSchema = z
+  .object({
+    name: z.string().min(1),
+    sortOrder: z.number().int().optional(),
+  })
+  .strict()
+
+export const patchCrmCharacteristicSchema = z
+  .object({
+    name: z.string().min(1).optional(),
+    sortOrder: z.number().int().optional(),
+  })
+  .strict()
+  .refine((data) => Object.keys(data).length > 0, { message: 'At least one field is required' })
+
 export type CreateCrmCatalogProductInput = z.infer<typeof createCrmCatalogProductSchema>
 export type PatchCrmCatalogProductInput = z.infer<typeof patchCrmCatalogProductSchema>
 export type CrmCatalogStockInput = z.infer<typeof crmCatalogStockSchema>
+export type CreateCrmCategoryInput = z.infer<typeof createCrmCategorySchema>
+export type PatchCrmCategoryInput = z.infer<typeof patchCrmCategorySchema>
+export type RenameCrmSubcategoryInput = z.infer<typeof renameCrmSubcategorySchema>
+export type CreateCrmCharacteristicInput = z.infer<typeof createCrmCharacteristicSchema>
+export type PatchCrmCharacteristicInput = z.infer<typeof patchCrmCharacteristicSchema>
 
 export const hasDimsInput = (
   input: CreateCrmCatalogProductInput | PatchCrmCatalogProductInput,

@@ -2,10 +2,27 @@ import type { NextFunction, Request, Response } from 'express'
 
 import {
   createCrmCatalogProductSchema,
+  createCrmCategorySchema,
+  createCrmCharacteristicSchema,
   crmCatalogStockSchema,
   patchCrmCatalogProductSchema,
+  patchCrmCategorySchema,
+  patchCrmCharacteristicSchema,
+  renameCrmSubcategorySchema,
 } from '../schemas/crm-catalog.schemas'
 import { CatalogLockedError } from '../services/catalog-source.guard'
+import {
+  createCrmCategory,
+  deleteCrmCategory,
+  listCrmCategories,
+  renameCrmSubcategory,
+  updateCrmCategory,
+} from '../services/crm-catalog-categories.service'
+import {
+  createCrmCharacteristic,
+  listCrmCharacteristics,
+  updateCrmCharacteristic,
+} from '../services/crm-catalog-characteristics.service'
 import {
   createCrmCatalogProduct,
   getCrmCatalogMeta,
@@ -21,6 +38,15 @@ const parseProductId = (req: Request, res: Response): number | null => {
   const parsed = Number(req.params.id)
   if (!Number.isInteger(parsed) || parsed <= 0) {
     fail(res, 400, 'Invalid product id', 'VALIDATION')
+    return null
+  }
+  return parsed
+}
+
+const parseEntityId = (req: Request, res: Response, label: string): number | null => {
+  const parsed = Number(req.params.id)
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    fail(res, 400, `Invalid ${label} id`, 'VALIDATION')
     return null
   }
   return parsed
@@ -203,6 +229,149 @@ export const updateCrmCatalogProductStockHandler = async (
       return fail(res, 404, 'Product not found', 'NOT_FOUND')
     }
     return ok(res, product)
+  } catch (error) {
+    return handleServiceError(error, res, next)
+  }
+}
+
+export const listCrmCategoriesHandler = async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const items = await listCrmCategories()
+    return ok(res, { items })
+  } catch (error) {
+    next(error)
+  }
+}
+
+export const createCrmCategoryHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const parsed = createCrmCategorySchema.safeParse(req.body)
+    if (!parsed.success) {
+      throw new HttpError(400, zodErrorMessage(parsed.error.issues), 'VALIDATION', parsed.error.issues)
+    }
+
+    const category = await createCrmCategory(parsed.data)
+    return ok(res, category, 201)
+  } catch (error) {
+    return handleServiceError(error, res, next)
+  }
+}
+
+export const patchCrmCategoryHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const id = parseEntityId(req, res, 'category')
+    if (id == null) return
+
+    const parsed = patchCrmCategorySchema.safeParse(req.body)
+    if (!parsed.success) {
+      throw new HttpError(400, zodErrorMessage(parsed.error.issues), 'VALIDATION', parsed.error.issues)
+    }
+
+    const category = await updateCrmCategory(id, parsed.data)
+    if (!category) {
+      return fail(res, 404, 'Category not found', 'NOT_FOUND')
+    }
+    return ok(res, category)
+  } catch (error) {
+    return handleServiceError(error, res, next)
+  }
+}
+
+export const deleteCrmCategoryHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const id = parseEntityId(req, res, 'category')
+    if (id == null) return
+
+    const deleted = await deleteCrmCategory(id)
+    if (!deleted) {
+      return fail(res, 404, 'Category not found', 'NOT_FOUND')
+    }
+    return ok(res, { deleted: true })
+  } catch (error) {
+    return handleServiceError(error, res, next)
+  }
+}
+
+export const renameCrmSubcategoryHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const parsed = renameCrmSubcategorySchema.safeParse(req.body)
+    if (!parsed.success) {
+      throw new HttpError(400, zodErrorMessage(parsed.error.issues), 'VALIDATION', parsed.error.issues)
+    }
+
+    const result = await renameCrmSubcategory(parsed.data)
+    return ok(res, result)
+  } catch (error) {
+    return handleServiceError(error, res, next)
+  }
+}
+
+export const listCrmCharacteristicsHandler = async (
+  _req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const items = await listCrmCharacteristics()
+    return ok(res, { items })
+  } catch (error) {
+    next(error)
+  }
+}
+
+export const createCrmCharacteristicHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const parsed = createCrmCharacteristicSchema.safeParse(req.body)
+    if (!parsed.success) {
+      throw new HttpError(400, zodErrorMessage(parsed.error.issues), 'VALIDATION', parsed.error.issues)
+    }
+
+    const characteristic = await createCrmCharacteristic(parsed.data)
+    return ok(res, characteristic, 201)
+  } catch (error) {
+    return handleServiceError(error, res, next)
+  }
+}
+
+export const patchCrmCharacteristicHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const id = parseEntityId(req, res, 'characteristic')
+    if (id == null) return
+
+    const parsed = patchCrmCharacteristicSchema.safeParse(req.body)
+    if (!parsed.success) {
+      throw new HttpError(400, zodErrorMessage(parsed.error.issues), 'VALIDATION', parsed.error.issues)
+    }
+
+    const characteristic = await updateCrmCharacteristic(id, parsed.data)
+    if (!characteristic) {
+      return fail(res, 404, 'Characteristic not found', 'NOT_FOUND')
+    }
+    return ok(res, characteristic)
   } catch (error) {
     return handleServiceError(error, res, next)
   }

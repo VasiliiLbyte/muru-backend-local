@@ -14,16 +14,10 @@ import { env } from '../utils/env'
 
 import { normalizeAdminOrdersPage, normalizeAdminOrdersPageSize } from './admin-orders.helpers'
 import { assertCatalogCrmWritable } from './catalog-source.guard'
+import { conflictError, slugify } from './crm-catalog.helpers'
 import { validateProductDimsUpdate } from './admin-product-dims.validation'
 
 const DEFAULT_IMAGE_URL = 'https://placehold.co/1200x1200?text=MURU'
-
-const slugify = (value: string) =>
-  value
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9а-яё-]/gi, '')
 
 export type CrmCatalogMeta = {
   catalogSource: 'sheets' | 'crm'
@@ -360,9 +354,7 @@ export const createCrmCatalogProduct = async (
   const sku = input.sku.trim().toUpperCase()
   const existing = await pool.query('SELECT id FROM products WHERE sku = $1', [sku])
   if (existing.rows.length > 0) {
-    const err = new Error(`Product with sku ${sku} already exists`)
-    ;(err as Error & { statusCode?: number }).statusCode = 409
-    throw err
+    throw conflictError(`Product with sku ${sku} already exists`)
   }
 
   const images = normalizeImageUrls(input.imageUrls, input.imageUrl1, input.imageUrl2)

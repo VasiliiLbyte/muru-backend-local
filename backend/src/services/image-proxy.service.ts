@@ -40,6 +40,10 @@ const variantPath = (fileId: string, width: ImageWidth, format: ImageFormat) =>
 
 const originalPath = (fileId: string) => join(fileDir(fileId), 'original')
 
+const crmUploadMarkerPath = (fileId: string) => join(fileDir(fileId), '.crm-upload')
+
+const isCrmFileId = (fileId: string) => fileId.startsWith('crm_')
+
 const placeholderPath = (fileId: string) => join(fileDir(fileId), 'placeholder.json')
 
 const runDeduped = async <T>(key: string, fn: () => Promise<T>): Promise<T> => {
@@ -66,11 +70,36 @@ const writeLqipPlaceholder = async (fileId: string, source: Buffer): Promise<voi
   await writeFile(placeholderPath(fileId), JSON.stringify({ b64 }), 'utf8')
 }
 
+const crmCacheNotFoundError = (message: string) => {
+  const err = new Error(message) as Error & { code?: number }
+  err.code = 404
+  return err
+}
+
+export const saveCrmCachedOriginal = async (fileId: string, buffer: Buffer): Promise<void> => {
+  await mkdir(fileDir(fileId), { recursive: true })
+  await writeFile(originalPath(fileId), buffer)
+  await writeFile(crmUploadMarkerPath(fileId), '', 'utf8')
+  try {
+    await writeLqipPlaceholder(fileId, buffer)
+  } catch (error) {
+    console.error(`[image-proxy] LQIP generation failed for ${fileId}`, error)
+  }
+}
+
 const downloadOriginal = async (fileId: string): Promise<Buffer> =>
   runDeduped(`original:${fileId}`, async () => {
     const cached = originalPath(fileId)
     if (await fileExists(cached)) {
       return readFile(cached)
+    }
+
+    if (await fileExists(crmUploadMarkerPath(fileId))) {
+      throw crmCacheNotFoundError('CRM upload cache missing')
+    }
+
+    if (isCrmFileId(fileId)) {
+      throw crmCacheNotFoundError('CRM image not found in cache')
     }
 
     const drive = createMuruDriveClient()

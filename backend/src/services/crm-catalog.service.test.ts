@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { mockQuery, mockEnv } = vi.hoisted(() => ({
+const { mockQuery, mockEnv, mockClientQuery, mockConnect } = vi.hoisted(() => ({
   mockQuery: vi.fn(),
   mockEnv: { catalogSource: 'sheets' as 'sheets' | 'crm' },
+  mockClientQuery: vi.fn(),
+  mockConnect: vi.fn(),
 }))
 
 vi.mock('../utils/env', () => ({
@@ -12,10 +14,21 @@ vi.mock('../utils/env', () => ({
 vi.mock('../utils/db', () => ({
   pool: {
     query: (...args: unknown[]) => mockQuery(...args),
+    connect: (...args: unknown[]) => mockConnect(...args),
   },
 }))
 
+mockConnect.mockImplementation(async () => ({
+  query: (...args: unknown[]) => mockClientQuery(...args),
+  release: vi.fn(),
+}))
+
 import { CatalogLockedError } from './catalog-source.guard'
+import {
+  deleteCrmCategory,
+  renameCrmSubcategory,
+} from './crm-catalog-categories.service'
+import { createCrmCharacteristic } from './crm-catalog-characteristics.service'
 import { createCrmCatalogProduct, listCrmCatalogProducts } from './crm-catalog.service'
 
 describe('crm-catalog.service', () => {
@@ -44,5 +57,45 @@ describe('crm-catalog.service', () => {
       createCrmCatalogProduct({ sku: 'MU9999', name: 'Test', price: 100 }),
     ).rejects.toBeInstanceOf(CatalogLockedError)
     expect(mockQuery).not.toHaveBeenCalled()
+  })
+
+  it('deleteCrmCategory returns 409 when category has active products', async () => {
+    mockEnv.catalogSource = 'crm'
+    mockQuery.mockResolvedValueOnce({ rows: [{ count: '2' }] })
+
+    await expect(deleteCrmCategory(5)).rejects.toMatchObject({
+      message: 'Category has active products',
+      statusCode: 409,
+    })
+    expect(mockQuery.mock.calls[0][0]).toContain('is_archived = FALSE')
+  })
+
+  it('renameCrmSubcategory updates products in transaction', async () => {
+    mockEnv.catalogSource = 'crm'
+    mockClientQuery
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ id: 1 }, { id: 2 }] })
+      .mockResolvedValueOnce({ rows: [] })
+
+    const result = await renameCrmSubcategory({
+      categoryId: 3,
+      oldSubcategoryName: 'Old Sub',
+      newSubcategoryName: 'New Sub',
+    })
+
+    expect(result.updatedCount).toBe(2)
+    const updateSql = String(mockClientQuery.mock.calls[1][0])
+    expect(updateSql).toContain('web_subcategory_name')
+    expect(updateSql).toContain('ILIKE')
+  })
+
+  it('createCrmCharacteristic throws on unique violation', async () => {
+    mockEnv.catalogSource = 'crm'
+    const pgError = Object.assign(new Error('duplicate'), { code: '23505' })
+    mockQuery.mockRejectedValueOnce(pgError)
+
+    await expect(createCrmCharacteristic({ name: 'Material' })).rejects.toMatchObject({
+      statusCode: 409,
+    })
   })
 })

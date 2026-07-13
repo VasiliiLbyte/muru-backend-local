@@ -1,12 +1,24 @@
 import { Router } from 'express'
 
 import {
+  crmCatalogUploadMiddleware,
+  uploadCrmCatalogImageHandler,
+} from '../controllers/crm-catalog-upload.controller'
+import {
   archiveCrmCatalogProductHandler,
   createCrmCatalogProductHandler,
+  createCrmCategoryHandler,
+  createCrmCharacteristicHandler,
+  deleteCrmCategoryHandler,
   getCrmCatalogMetaHandler,
   getCrmCatalogProductByIdHandler,
   listCrmCatalogProductsHandler,
+  listCrmCategoriesHandler,
+  listCrmCharacteristicsHandler,
   patchCrmCatalogProductHandler,
+  patchCrmCategoryHandler,
+  patchCrmCharacteristicHandler,
+  renameCrmSubcategoryHandler,
   unarchiveCrmCatalogProductHandler,
   updateCrmCatalogProductStockHandler,
 } from '../controllers/crm-catalog.controller'
@@ -17,6 +29,19 @@ export const crmCatalogRouter = Router()
 crmCatalogRouter.use(requireCrmAuth())
 
 crmCatalogRouter.get('/meta', getCrmCatalogMetaHandler)
+
+crmCatalogRouter.get('/categories', listCrmCategoriesHandler)
+crmCatalogRouter.post('/categories', createCrmCategoryHandler)
+crmCatalogRouter.post('/categories/rename-subcategory', renameCrmSubcategoryHandler)
+crmCatalogRouter.patch('/categories/:id', patchCrmCategoryHandler)
+crmCatalogRouter.delete('/categories/:id', deleteCrmCategoryHandler)
+
+crmCatalogRouter.get('/characteristics', listCrmCharacteristicsHandler)
+crmCatalogRouter.post('/characteristics', createCrmCharacteristicHandler)
+crmCatalogRouter.patch('/characteristics/:id', patchCrmCharacteristicHandler)
+
+crmCatalogRouter.post('/upload-image', crmCatalogUploadMiddleware, uploadCrmCatalogImageHandler)
+
 crmCatalogRouter.get('/products', listCrmCatalogProductsHandler)
 crmCatalogRouter.post('/products', createCrmCatalogProductHandler)
 crmCatalogRouter.get('/products/:id', getCrmCatalogProductByIdHandler)
