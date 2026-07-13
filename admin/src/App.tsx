@@ -13,6 +13,8 @@ import { PageEditPage } from './pages/content/PageEditPage'
 import { PagesListPage } from './pages/content/PagesListPage'
 import { LoginPage } from './pages/LoginPage'
 import { DashboardPage } from './pages/DashboardPage'
+import { OrderDetailPage } from './pages/orders/OrderDetailPage'
+import { OrdersListPage } from './pages/orders/OrdersListPage'
 
 function App() {
   return (
@@ -21,6 +23,8 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/" element={<ProtectedLayout />}>
           <Route index element={<DashboardPage />} />
+          <Route path="orders" element={<OrdersListPage />} />
+          <Route path="orders/:id" element={<OrderDetailPage />} />
           <Route path="content" element={<ContentLayout />}>
             <Route index element={<ContentIndexRedirect />} />
             <Route path="pages" element={<PagesListPage />} />

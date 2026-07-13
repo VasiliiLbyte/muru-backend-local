@@ -376,3 +376,105 @@ body {
 .tiptap-content ol {
   padding-left: 1.4rem;
 }
+
+.orders-module {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.orders-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.orders-status-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.orders-status-tabs .content-tab {
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+}
+
+.orders-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+}
+
+.orders-filter-input {
+  width: auto;
+  min-width: 140px;
+}
+
+.orders-search-input {
+  min-width: 220px;
+}
+
+.orders-pagination {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.order-detail-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.order-detail-status {
+  font-weight: 700;
+}
+
+.badge-channel-telegram {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.badge-channel-web {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+
+.badge-paid {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.badge-unpaid {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.order-thumb {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+}
+
+.danger-button {
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: #b91c1c;
+  color: #ffffff;
+}
+
+.danger-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
