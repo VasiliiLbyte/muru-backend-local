@@ -1,11 +1,26 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const getSyncScheduleMock = vi.fn()
-const markAutoRunMock = vi.fn()
-const isCatalogSyncRunningMock = vi.fn()
-const startCatalogSyncJobMock = vi.fn()
-const getCatalogSyncJobStateMock = vi.fn()
-const notifyAdminsAutoSyncFailedMock = vi.fn()
+const {
+  mockEnv,
+  getSyncScheduleMock,
+  markAutoRunMock,
+  isCatalogSyncRunningMock,
+  startCatalogSyncJobMock,
+  getCatalogSyncJobStateMock,
+  notifyAdminsAutoSyncFailedMock,
+} = vi.hoisted(() => ({
+  mockEnv: { isCatalogCrmMode: false },
+  getSyncScheduleMock: vi.fn(),
+  markAutoRunMock: vi.fn(),
+  isCatalogSyncRunningMock: vi.fn(),
+  startCatalogSyncJobMock: vi.fn(),
+  getCatalogSyncJobStateMock: vi.fn(),
+  notifyAdminsAutoSyncFailedMock: vi.fn(),
+}))
+
+vi.mock('../utils/env', () => ({
+  env: mockEnv,
+}))
 
 vi.mock('./sync-schedule.service', () => ({
   getSyncSchedule: (...args: unknown[]) => getSyncScheduleMock(...args),
@@ -44,6 +59,7 @@ describe('sync-scheduler helpers', () => {
 describe('runSyncSchedulerTick', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockEnv.isCatalogCrmMode = false
     isCatalogSyncRunningMock.mockReturnValue(false)
     startCatalogSyncJobMock.mockReturnValue(true)
     markAutoRunMock.mockResolvedValue(undefined)
@@ -112,5 +128,19 @@ describe('runSyncSchedulerTick', () => {
     await runSyncSchedulerTick()
 
     expect(notifyAdminsAutoSyncFailedMock).toHaveBeenCalledWith('Google auth failed')
+  })
+
+  it('skips tick when catalog source is crm', async () => {
+    mockEnv.isCatalogCrmMode = true
+    getSyncScheduleMock.mockResolvedValue({
+      enabled: true,
+      hourMsk: currentMskHour(),
+      lastAutoRunAt: null,
+    })
+
+    await runSyncSchedulerTick()
+
+    expect(getSyncScheduleMock).not.toHaveBeenCalled()
+    expect(startCatalogSyncJobMock).not.toHaveBeenCalled()
   })
 })
