@@ -15,3 +15,8 @@ export const isUniqueViolation = (error: unknown): boolean =>
   typeof error === 'object' &&
   error !== null &&
   (error as { code?: string }).code === '23505'
+
+export const isForeignKeyViolation = (error: unknown): boolean =>
+  typeof error === 'object' &&
+  error !== null &&
+  (error as { code?: string }).code === '23503'

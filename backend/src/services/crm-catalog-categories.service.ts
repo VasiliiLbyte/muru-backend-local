@@ -6,7 +6,18 @@ import type {
 import { pool } from '../utils/db'
 
 import { assertCatalogCrmWritable } from './catalog-source.guard'
-import { conflictError, isUniqueViolation, slugify } from './crm-catalog.helpers'
+import {
+  conflictError,
+  isForeignKeyViolation,
+  isUniqueViolation,
+  slugify,
+} from './crm-catalog.helpers'
+
+export type CrmCategorySubcategoryItem = {
+  name: string
+  slug: string
+  productCount: number
+}
 
 export type CrmCategoryItem = {
   id: number
@@ -15,6 +26,10 @@ export type CrmCategoryItem = {
   coverImageUrl: string | null
   coverDriveFilename: string | null
   productCount: number
+  directProductCount: number
+  subcategories: CrmCategorySubcategoryItem[]
+  crossPlacementCount: number
+  isUnused: boolean
 }
 
 type CategoryRow = {
@@ -23,28 +38,83 @@ type CategoryRow = {
   slug: string
   cover_image_url: string | null
   cover_drive_filename: string | null
+  direct_product_count: number
+  cross_placement_count: number
+}
+
+type SubcategoryRow = {
+  category_id: number
+  name: string
+  slug: string
   product_count: number
 }
 
-const mapCategoryRow = (row: CategoryRow): CrmCategoryItem => ({
-  id: row.id,
-  name: row.name,
-  slug: row.slug,
-  coverImageUrl: row.cover_image_url,
-  coverDriveFilename: row.cover_drive_filename,
-  productCount: row.product_count,
-})
+const mapCategoryRow = (
+  row: CategoryRow,
+  subcategories: CrmCategorySubcategoryItem[],
+): CrmCategoryItem => {
+  const directProductCount = row.direct_product_count
+  const crossPlacementCount = row.cross_placement_count
+  const isUnused =
+    directProductCount === 0 && subcategories.length === 0 && crossPlacementCount === 0
+
+  return {
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    coverImageUrl: row.cover_image_url,
+    coverDriveFilename: row.cover_drive_filename,
+    productCount: directProductCount,
+    directProductCount,
+    subcategories,
+    crossPlacementCount,
+    isUnused,
+  }
+}
 
 export const listCrmCategories = async (): Promise<CrmCategoryItem[]> => {
-  const result = await pool.query<CategoryRow>(
-    `SELECT c.id, c.name, c.slug, c.cover_image_url, c.cover_drive_filename,
-            COUNT(p.id) FILTER (WHERE p.is_archived = FALSE)::int AS product_count
-     FROM categories c
-     LEFT JOIN products p ON p.category_id = c.id
-     GROUP BY c.id
-     ORDER BY c.name`,
+  const [categoriesResult, subcategoriesResult] = await Promise.all([
+    pool.query<CategoryRow>(
+      `SELECT c.id, c.name, c.slug, c.cover_image_url, c.cover_drive_filename,
+              COUNT(p.id) FILTER (WHERE p.is_archived = FALSE)::int AS direct_product_count,
+              COUNT(DISTINCT pwcp.product_id) FILTER (
+                WHERE pwcp.product_id IS NOT NULL AND p2.is_archived = FALSE
+              )::int AS cross_placement_count
+       FROM categories c
+       LEFT JOIN products p ON p.category_id = c.id
+       LEFT JOIN product_web_cross_placements pwcp ON pwcp.category_id = c.id
+       LEFT JOIN products p2 ON p2.id = pwcp.product_id
+       GROUP BY c.id
+       ORDER BY c.name`,
+    ),
+    pool.query<SubcategoryRow>(
+      `SELECT p.category_id,
+              TRIM(p.web_subcategory_name) AS name,
+              TRIM(p.web_subcategory_slug) AS slug,
+              COUNT(*)::int AS product_count
+       FROM products p
+       WHERE p.is_archived = FALSE
+         AND p.category_id IS NOT NULL
+         AND TRIM(COALESCE(p.web_subcategory_name, '')) <> ''
+       GROUP BY p.category_id, TRIM(p.web_subcategory_name), TRIM(p.web_subcategory_slug)
+       ORDER BY p.category_id, name`,
+    ),
+  ])
+
+  const subcategoriesByCategory = new Map<number, CrmCategorySubcategoryItem[]>()
+  for (const row of subcategoriesResult.rows) {
+    const list = subcategoriesByCategory.get(row.category_id) ?? []
+    list.push({
+      name: row.name,
+      slug: row.slug,
+      productCount: row.product_count,
+    })
+    subcategoriesByCategory.set(row.category_id, list)
+  }
+
+  return categoriesResult.rows.map((row) =>
+    mapCategoryRow(row, subcategoriesByCategory.get(row.id) ?? []),
   )
-  return result.rows.map(mapCategoryRow)
 }
 
 export const createCrmCategory = async (input: CreateCrmCategoryInput): Promise<CrmCategoryItem> => {
@@ -134,8 +204,27 @@ export const deleteCrmCategory = async (id: number): Promise<boolean> => {
     throw conflictError('Category has active products')
   }
 
-  const result = await pool.query(`DELETE FROM categories WHERE id = $1`, [id])
-  return (result.rowCount ?? 0) > 0
+  const crossResult = await pool.query<{ count: string }>(
+    `SELECT COUNT(*)::text AS count
+     FROM product_web_cross_placements pwcp
+     INNER JOIN products p ON p.id = pwcp.product_id AND p.is_archived = FALSE
+     WHERE pwcp.category_id = $1`,
+    [id],
+  )
+  const crossCount = Number(crossResult.rows[0]?.count ?? 0)
+  if (crossCount > 0) {
+    throw conflictError('Category is used in web cross placements')
+  }
+
+  try {
+    const result = await pool.query(`DELETE FROM categories WHERE id = $1`, [id])
+    return (result.rowCount ?? 0) > 0
+  } catch (error) {
+    if (isForeignKeyViolation(error)) {
+      throw conflictError('Category is referenced by other records')
+    }
+    throw error
+  }
 }
 
 export const renameCrmSubcategory = async (

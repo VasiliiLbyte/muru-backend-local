@@ -530,3 +530,38 @@ a.primary-button {
   text-decoration: none;
   text-align: center;
 }
+
+.catalog-category-tree .data-table tbody tr:not(.catalog-subcategory-row) td {
+  border-top: 1px solid #e5e7eb;
+}
+
+.catalog-subcategory-row td:first-child {
+  padding-left: 2rem;
+}
+
+.catalog-subcategory-row td {
+  background: #f9fafb;
+  font-size: 0.92rem;
+}
+
+.catalog-badge-cross {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #ede9fe;
+  color: #6d28d9;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.catalog-badge-unused {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #f3f4f6;
+  color: #6b7280;
+  font-size: 0.75rem;
+  font-weight: 600;
+}

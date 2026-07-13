@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { Fragment, useCallback, useEffect, useState } from 'react'
 
 import { CatalogImageUploadField } from '../../components/catalog/CatalogImageUploadField'
 import { useCatalogMetaContext } from '../../context/CatalogMetaContext'
@@ -10,7 +10,20 @@ import {
   patchCategory,
   renameSubcategory,
 } from '../../lib/catalog-api'
-import type { CrmCategoryItem } from '../../types/catalog'
+import type { CrmCategoryItem, CrmCategorySubcategoryItem } from '../../types/catalog'
+
+type RenamingSub = {
+  categoryId: number
+  oldName: string
+}
+
+const getDeleteTitle = (item: CrmCategoryItem): string => {
+  if (item.isUnused) return 'Удалить категорию'
+  if (item.directProductCount > 0) return 'Есть активные товары в категории'
+  if (item.subcategories.length > 0) return 'Есть подкатегории с товарами'
+  if (item.crossPlacementCount > 0) return 'Категория используется в cross-placements'
+  return 'Категорию нельзя удалить'
+}
 
 export const CategoriesPage = () => {
   const { readOnly } = useCatalogMetaContext()
@@ -27,10 +40,8 @@ export const CategoriesPage = () => {
   const [editCoverUrl, setEditCoverUrl] = useState('')
   const [savingEdit, setSavingEdit] = useState(false)
 
-  const [renameCategoryId, setRenameCategoryId] = useState('')
-  const [oldSubcategoryName, setOldSubcategoryName] = useState('')
-  const [newSubcategoryName, setNewSubcategoryName] = useState('')
-  const [renameResult, setRenameResult] = useState('')
+  const [renamingSub, setRenamingSub] = useState<RenamingSub | null>(null)
+  const [renameInput, setRenameInput] = useState('')
   const [renaming, setRenaming] = useState(false)
 
   const load = useCallback(async () => {
@@ -101,26 +112,36 @@ export const CategoriesPage = () => {
       await load()
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
-        setError('Category has active products')
+        setError(err.message)
       } else {
         setError(err instanceof Error ? err.message : 'Не удалось удалить категорию')
       }
     }
   }
 
-  const onRenameSubcategory = async (event: React.FormEvent) => {
-    event.preventDefault()
-    if (readOnly) return
+  const startRenameSub = (categoryId: number, sub: CrmCategorySubcategoryItem) => {
+    setRenamingSub({ categoryId, oldName: sub.name })
+    setRenameInput(sub.name)
+  }
+
+  const cancelRenameSub = () => {
+    setRenamingSub(null)
+    setRenameInput('')
+  }
+
+  const onRenameSubcategory = async (categoryId: number, oldName: string) => {
+    if (readOnly || !renameInput.trim()) return
     setRenaming(true)
-    setRenameResult('')
     setError('')
     try {
-      const result = await renameSubcategory({
-        categoryId: Number(renameCategoryId),
-        oldSubcategoryName: oldSubcategoryName.trim(),
-        newSubcategoryName: newSubcategoryName.trim(),
+      await renameSubcategory({
+        categoryId,
+        oldSubcategoryName: oldName,
+        newSubcategoryName: renameInput.trim(),
       })
-      setRenameResult(`Обновлено товаров: ${result.updatedCount}`)
+      setRenamingSub(null)
+      setRenameInput('')
+      await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось переименовать подкатегорию')
     } finally {
@@ -152,7 +173,7 @@ export const CategoriesPage = () => {
       {loading ? (
         <p className="muted-text">Загрузка...</p>
       ) : (
-        <div className="table-wrap">
+        <div className="table-wrap catalog-category-tree">
           <table className="data-table">
             <thead>
               <tr>
@@ -165,36 +186,115 @@ export const CategoriesPage = () => {
             </thead>
             <tbody>
               {items.map((item) => (
-                <tr key={item.id}>
-                  <td>{item.name}</td>
-                  <td>{item.slug}</td>
-                  <td>{item.productCount}</td>
-                  <td>
-                    {item.coverImageUrl ? (
-                      <img src={item.coverImageUrl} alt="" className="order-thumb" />
-                    ) : (
-                      '—'
-                    )}
-                  </td>
-                  {!readOnly ? (
+                <Fragment key={item.id}>
+                  <tr key={item.id}>
                     <td>
-                      <button
-                        type="button"
-                        className="link-button"
-                        onClick={() => startEdit(item)}
-                      >
-                        Изменить
-                      </button>
-                      <button
-                        type="button"
-                        className="link-button"
-                        onClick={() => void onDelete(item.id)}
-                      >
-                        Удалить
-                      </button>
+                      {item.name}
+                      {item.isUnused ? (
+                        <span className="catalog-badge-unused">Не используется</span>
+                      ) : null}
                     </td>
-                  ) : null}
-                </tr>
+                    <td>{item.slug}</td>
+                    <td>
+                      {item.directProductCount}
+                      {item.crossPlacementCount > 0 ? (
+                        <span
+                          className="catalog-badge-cross"
+                          title="Cross-placement товаров"
+                        >
+                          +{item.crossPlacementCount} cross
+                        </span>
+                      ) : null}
+                    </td>
+                    <td>
+                      {item.coverImageUrl ? (
+                        <img src={item.coverImageUrl} alt="" className="order-thumb" />
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                    {!readOnly ? (
+                      <td>
+                        <button
+                          type="button"
+                          className="link-button"
+                          onClick={() => startEdit(item)}
+                        >
+                          Изменить
+                        </button>
+                        <button
+                          type="button"
+                          className="link-button"
+                          disabled={!item.isUnused}
+                          title={getDeleteTitle(item)}
+                          onClick={() => void onDelete(item.id)}
+                        >
+                          Удалить
+                        </button>
+                      </td>
+                    ) : null}
+                  </tr>
+                  {item.subcategories.map((sub) => {
+                    const isRenaming =
+                      renamingSub?.categoryId === item.id && renamingSub.oldName === sub.name
+
+                    return (
+                      <tr
+                        key={`${item.id}-${sub.slug}`}
+                        className="catalog-subcategory-row"
+                      >
+                        <td>
+                          {isRenaming ? (
+                            <input
+                              className="field-input"
+                              value={renameInput}
+                              onChange={(e) => setRenameInput(e.target.value)}
+                              autoFocus
+                            />
+                          ) : (
+                            sub.name
+                          )}
+                        </td>
+                        <td>{sub.slug}</td>
+                        <td>{sub.productCount}</td>
+                        <td>—</td>
+                        {!readOnly ? (
+                          <td>
+                            {isRenaming ? (
+                              <>
+                                <button
+                                  type="button"
+                                  className="link-button"
+                                  disabled={renaming || !renameInput.trim()}
+                                  onClick={() =>
+                                    void onRenameSubcategory(item.id, sub.name)
+                                  }
+                                >
+                                  {renaming ? 'Сохранение…' : 'Сохранить'}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="link-button"
+                                  onClick={cancelRenameSub}
+                                >
+                                  Отмена
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                className="link-button"
+                                onClick={() => startRenameSub(item.id, sub)}
+                              >
+                                Переименовать
+                              </button>
+                            )}
+                          </td>
+                        ) : null}
+                      </tr>
+                    )
+                  })}
+                </Fragment>
               ))}
             </tbody>
           </table>
@@ -240,44 +340,6 @@ export const CategoriesPage = () => {
             </button>
           </div>
         </div>
-      ) : null}
-
-      {!readOnly ? (
-        <form className="form-section" onSubmit={onRenameSubcategory}>
-          <h4 className="form-section-title">Переименовать подкатегорию</h4>
-          <label className="field-label">Категория</label>
-          <select
-            className="field-input"
-            value={renameCategoryId}
-            onChange={(e) => setRenameCategoryId(e.target.value)}
-            required
-          >
-            <option value="">—</option>
-            {items.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
-            ))}
-          </select>
-          <label className="field-label">Старое название</label>
-          <input
-            className="field-input"
-            value={oldSubcategoryName}
-            onChange={(e) => setOldSubcategoryName(e.target.value)}
-            required
-          />
-          <label className="field-label">Новое название</label>
-          <input
-            className="field-input"
-            value={newSubcategoryName}
-            onChange={(e) => setNewSubcategoryName(e.target.value)}
-            required
-          />
-          <button type="submit" className="primary-button" disabled={renaming}>
-            {renaming ? 'Обновление…' : 'Переименовать'}
-          </button>
-          {renameResult ? <p className="muted-text">{renameResult}</p> : null}
-        </form>
       ) : null}
     </section>
   )

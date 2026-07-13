@@ -94,6 +94,12 @@ export type CrmCatalogProductCreateBody = {
 
 export type CrmCatalogProductPatchBody = Partial<Omit<CrmCatalogProductCreateBody, 'sku'>>
 
+export type CrmCategorySubcategoryItem = {
+  name: string
+  slug: string
+  productCount: number
+}
+
 export type CrmCategoryItem = {
   id: number
   name: string
@@ -101,6 +107,10 @@ export type CrmCategoryItem = {
   coverImageUrl: string | null
   coverDriveFilename: string | null
   productCount: number
+  directProductCount: number
+  subcategories: CrmCategorySubcategoryItem[]
+  crossPlacementCount: number
+  isUnused: boolean
 }
 
 export type CrmCharacteristicItem = {

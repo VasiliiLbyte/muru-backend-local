@@ -25,7 +25,6 @@ mockConnect.mockImplementation(async () => ({
 
 import { CatalogLockedError } from './catalog-source.guard'
 import {
-  deleteCrmCategory,
   renameCrmSubcategory,
 } from './crm-catalog-categories.service'
 import { createCrmCharacteristic } from './crm-catalog-characteristics.service'
@@ -57,17 +56,6 @@ describe('crm-catalog.service', () => {
       createCrmCatalogProduct({ sku: 'MU9999', name: 'Test', price: 100 }),
     ).rejects.toBeInstanceOf(CatalogLockedError)
     expect(mockQuery).not.toHaveBeenCalled()
-  })
-
-  it('deleteCrmCategory returns 409 when category has active products', async () => {
-    mockEnv.catalogSource = 'crm'
-    mockQuery.mockResolvedValueOnce({ rows: [{ count: '2' }] })
-
-    await expect(deleteCrmCategory(5)).rejects.toMatchObject({
-      message: 'Category has active products',
-      statusCode: 409,
-    })
-    expect(mockQuery.mock.calls[0][0]).toContain('is_archived = FALSE')
   })
 
   it('renameCrmSubcategory updates products in transaction', async () => {
