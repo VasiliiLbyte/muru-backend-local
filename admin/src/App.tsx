@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 
 import { ContentIndexRedirect, ContentLayout } from './components/content/ContentLayout'
+import { CatalogIndexRedirect, CatalogLayout } from './components/catalog/CatalogLayout'
 import { ProtectedLayout } from './components/ProtectedLayout'
 import { AuthProvider } from './context/AuthContext'
 import { BannerEditPage } from './pages/content/BannerEditPage'
@@ -15,6 +16,11 @@ import { LoginPage } from './pages/LoginPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { OrderDetailPage } from './pages/orders/OrderDetailPage'
 import { OrdersListPage } from './pages/orders/OrdersListPage'
+import { CategoriesPage } from './pages/catalog/CategoriesPage'
+import { CharacteristicsPage } from './pages/catalog/CharacteristicsPage'
+import { ImportExportPage } from './pages/catalog/ImportExportPage'
+import { ProductEditPage } from './pages/catalog/ProductEditPage'
+import { ProductsListPage } from './pages/catalog/ProductsListPage'
 
 function App() {
   return (
@@ -25,6 +31,15 @@ function App() {
           <Route index element={<DashboardPage />} />
           <Route path="orders" element={<OrdersListPage />} />
           <Route path="orders/:id" element={<OrderDetailPage />} />
+          <Route path="catalog" element={<CatalogLayout />}>
+            <Route index element={<CatalogIndexRedirect />} />
+            <Route path="products" element={<ProductsListPage />} />
+            <Route path="products/new" element={<ProductEditPage />} />
+            <Route path="products/:id" element={<ProductEditPage />} />
+            <Route path="categories" element={<CategoriesPage />} />
+            <Route path="characteristics" element={<CharacteristicsPage />} />
+            <Route path="import-export" element={<ImportExportPage />} />
+          </Route>
           <Route path="content" element={<ContentLayout />}>
             <Route index element={<ContentIndexRedirect />} />
             <Route path="pages" element={<PagesListPage />} />

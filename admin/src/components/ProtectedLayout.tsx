@@ -27,7 +27,9 @@ export const ProtectedLayout = () => {
           <Link className="sidebar-link" to="/">
             Дашборд
           </Link>
-          <span className="sidebar-muted">Товары</span>
+          <Link className="sidebar-link" to="/catalog">
+            Товары
+          </Link>
           <Link className="sidebar-link" to="/orders">
             Заказы
           </Link>

@@ -478,3 +478,55 @@ body {
   opacity: 0.7;
   cursor: not-allowed;
 }
+
+.catalog-readonly-banner {
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+
+.catalog-bulk-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.product-images-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.product-image-slot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.product-image-slot-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.specs-editor-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.import-report-table {
+  margin-top: 12px;
+}
+
+a.primary-button {
+  display: inline-block;
+  text-decoration: none;
+  text-align: center;
+}
