@@ -76,6 +76,7 @@ describe('crm-catalog-categories.service', () => {
 
     const items = await listCrmCategories()
 
+    expect(String(mockQuery.mock.calls[0][0])).toContain('COUNT(DISTINCT p.id)')
     expect(items).toHaveLength(3)
 
     const used = items.find((c) => c.id === 1)!

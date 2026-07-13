@@ -76,7 +76,7 @@ export const listCrmCategories = async (): Promise<CrmCategoryItem[]> => {
   const [categoriesResult, subcategoriesResult] = await Promise.all([
     pool.query<CategoryRow>(
       `SELECT c.id, c.name, c.slug, c.cover_image_url, c.cover_drive_filename,
-              COUNT(p.id) FILTER (WHERE p.is_archived = FALSE)::int AS direct_product_count,
+              COUNT(DISTINCT p.id) FILTER (WHERE p.is_archived = FALSE)::int AS direct_product_count,
               COUNT(DISTINCT pwcp.product_id) FILTER (
                 WHERE pwcp.product_id IS NOT NULL AND p2.is_archived = FALSE
               )::int AS cross_placement_count
