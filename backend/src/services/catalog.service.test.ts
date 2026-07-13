@@ -329,3 +329,16 @@ describe('getCatalogTree', () => {
     ])
   })
 })
+
+describe('archived products', () => {
+  beforeEach(() => {
+    queryMock.mockReset()
+  })
+
+  it('getCatalogProductBySku excludes archived products', async () => {
+    queryMock.mockResolvedValueOnce({ rows: [] })
+    const product = await getCatalogProductBySku('MUARCH')
+    expect(product).toBeNull()
+    expect(String(queryMock.mock.calls[0][0])).toContain('p.is_archived = FALSE')
+  })
+})

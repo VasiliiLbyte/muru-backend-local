@@ -1,0 +1,557 @@
+import {
+  PRODUCT_DEFAULT_DIM_HEIGHT_CM,
+  PRODUCT_DEFAULT_DIM_LENGTH_CM,
+  PRODUCT_DEFAULT_DIM_WIDTH_CM,
+  PRODUCT_DEFAULT_WEIGHT_GRAMS,
+} from '../constants/product-shipping-defaults'
+import type {
+  CreateCrmCatalogProductInput,
+  PatchCrmCatalogProductInput,
+} from '../schemas/crm-catalog.schemas'
+import { extractDimsInput, hasDimsInput } from '../schemas/crm-catalog.schemas'
+import { pool } from '../utils/db'
+import { env } from '../utils/env'
+
+import { normalizeAdminOrdersPage, normalizeAdminOrdersPageSize } from './admin-orders.helpers'
+import { assertCatalogCrmWritable } from './catalog-source.guard'
+import { validateProductDimsUpdate } from './admin-product-dims.validation'
+
+const DEFAULT_IMAGE_URL = 'https://placehold.co/1200x1200?text=MURU'
+
+const slugify = (value: string) =>
+  value
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9а-яё-]/gi, '')
+
+export type CrmCatalogMeta = {
+  catalogSource: 'sheets' | 'crm'
+  readOnly: boolean
+}
+
+export type CrmCatalogListItem = {
+  id: number
+  sku: string
+  name: string
+  price: number
+  discountPercent: number
+  inStock: number
+  isArchived: boolean
+  categoryName: string | null
+  webSubcategoryName: string | null
+  imageUrl: string | null
+}
+
+export type CrmCatalogProductDetail = {
+  id: number
+  sku: string
+  name: string
+  description: string
+  price: number
+  discountPercent: number
+  inStock: number
+  isArchived: boolean
+  specs: Record<string, string>
+  imageUrls: string[]
+  imageUrl1: string
+  imageUrl2: string
+  categoryId: number | null
+  categoryName: string | null
+  webSubcategoryName: string | null
+  webSubcategorySlug: string | null
+  subcategory: string | null
+  subcategorySlug: string | null
+  color: string | null
+  size: string | null
+  colorTags: string[]
+  dimensionsLabel: string
+  weightGrams: number
+  dimLengthCm: number
+  dimWidthCm: number
+  dimHeightCm: number
+  dimsSource: 'auto' | 'manual'
+  weightSource: 'auto' | 'manual'
+  updatedAt: string
+}
+
+export type CrmCatalogListFilters = {
+  q?: string
+  category?: string
+  subcategory?: string
+  inStock?: 'in' | 'out' | 'all'
+  archived?: 'true' | 'false' | 'all'
+  page?: unknown
+  pageSize?: unknown
+}
+
+export type CrmCatalogListResult = {
+  items: CrmCatalogListItem[]
+  total: number
+  page: number
+  pageSize: number
+  catalogSource: 'sheets' | 'crm'
+  readOnly: boolean
+}
+
+type ProductRow = {
+  id: number
+  sku: string
+  name: string
+  description: string
+  price: string
+  discount_percent: string
+  in_stock: number
+  is_archived: boolean
+  specs: Record<string, string> | null
+  image_url_1: string
+  image_url_2: string
+  image_urls: string[] | null
+  category_id: number | null
+  category_name: string | null
+  web_subcategory_name: string | null
+  web_subcategory_slug: string | null
+  subcategory: string | null
+  subcategory_slug: string | null
+  color: string | null
+  size: string | null
+  color_tags: string[] | null
+  dimensions_label: string
+  weight_grams: number
+  dim_length_cm: number
+  dim_width_cm: number
+  dim_height_cm: number
+  dims_source: 'auto' | 'manual'
+  weight_source: 'auto' | 'manual'
+  updated_at: string
+}
+
+const listMeta = () => ({
+  catalogSource: env.catalogSource,
+  readOnly: env.catalogSource !== 'crm',
+})
+
+const pickImageUrl = (row: Pick<ProductRow, 'image_urls' | 'image_url_1'>): string | null => {
+  if (Array.isArray(row.image_urls) && typeof row.image_urls[0] === 'string') {
+    return row.image_urls[0]
+  }
+  return row.image_url_1?.trim() || null
+}
+
+const normalizeImageUrls = (
+  imageUrls: string[] | undefined,
+  imageUrl1: string | undefined,
+  imageUrl2: string | undefined,
+): { imageUrl1: string; imageUrl2: string; imageUrls: string[] } => {
+  const urls = imageUrls?.filter(Boolean) ?? []
+  const first = urls[0] ?? imageUrl1?.trim() ?? DEFAULT_IMAGE_URL
+  const second = urls[1] ?? imageUrl2?.trim() ?? first
+  const normalized = urls.length > 0 ? urls.slice(0, 3) : [first]
+  return { imageUrl1: first, imageUrl2: second, imageUrls: normalized }
+}
+
+const mapListRow = (row: ProductRow): CrmCatalogListItem => ({
+  id: row.id,
+  sku: row.sku,
+  name: row.name,
+  price: Number(row.price),
+  discountPercent: Number(row.discount_percent) || 0,
+  inStock: row.in_stock,
+  isArchived: row.is_archived,
+  categoryName: row.category_name,
+  webSubcategoryName: row.web_subcategory_name,
+  imageUrl: pickImageUrl(row),
+})
+
+const mapDetailRow = (row: ProductRow): CrmCatalogProductDetail => ({
+  id: row.id,
+  sku: row.sku,
+  name: row.name,
+  description: row.description,
+  price: Number(row.price),
+  discountPercent: Number(row.discount_percent) || 0,
+  inStock: row.in_stock,
+  isArchived: row.is_archived,
+  specs: row.specs ?? {},
+  imageUrls: Array.isArray(row.image_urls)
+    ? row.image_urls.filter(Boolean)
+    : [row.image_url_1, row.image_url_2].filter(Boolean),
+  imageUrl1: row.image_url_1,
+  imageUrl2: row.image_url_2,
+  categoryId: row.category_id,
+  categoryName: row.category_name,
+  webSubcategoryName: row.web_subcategory_name,
+  webSubcategorySlug: row.web_subcategory_slug,
+  subcategory: row.subcategory,
+  subcategorySlug: row.subcategory_slug,
+  color: row.color,
+  size: row.size,
+  colorTags: row.color_tags ?? [],
+  dimensionsLabel: row.dimensions_label,
+  weightGrams: row.weight_grams,
+  dimLengthCm: row.dim_length_cm,
+  dimWidthCm: row.dim_width_cm,
+  dimHeightCm: row.dim_height_cm,
+  dimsSource: row.dims_source,
+  weightSource: row.weight_source,
+  updatedAt: row.updated_at,
+})
+
+const PRODUCT_SELECT = `
+  p.id,
+  p.sku,
+  p.name,
+  p.description,
+  p.price::text,
+  p.discount_percent::text,
+  p.in_stock,
+  p.is_archived,
+  p.specs,
+  p.image_url_1,
+  p.image_url_2,
+  p.image_urls,
+  p.category_id,
+  c.name AS category_name,
+  p.web_subcategory_name,
+  p.web_subcategory_slug,
+  p.subcategory,
+  p.subcategory_slug,
+  p.color,
+  p.size,
+  p.color_tags,
+  p.dimensions_label,
+  p.weight_grams,
+  p.dim_length_cm,
+  p.dim_width_cm,
+  p.dim_height_cm,
+  p.dims_source,
+  p.weight_source,
+  p.updated_at::text
+`
+
+const FROM_PRODUCT = `
+  FROM products p
+  LEFT JOIN categories c ON c.id = p.category_id
+`
+
+type FilterBuildResult = { where: string[]; params: unknown[] }
+
+const buildListFilters = (filters: CrmCatalogListFilters): FilterBuildResult => {
+  const where: string[] = []
+  const params: unknown[] = []
+
+  const archived = filters.archived ?? 'false'
+  if (archived === 'true') {
+    where.push('p.is_archived = TRUE')
+  } else if (archived === 'false') {
+    where.push('p.is_archived = FALSE')
+  }
+
+  const inStock = filters.inStock ?? 'all'
+  if (inStock === 'in') {
+    where.push('p.in_stock > 0')
+  } else if (inStock === 'out') {
+    where.push('p.in_stock = 0')
+  }
+
+  const q = filters.q?.trim()
+  if (q) {
+    params.push(`%${q}%`)
+    const idx = params.length
+    where.push(`(p.sku ILIKE $${idx} OR p.name ILIKE $${idx})`)
+  }
+
+  const category = filters.category?.trim()
+  if (category) {
+    params.push(category)
+    const idx = params.length
+    where.push(`(c.slug = $${idx} OR c.name ILIKE $${idx})`)
+  }
+
+  const subcategory = filters.subcategory?.trim()
+  if (subcategory) {
+    params.push(subcategory)
+    const idx = params.length
+    params.push(`%${subcategory}%`)
+    const likeIdx = params.length
+    where.push(
+      `(p.web_subcategory_slug = $${idx} OR p.web_subcategory_name ILIKE $${likeIdx} OR p.subcategory_slug = $${idx} OR p.subcategory ILIKE $${likeIdx})`,
+    )
+  }
+
+  return { where, params }
+}
+
+export const getCrmCatalogMeta = (): CrmCatalogMeta => listMeta()
+
+export const listCrmCatalogProducts = async (
+  filters: CrmCatalogListFilters,
+): Promise<CrmCatalogListResult> => {
+  const page = normalizeAdminOrdersPage(filters.page)
+  const pageSize = normalizeAdminOrdersPageSize(filters.pageSize)
+  const offset = (page - 1) * pageSize
+
+  const listFilters = buildListFilters(filters)
+  const whereClause = listFilters.where.length > 0 ? `WHERE ${listFilters.where.join(' AND ')}` : ''
+
+  const countResult = await pool.query<{ total: string }>(
+    `SELECT COUNT(*)::text AS total ${FROM_PRODUCT} ${whereClause}`,
+    listFilters.params,
+  )
+  const total = Number(countResult.rows[0]?.total ?? 0)
+
+  const listParams = [...listFilters.params, pageSize, offset]
+  const limitIdx = listFilters.params.length + 1
+  const offsetIdx = listFilters.params.length + 2
+
+  const listResult = await pool.query<ProductRow>(
+    `SELECT ${PRODUCT_SELECT}
+     ${FROM_PRODUCT}
+     ${whereClause}
+     ORDER BY p.updated_at DESC
+     LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+    listParams,
+  )
+
+  return {
+    items: listResult.rows.map(mapListRow),
+    total,
+    page,
+    pageSize,
+    ...listMeta(),
+  }
+}
+
+export const getCrmCatalogProductById = async (id: number): Promise<CrmCatalogProductDetail | null> => {
+  const result = await pool.query<ProductRow>(
+    `SELECT ${PRODUCT_SELECT}
+     ${FROM_PRODUCT}
+     WHERE p.id = $1`,
+    [id],
+  )
+  if (result.rows.length === 0) return null
+  return mapDetailRow(result.rows[0])
+}
+
+const resolveWebSubcategory = (name: string | null | undefined) => {
+  const trimmed = name?.trim() ?? ''
+  if (!trimmed) return { name: null as string | null, slug: null as string | null }
+  return { name: trimmed, slug: slugify(trimmed) }
+}
+
+const validateDimsOrThrow = (input: CreateCrmCatalogProductInput | PatchCrmCatalogProductInput) => {
+  if (!hasDimsInput(input)) return
+  const dims = extractDimsInput(input)
+  if (!dims) {
+    throw new Error('All dimension fields are required when updating dimensions')
+  }
+  const validation = validateProductDimsUpdate(dims)
+  if (!validation.ok) {
+    throw new Error(validation.message)
+  }
+}
+
+export const createCrmCatalogProduct = async (
+  input: CreateCrmCatalogProductInput,
+): Promise<CrmCatalogProductDetail> => {
+  assertCatalogCrmWritable()
+  validateDimsOrThrow(input)
+
+  const sku = input.sku.trim().toUpperCase()
+  const existing = await pool.query('SELECT id FROM products WHERE sku = $1', [sku])
+  if (existing.rows.length > 0) {
+    const err = new Error(`Product with sku ${sku} already exists`)
+    ;(err as Error & { statusCode?: number }).statusCode = 409
+    throw err
+  }
+
+  const images = normalizeImageUrls(input.imageUrls, input.imageUrl1, input.imageUrl2)
+  const webSub = resolveWebSubcategory(input.webSubcategoryName)
+  const dims = extractDimsInput(input)
+
+  const result = await pool.query<{ id: number }>(
+    `INSERT INTO products (
+       sku, name, description, price, discount_percent, in_stock, specs,
+       image_url_1, image_url_2, image_urls, category_id,
+       color, size, color_tags, dimensions_label,
+       weight_grams, dim_length_cm, dim_width_cm, dim_height_cm,
+       dims_source, weight_source,
+       web_subcategory_name, web_subcategory_slug,
+       subcategory, subcategory_slug,
+       is_archived, updated_at
+     ) VALUES (
+       $1, $2, $3, $4, $5, $6, $7::jsonb,
+       $8, $9, $10::jsonb, $11,
+       $12, $13, $14, $15,
+       $16, $17, $18, $19,
+       $20, $21,
+       $22, $23,
+       $24, $25,
+       FALSE, NOW()
+     ) RETURNING id`,
+    [
+      sku,
+      input.name.trim(),
+      input.description?.trim() ?? '',
+      input.price,
+      input.discountPercent ?? 0,
+      input.inStock ?? 0,
+      JSON.stringify(input.specs ?? {}),
+      images.imageUrl1,
+      images.imageUrl2,
+      JSON.stringify(images.imageUrls),
+      input.categoryId ?? null,
+      input.color?.trim() ?? null,
+      input.size?.trim() ?? null,
+      input.colorTags ?? [],
+      input.dimensionsLabel?.trim() ?? '',
+      dims?.weightGrams ?? PRODUCT_DEFAULT_WEIGHT_GRAMS,
+      dims?.lengthCm ?? PRODUCT_DEFAULT_DIM_LENGTH_CM,
+      dims?.widthCm ?? PRODUCT_DEFAULT_DIM_WIDTH_CM,
+      dims?.heightCm ?? PRODUCT_DEFAULT_DIM_HEIGHT_CM,
+      dims ? 'manual' : 'auto',
+      dims ? 'manual' : 'auto',
+      webSub.name,
+      webSub.slug,
+      input.subcategory?.trim() ?? null,
+      input.subcategorySlug?.trim() ?? null,
+    ],
+  )
+
+  const product = await getCrmCatalogProductById(result.rows[0].id)
+  if (!product) throw new Error('Product not found after create')
+  return product
+}
+
+export const updateCrmCatalogProduct = async (
+  id: number,
+  input: PatchCrmCatalogProductInput,
+): Promise<CrmCatalogProductDetail | null> => {
+  assertCatalogCrmWritable()
+  validateDimsOrThrow(input)
+
+  const sets: string[] = ['updated_at = NOW()']
+  const params: unknown[] = []
+
+  if (input.name !== undefined) {
+    params.push(input.name.trim())
+    sets.push(`name = $${params.length}`)
+  }
+  if (input.description !== undefined) {
+    params.push(input.description)
+    sets.push(`description = $${params.length}`)
+  }
+  if (input.price !== undefined) {
+    params.push(input.price)
+    sets.push(`price = $${params.length}`)
+  }
+  if (input.discountPercent !== undefined) {
+    params.push(input.discountPercent)
+    sets.push(`discount_percent = $${params.length}`)
+  }
+  if (input.inStock !== undefined) {
+    params.push(input.inStock)
+    sets.push(`in_stock = $${params.length}`)
+  }
+  if (input.categoryId !== undefined) {
+    params.push(input.categoryId)
+    sets.push(`category_id = $${params.length}`)
+  }
+  if (input.color !== undefined) {
+    params.push(input.color)
+    sets.push(`color = $${params.length}`)
+  }
+  if (input.size !== undefined) {
+    params.push(input.size)
+    sets.push(`size = $${params.length}`)
+  }
+  if (input.colorTags !== undefined) {
+    params.push(input.colorTags)
+    sets.push(`color_tags = $${params.length}`)
+  }
+  if (input.dimensionsLabel !== undefined) {
+    params.push(input.dimensionsLabel)
+    sets.push(`dimensions_label = $${params.length}`)
+  }
+  if (input.specs !== undefined) {
+    params.push(JSON.stringify(input.specs))
+    sets.push(`specs = $${params.length}::jsonb`)
+  }
+  if (input.imageUrls !== undefined || input.imageUrl1 !== undefined || input.imageUrl2 !== undefined) {
+    const images = normalizeImageUrls(input.imageUrls, input.imageUrl1, input.imageUrl2)
+    params.push(images.imageUrl1)
+    sets.push(`image_url_1 = $${params.length}`)
+    params.push(images.imageUrl2)
+    sets.push(`image_url_2 = $${params.length}`)
+    params.push(JSON.stringify(images.imageUrls))
+    sets.push(`image_urls = $${params.length}::jsonb`)
+  }
+  if (input.webSubcategoryName !== undefined) {
+    const webSub = resolveWebSubcategory(input.webSubcategoryName)
+    params.push(webSub.name)
+    sets.push(`web_subcategory_name = $${params.length}`)
+    params.push(webSub.slug)
+    sets.push(`web_subcategory_slug = $${params.length}`)
+  }
+  if (input.subcategory !== undefined) {
+    params.push(input.subcategory)
+    sets.push(`subcategory = $${params.length}`)
+  }
+  if (input.subcategorySlug !== undefined) {
+    params.push(input.subcategorySlug)
+    sets.push(`subcategory_slug = $${params.length}`)
+  }
+
+  const dims = extractDimsInput(input)
+  if (dims) {
+    params.push(dims.weightGrams)
+    sets.push(`weight_grams = $${params.length}`)
+    params.push(dims.lengthCm)
+    sets.push(`dim_length_cm = $${params.length}`)
+    params.push(dims.widthCm)
+    sets.push(`dim_width_cm = $${params.length}`)
+    params.push(dims.heightCm)
+    sets.push(`dim_height_cm = $${params.length}`)
+    sets.push(`dims_source = 'manual'`)
+    sets.push(`weight_source = 'manual'`)
+  }
+
+  if (sets.length === 1) {
+    throw new Error('No fields to update')
+  }
+
+  params.push(id)
+  const result = await pool.query(
+    `UPDATE products SET ${sets.join(', ')} WHERE id = $${params.length}`,
+    params,
+  )
+  if ((result.rowCount ?? 0) === 0) return null
+
+  return getCrmCatalogProductById(id)
+}
+
+export const setCrmCatalogProductArchived = async (
+  id: number,
+  archived: boolean,
+): Promise<CrmCatalogProductDetail | null> => {
+  assertCatalogCrmWritable()
+  const result = await pool.query(
+    `UPDATE products SET is_archived = $1, updated_at = NOW() WHERE id = $2`,
+    [archived, id],
+  )
+  if ((result.rowCount ?? 0) === 0) return null
+  return getCrmCatalogProductById(id)
+}
+
+export const updateCrmCatalogProductStock = async (
+  id: number,
+  inStock: number,
+): Promise<CrmCatalogProductDetail | null> => {
+  assertCatalogCrmWritable()
+  const result = await pool.query(
+    `UPDATE products SET in_stock = $1, updated_at = NOW() WHERE id = $2`,
+    [inStock, id],
+  )
+  if ((result.rowCount ?? 0) === 0) return null
+  return getCrmCatalogProductById(id)
+}

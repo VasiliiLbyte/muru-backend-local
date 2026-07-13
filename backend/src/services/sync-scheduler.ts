@@ -6,6 +6,7 @@ import {
   startCatalogSyncJob,
 } from './sync-job-state'
 import { alreadyRanTodayMsk, currentMskHour } from './sync-scheduler.helpers'
+import { env } from '../utils/env'
 
 export { alreadyRanTodayMsk, currentMskHour } from './sync-scheduler.helpers'
 
@@ -59,6 +60,11 @@ const waitForJobAndNotify = async (): Promise<void> => {
 
 export const runSyncSchedulerTick = async (): Promise<void> => {
   try {
+    if (env.isCatalogCrmMode) {
+      console.log('[sync-scheduler] skipped: catalog source is crm')
+      return
+    }
+
     const schedule = await getSyncSchedule()
     if (!schedule.enabled) return
     if (currentMskHour() !== schedule.hourMsk) return

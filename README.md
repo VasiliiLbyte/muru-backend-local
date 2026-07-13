@@ -24,18 +24,19 @@ Copy `.env.example` to `.env` and fill values:
 - `ADMIN_TELEGRAM_IDS` - comma-separated Telegram user IDs allowed to access admin API (checked server-side after JWT auth).
 - `DATABASE_URL` - PostgreSQL connection string.
 - `GOOGLE_SERVICE_ACCOUNT_EMAIL` and `GOOGLE_PRIVATE_KEY` - service account credentials.
-- `CATALOG_SOURCE` - `xlsx` (default): read client **.xlsx** from Drive; `sheets`: legacy Google Sheets API.
+- `CATALOG_SOURCE` - catalog **ownership**: `sheets` (default, Google sync + CRM read-only) or `crm` (CRM writes, sync disabled). Legacy `xlsx` maps to `sheets` ownership with xlsx Google read mode.
+- `googleCatalogReadMode` (derived) - how Google catalog is **read**: `xlsx` (Drive .xlsx) or `sheets` (Sheets API). Set explicitly via `CATALOG_SOURCE=sheets` (legacy Sheets API) or auto from `GOOGLE_CATALOG_FILE_ID` when unset.
 - `GOOGLE_CATALOG_FILE_ID` - Drive file ID of the product registry xlsx ([MURU реестр заполнения товаров](https://docs.google.com/spreadsheets/d/13R05JyBIJsMl0fE7qQRxG1nVcKTU3XFg/edit) → `13R05JyBIJsMl0fE7qQRxG1nVcKTU3XFg`).
 - `GOOGLE_CATALOG_XLSX_SHEET_NAME` - optional worksheet name inside the xlsx; if empty, the first sheet with an «артикул» header row is used.
-- `ENABLE_SHEETS_STOCK_WRITE` - `false` for `CATALOG_SOURCE=xlsx` (no stock write-back to spreadsheet on orders; stock updates on full catalog sync only). Set `true` with `CATALOG_SOURCE=sheets` to restore Sheets stock deduction.
-- `GOOGLE_SHEET_ID` - used only when `CATALOG_SOURCE=sheets`.
+- `ENABLE_SHEETS_STOCK_WRITE` - when `googleCatalogReadMode=sheets`, write stock back to spreadsheet on orders. Always `false` when `CATALOG_SOURCE=crm`.
+- `GOOGLE_SHEET_ID` - used only when `googleCatalogReadMode=sheets`.
 - `GOOGLE_DRIVE_FOLDER_ID` - root Drive folder for product photos ([пример](https://drive.google.com/drive/u/0/folders/1okABaQzSC-f9H6epKfhMH8sIImE2gLcQ)): рекурсивный обход всего дерева. Имена cropped: `MUxxxx_1_O.*`, `MUxxxx_2_O.*`, `MUxxxx_3_O.*` — суффикс `_O` латиницей или кириллицей (`_О`). Слот берётся из имени файла; cropped принимаются в папках разделов («Вазы и аксессуары», «Распродажа», «Фото для выгрузки» и т.д.), а также в legacy-вложенности **Обрезанные** → **Главное фото** / **Доп фото**. Папка **Заголовки и подзаголовки** игнорируется. В корне — `muru_placeholder_600.webp`. В каталог до **3** слотов карусели; legacy `MUxxxx-N.webp` в любой папке тоже поддерживается.
 
 ## Google Access Setup
 
-1. Create a Google Cloud service account and enable **Google Drive API** (and **Google Sheets API** only if `CATALOG_SOURCE=sheets`).
+1. Create a Google Cloud service account and enable **Google Drive API** (and **Google Sheets API** only if `googleCatalogReadMode=sheets`).
 2. Share the client **registry .xlsx** on Drive and the **root photo folder** with `GOOGLE_SERVICE_ACCOUNT_EMAIL` (**Reader** on xlsx is enough; **Editor** on the photo folder for public image links).
-3. Put credentials into `.env` (`CATALOG_SOURCE=xlsx`, `GOOGLE_CATALOG_FILE_ID=…`, `ENABLE_SHEETS_STOCK_WRITE=false`).
+3. Put credentials into `.env` (`CATALOG_SOURCE=sheets`, `GOOGLE_CATALOG_FILE_ID=…`).
 4. After changing catalog file or env, run `pm2 reload ecosystem.config.js --update-env` on the server and run a full catalog sync in admin.
 
 ## Database Schema

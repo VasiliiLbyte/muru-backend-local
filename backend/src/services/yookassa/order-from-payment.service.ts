@@ -85,7 +85,7 @@ const completeOrderAfterPayment = async (
     sku: item.sku,
     quantity: item.quantity,
   }))
-  if (env.enableSheetsStockWrite) {
+  if (env.enableSheetsStockWrite && env.catalogSource !== 'crm') {
     void decreaseStockInSheets(stockUpdates).catch((err) => {
       console.error('[sheets-write:error]', err)
     })

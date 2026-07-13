@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from 'express'
 import { ZodError } from 'zod'
 
 import { CdekApiError } from '../services/cdek/client'
+import { CatalogLockedError } from '../services/catalog-source.guard'
 import { PaymentPricingError } from '../services/yookassa/pricing.service'
 import { PromoValidationError } from '../services/promo.service'
 import { YooKassaError } from '../services/yookassa/client'
@@ -46,6 +47,14 @@ export const errorHandler = (err: unknown, req: Request, res: Response, _next: N
       success: false,
       data: null,
       error: { message: err.message, code: 'UPSTREAM' },
+    })
+  }
+
+  if (err instanceof CatalogLockedError) {
+    return res.status(423).json({
+      success: false,
+      data: null,
+      error: { message: err.message, code: 'LOCKED' },
     })
   }
 

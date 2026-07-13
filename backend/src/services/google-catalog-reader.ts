@@ -9,7 +9,7 @@ export type CatalogReadProgressCallback = (message: string) => void
 export const readCatalogWithMeta = async (
   onProgress?: CatalogReadProgressCallback,
 ): Promise<CatalogReadResult> => {
-  if (env.catalogSource === 'sheets') {
+  if (env.googleCatalogReadMode === 'sheets') {
     onProgress?.('Читаем Google Таблицу…')
     return readSheetsCatalogWithMeta()
   }

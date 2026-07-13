@@ -4,6 +4,7 @@ export type ApiErrorCode =
   | 'NOT_FOUND'
   | 'VALIDATION'
   | 'CONFLICT'
+  | 'LOCKED'
   | 'RATE_LIMITED'
   | 'UPSTREAM'
   | 'INTERNAL'

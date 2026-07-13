@@ -125,7 +125,8 @@ const attachProductSubcategories = async (nodes: CatalogNode[]): Promise<void> =
             count(*)::int AS cnt
      FROM products p
      JOIN categories c ON c.id = p.category_id
-     WHERE p.web_subcategory_name IS NOT NULL AND trim(p.web_subcategory_name) <> ''
+     WHERE p.is_archived = FALSE
+       AND p.web_subcategory_name IS NOT NULL AND trim(p.web_subcategory_name) <> ''
        AND p.web_subcategory_slug IS NOT NULL AND trim(p.web_subcategory_slug) <> ''
      GROUP BY c.name, c.slug, p.web_subcategory_name, p.web_subcategory_slug`,
   )
@@ -155,7 +156,7 @@ export const getCatalogTree = async (withSubcategories = false): Promise<Catalog
   const withProducts = await pool.query<{ slug: string }>(
     `SELECT DISTINCT c.slug
      FROM categories c
-     INNER JOIN products p ON p.category_id = c.id`,
+     INNER JOIN products p ON p.category_id = c.id AND p.is_archived = FALSE`,
   )
   const slugsWithProducts = new Set(withProducts.rows.map((row) => row.slug))
 
@@ -232,7 +233,7 @@ export const getCatalogProducts = async (params: {
     priceMax,
   } = params
   const web = isWebChannel(channel)
-  const conditions: string[] = []
+  const conditions: string[] = ['p.is_archived = FALSE']
   const values: Array<string | number> = []
 
   if (web) {
@@ -437,7 +438,7 @@ export const getCatalogProductBySku = async (
      FROM products p
      LEFT JOIN categories c ON c.id = p.category_id${webJoins}
      LEFT JOIN variants v ON v.product_id = p.id
-     WHERE p.sku = $1`,
+     WHERE p.sku = $1 AND p.is_archived = FALSE`,
     [sku],
   )
 

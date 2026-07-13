@@ -1,0 +1,121 @@
+import express from 'express'
+import cookieParser from 'cookie-parser'
+import request from 'supertest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const mockVerifyAdminJwt = vi.fn()
+const mockGetCrmCatalogMeta = vi.fn()
+const mockListCrmCatalogProducts = vi.fn()
+const mockCreateCrmCatalogProduct = vi.fn()
+
+vi.mock('../services/admin-auth.service', () => ({
+  verifyAdminJwt: (...args: unknown[]) => mockVerifyAdminJwt(...args),
+}))
+
+vi.mock('../services/crm-catalog.service', () => ({
+  getCrmCatalogMeta: (...args: unknown[]) => mockGetCrmCatalogMeta(...args),
+  listCrmCatalogProducts: (...args: unknown[]) => mockListCrmCatalogProducts(...args),
+  getCrmCatalogProductById: vi.fn(),
+  createCrmCatalogProduct: (...args: unknown[]) => mockCreateCrmCatalogProduct(...args),
+  updateCrmCatalogProduct: vi.fn(),
+  setCrmCatalogProductArchived: vi.fn(),
+  updateCrmCatalogProductStock: vi.fn(),
+}))
+
+import { errorHandler } from '../middleware/error-handler.middleware'
+import { crmCatalogRouter } from '../routes/crm-catalog.routes'
+import { CatalogLockedError } from '../services/catalog-source.guard'
+
+const buildApp = () => {
+  const app = express()
+  app.use(express.json())
+  app.use(cookieParser())
+  app.use('/api/crm/catalog', crmCatalogRouter)
+  app.use(errorHandler)
+  return app
+}
+
+describe('crm catalog routes', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockVerifyAdminJwt.mockReturnValue({ adminId: 1, role: 'owner' })
+    mockGetCrmCatalogMeta.mockReturnValue({ catalogSource: 'sheets', readOnly: true })
+    mockListCrmCatalogProducts.mockResolvedValue({
+      items: [],
+      total: 0,
+      page: 1,
+      pageSize: 20,
+      catalogSource: 'sheets',
+      readOnly: true,
+    })
+  })
+
+  it('GET /api/crm/catalog/products returns 401 without cookie', async () => {
+    const app = buildApp()
+    const res = await request(app).get('/api/crm/catalog/products')
+    expect(res.status).toBe(401)
+    expect(mockListCrmCatalogProducts).not.toHaveBeenCalled()
+  })
+
+  it('GET /api/crm/catalog/products returns 200 with cookie', async () => {
+    const app = buildApp()
+    const res = await request(app)
+      .get('/api/crm/catalog/products')
+      .set('Cookie', 'admin_token=valid')
+    expect(res.status).toBe(200)
+    expect(res.body.success).toBe(true)
+    expect(mockListCrmCatalogProducts).toHaveBeenCalledOnce()
+  })
+
+  it('POST /api/crm/catalog/products returns 423 LOCKED in sheets mode', async () => {
+    mockCreateCrmCatalogProduct.mockRejectedValue(new CatalogLockedError())
+    const app = buildApp()
+    const res = await request(app)
+      .post('/api/crm/catalog/products')
+      .set('Cookie', 'admin_token=valid')
+      .send({ sku: 'MU0001', name: 'Item', price: 100 })
+    expect(res.status).toBe(423)
+    expect(res.body.error.code).toBe('LOCKED')
+  })
+
+  it('POST /api/crm/catalog/products returns 201 in crm mode', async () => {
+    mockCreateCrmCatalogProduct.mockResolvedValue({
+      id: 1,
+      sku: 'MU0001',
+      name: 'Item',
+      price: 100,
+      discountPercent: 0,
+      inStock: 0,
+      isArchived: false,
+      specs: {},
+      imageUrls: [],
+      imageUrl1: 'https://placehold.co/1200x1200?text=MURU',
+      imageUrl2: 'https://placehold.co/1200x1200?text=MURU',
+      categoryId: null,
+      categoryName: null,
+      webSubcategoryName: null,
+      webSubcategorySlug: null,
+      subcategory: null,
+      subcategorySlug: null,
+      color: null,
+      size: null,
+      colorTags: [],
+      dimensionsLabel: '',
+      weightGrams: 3000,
+      dimLengthCm: 22,
+      dimWidthCm: 12,
+      dimHeightCm: 18,
+      dimsSource: 'auto',
+      weightSource: 'auto',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    })
+
+    const app = buildApp()
+    const res = await request(app)
+      .post('/api/crm/catalog/products')
+      .set('Cookie', 'admin_token=valid')
+      .send({ sku: 'MU0001', name: 'Item', price: 100 })
+    expect(res.status).toBe(201)
+    expect(res.body.success).toBe(true)
+  })
+})

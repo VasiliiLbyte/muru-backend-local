@@ -43,7 +43,7 @@ const envSchema = z.object({
   SMTP_PASS: z.string().optional(),
   GOOGLE_SERVICE_ACCOUNT_EMAIL: z.string().email('GOOGLE_SERVICE_ACCOUNT_EMAIL must be valid'),
   GOOGLE_PRIVATE_KEY: z.string().min(1, 'GOOGLE_PRIVATE_KEY is required'),
-  CATALOG_SOURCE: z.enum(['xlsx', 'sheets']).optional(),
+  CATALOG_SOURCE: z.enum(['xlsx', 'sheets', 'crm']).optional(),
   GOOGLE_CATALOG_FILE_ID: z.string().optional(),
   GOOGLE_CATALOG_XLSX_SHEET_NAME: z.string().optional(),
   ENABLE_SHEETS_STOCK_WRITE: z.string().optional(),
@@ -139,14 +139,41 @@ const allowedOrigins = (parsed.data.ALLOWED_ORIGINS ?? '')
   .map((item) => item.trim())
   .filter(Boolean)
 
-const catalogSource = parsed.data.CATALOG_SOURCE === 'sheets' ? 'sheets' : 'xlsx'
+const googleCatalogFileId =
+  parsed.data.GOOGLE_CATALOG_FILE_ID?.trim() || '13R05JyBIJsMl0fE7qQRxG1nVcKTU3XFg'
+
+const rawCatalogSource = parsed.data.CATALOG_SOURCE
+
+let catalogSource: 'sheets' | 'crm'
+let googleCatalogReadMode: 'xlsx' | 'sheets'
+
+if (rawCatalogSource === 'crm') {
+  catalogSource = 'crm'
+  googleCatalogReadMode = 'xlsx'
+} else if (rawCatalogSource === 'xlsx') {
+  catalogSource = 'sheets'
+  googleCatalogReadMode = 'xlsx'
+  console.warn(
+    '[env] CATALOG_SOURCE=xlsx is legacy; catalog ownership is sheets, Google read mode is xlsx',
+  )
+} else if (rawCatalogSource === 'sheets') {
+  catalogSource = 'sheets'
+  googleCatalogReadMode = 'sheets'
+} else {
+  catalogSource = 'sheets'
+  googleCatalogReadMode = googleCatalogFileId ? 'xlsx' : 'sheets'
+}
+
+const isCatalogCrmMode = catalogSource === 'crm'
 
 const enableSheetsStockWrite =
-  parsed.data.ENABLE_SHEETS_STOCK_WRITE === 'true'
-    ? true
-    : parsed.data.ENABLE_SHEETS_STOCK_WRITE === 'false'
-      ? false
-      : catalogSource === 'sheets'
+  catalogSource === 'crm'
+    ? false
+    : parsed.data.ENABLE_SHEETS_STOCK_WRITE === 'true'
+      ? true
+      : parsed.data.ENABLE_SHEETS_STOCK_WRITE === 'false'
+        ? false
+        : googleCatalogReadMode === 'sheets'
 
 const DEFAULT_BOT_WELCOME_DESCRIPTION = 'Добро пожаловать в магазин интерьерного декора MURU'
 
@@ -195,8 +222,9 @@ export const env = {
   googleServiceAccountEmail: parsed.data.GOOGLE_SERVICE_ACCOUNT_EMAIL,
   googlePrivateKey: parsed.data.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
   catalogSource,
-  googleCatalogFileId:
-    parsed.data.GOOGLE_CATALOG_FILE_ID?.trim() || '13R05JyBIJsMl0fE7qQRxG1nVcKTU3XFg',
+  googleCatalogReadMode,
+  isCatalogCrmMode,
+  googleCatalogFileId,
   googleCatalogXlsxSheetName: parsed.data.GOOGLE_CATALOG_XLSX_SHEET_NAME?.trim() || '',
   enableSheetsStockWrite,
   googleSheetId: parsed.data.GOOGLE_SHEET_ID,

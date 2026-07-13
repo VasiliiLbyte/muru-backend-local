@@ -401,6 +401,17 @@ export type CatalogSyncProgressCallback = (progress: CatalogSyncProgress) => voi
 export const syncCatalogFromGoogle = async (
   onProgress?: CatalogSyncProgressCallback,
 ): Promise<SyncResult> => {
+  if (env.isCatalogCrmMode) {
+    return {
+      totalRows: 0,
+      syncedProducts: 0,
+      skippedProducts: 0,
+      skippedByRule: 0,
+      errors: [],
+      warnings: ['Catalog source is crm; sync skipped'],
+    }
+  }
+
   const startedAt = Date.now()
   const report = (progress: CatalogSyncProgress) => onProgress?.(progress)
 
