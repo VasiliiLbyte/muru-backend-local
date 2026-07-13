@@ -43,6 +43,7 @@ import {
 } from './google-sync-stale-products'
 import { PRODUCT_UPSERT_VALUES_SQL } from './google-sync-upsert-sql'
 import { extractDriveFileId } from '../utils/drive-file-id'
+import { CATALOG_SPEC_MAPPING } from './crm-catalog-sheet-map'
 
 type SyncProduct = Product & {
   webSubcategoryName: string | null
@@ -141,21 +142,7 @@ const normalizeProduct = (
   if (!parsed.success) return null
 
   const specsFromColumns: Record<string, string> = {}
-  const specMapping: Record<string, string> = {
-    бренд: 'Бренд',
-    материал: 'Материал',
-    'плотность ткани': 'Плотность ткани',
-    дизайн: 'Дизайн',
-    тип: 'Тип',
-    'размер наволочки': 'Размер наволочки',
-    'размер пододеяльника': 'Размер пододеяльника',
-    'размер простыни': 'Размер простыни',
-    'страна производитель': 'Страна',
-    ингредиенты: 'Ингредиенты',
-    происхождение: 'Происхождение',
-    упаковка: 'Упаковка',
-  }
-  for (const [sheetKey, displayName] of Object.entries(specMapping)) {
+  for (const [sheetKey, displayName] of Object.entries(CATALOG_SPEC_MAPPING)) {
     const val = source[sheetKey]?.trim()
     if (val) specsFromColumns[displayName] = val
   }
@@ -394,6 +381,103 @@ const upsertProductsBatched = async (
   }
 
   return { synced, errors }
+}
+
+export type CatalogImportRowResult = {
+  row: number
+  sku: string
+  action: 'create' | 'update' | 'skip'
+  error?: string
+}
+
+export type CatalogImportResult = {
+  dryRun: boolean
+  totalRows: number
+  parsed: number
+  created: number
+  updated: number
+  skipped: number
+  errors: Array<{ row: number; sku?: string; message: string }>
+}
+
+export const normalizeProductFromSheetRow = (
+  source: Record<string, string>,
+): SyncProduct | null => normalizeProduct(source, undefined, null)
+
+export const importCatalogProductsFromRows = async (
+  rows: Record<string, string>[],
+  options?: { dryRun?: boolean; rowOffset?: number },
+): Promise<CatalogImportResult> => {
+  const dryRun = options?.dryRun ?? false
+  const rowOffset = options?.rowOffset ?? 2
+  const totalRows = rows.length
+  const errors: CatalogImportResult['errors'] = []
+  const validProducts: Array<{ row: number; product: SyncProduct }> = []
+
+  for (let index = 0; index < rows.length; index += 1) {
+    const rowNumber = rowOffset + index + 1
+    const product = normalizeProductFromSheetRow(rows[index])
+    if (!product) {
+      errors.push({ row: rowNumber, message: 'Invalid row' })
+      continue
+    }
+    validProducts.push({ row: rowNumber, product })
+  }
+
+  const deduped = dedupeProductsBySkuLastWins(validProducts.map((item) => item.product)) as SyncProduct[]
+  const parsed = deduped.length
+  let skipped = totalRows - validProducts.length
+
+  const skus = deduped.map((p) => p.sku)
+  let existingSkus = new Set<string>()
+  if (skus.length > 0) {
+    const result = await pool.query<{ sku: string }>(
+      'SELECT sku FROM products WHERE sku = ANY($1::text[])',
+      [skus],
+    )
+    existingSkus = new Set(result.rows.map((r) => r.sku))
+  }
+
+  let created = 0
+  let updated = 0
+  for (const product of deduped) {
+    if (existingSkus.has(product.sku)) {
+      updated += 1
+    } else {
+      created += 1
+    }
+  }
+
+  if (dryRun) {
+    return {
+      dryRun: true,
+      totalRows,
+      parsed,
+      created,
+      updated,
+      skipped,
+      errors,
+    }
+  }
+
+  const { synced, errors: dbErrors } = await upsertProductsBatched(deduped)
+  for (const dbError of dbErrors) {
+    errors.push({ row: 0, sku: dbError.sku, message: dbError.reason })
+  }
+
+  if (synced < deduped.length) {
+    skipped += deduped.length - synced
+  }
+
+  return {
+    dryRun: false,
+    totalRows,
+    parsed,
+    created,
+    updated,
+    skipped,
+    errors,
+  }
 }
 
 export type CatalogSyncProgressCallback = (progress: CatalogSyncProgress) => void

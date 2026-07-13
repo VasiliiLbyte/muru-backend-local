@@ -11,6 +11,8 @@ const mockListCrmCategories = vi.fn()
 const mockCreateCrmCategory = vi.fn()
 const mockCreateCrmCharacteristic = vi.fn()
 const mockUploadCrmCatalogImage = vi.fn()
+const mockExportCrmCatalog = vi.fn()
+const mockImportCrmCatalogFromBuffer = vi.fn()
 
 vi.mock('../services/admin-auth.service', () => ({
   verifyAdminJwt: (...args: unknown[]) => mockVerifyAdminJwt(...args),
@@ -44,6 +46,14 @@ vi.mock('../services/crm-catalog-image-upload.service', () => ({
   uploadCrmCatalogImage: (...args: unknown[]) => mockUploadCrmCatalogImage(...args),
 }))
 
+vi.mock('../services/crm-catalog-export.service', () => ({
+  exportCrmCatalog: (...args: unknown[]) => mockExportCrmCatalog(...args),
+}))
+
+vi.mock('../services/crm-catalog-import.service', () => ({
+  importCrmCatalogFromBuffer: (...args: unknown[]) => mockImportCrmCatalogFromBuffer(...args),
+}))
+
 import { errorHandler } from '../middleware/error-handler.middleware'
 import { crmCatalogRouter } from '../routes/crm-catalog.routes'
 import { CatalogLockedError } from '../services/catalog-source.guard'
@@ -71,6 +81,20 @@ describe('crm catalog routes', () => {
       readOnly: true,
     })
     mockListCrmCategories.mockResolvedValue([])
+    mockExportCrmCatalog.mockResolvedValue({
+      buffer: Buffer.from('xlsx-bytes'),
+      contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      filename: 'muru-catalog-2026-07-13.xlsx',
+    })
+    mockImportCrmCatalogFromBuffer.mockResolvedValue({
+      dryRun: true,
+      totalRows: 1,
+      parsed: 1,
+      created: 1,
+      updated: 0,
+      skipped: 0,
+      errors: [],
+    })
   })
 
   it('GET /api/crm/catalog/products returns 401 without cookie', async () => {
@@ -186,5 +210,45 @@ describe('crm catalog routes', () => {
       .attach('file', Buffer.from('fake'), { filename: 'test.jpg', contentType: 'image/jpeg' })
     expect(res.status).toBe(423)
     expect(res.body.error.code).toBe('LOCKED')
+  })
+
+  it('GET /api/crm/catalog/export returns 200 with attachment content-type', async () => {
+    const app = buildApp()
+    const res = await request(app)
+      .get('/api/crm/catalog/export?format=xlsx')
+      .set('Cookie', 'admin_token=valid')
+    expect(res.status).toBe(200)
+    expect(res.headers['content-type']).toContain('spreadsheetml')
+    expect(res.headers['content-disposition']).toContain('attachment')
+    expect(mockExportCrmCatalog).toHaveBeenCalledWith('xlsx')
+  })
+
+  it('POST /api/crm/catalog/import returns 423 LOCKED in sheets mode', async () => {
+    mockImportCrmCatalogFromBuffer.mockRejectedValue(new CatalogLockedError())
+    const app = buildApp()
+    const res = await request(app)
+      .post('/api/crm/catalog/import')
+      .set('Cookie', 'admin_token=valid')
+      .attach('file', Buffer.from('fake'), {
+        filename: 'catalog.xlsx',
+        contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      })
+    expect(res.status).toBe(423)
+    expect(res.body.error.code).toBe('LOCKED')
+  })
+
+  it('POST /api/crm/catalog/import?dryRun=true returns 200 with report', async () => {
+    const app = buildApp()
+    const res = await request(app)
+      .post('/api/crm/catalog/import?dryRun=true')
+      .set('Cookie', 'admin_token=valid')
+      .attach('file', Buffer.from('fake'), {
+        filename: 'catalog.xlsx',
+        contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      })
+    expect(res.status).toBe(200)
+    expect(res.body.success).toBe(true)
+    expect(res.body.data.dryRun).toBe(true)
+    expect(mockImportCrmCatalogFromBuffer).toHaveBeenCalledWith(expect.any(Buffer), true)
   })
 })

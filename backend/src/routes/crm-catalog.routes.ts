@@ -1,6 +1,11 @@
 import { Router } from 'express'
 
 import {
+  crmCatalogImportMiddleware,
+  exportCrmCatalogHandler,
+  importCrmCatalogHandler,
+} from '../controllers/crm-catalog-import.controller'
+import {
   crmCatalogUploadMiddleware,
   uploadCrmCatalogImageHandler,
 } from '../controllers/crm-catalog-upload.controller'
@@ -41,6 +46,9 @@ crmCatalogRouter.post('/characteristics', createCrmCharacteristicHandler)
 crmCatalogRouter.patch('/characteristics/:id', patchCrmCharacteristicHandler)
 
 crmCatalogRouter.post('/upload-image', crmCatalogUploadMiddleware, uploadCrmCatalogImageHandler)
+
+crmCatalogRouter.get('/export', exportCrmCatalogHandler)
+crmCatalogRouter.post('/import', crmCatalogImportMiddleware, importCrmCatalogHandler)
 
 crmCatalogRouter.get('/products', listCrmCatalogProductsHandler)
 crmCatalogRouter.post('/products', createCrmCatalogProductHandler)
