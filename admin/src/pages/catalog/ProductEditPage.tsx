@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ProductImagesEditor } from '../../components/catalog/ProductImagesEditor'
 import { useCatalogMetaContext } from '../../context/CatalogMetaContext'
 import { ApiError } from '../../lib/api'
+import { buildProxiedImageUrl } from '../../lib/images'
 import {
   archiveProduct,
   createProduct,
@@ -57,7 +58,10 @@ const rowsToSpecs = (rows: SpecRow[]): Record<string, string> => {
 }
 
 const productToImageSlots = (product: CrmCatalogProductDetail): ProductImageSlot[] =>
-  (product.imageUrls ?? []).map((url) => ({ url }))
+  (product.imageUrls ?? []).map((url) => {
+    const proxyPath = buildProxiedImageUrl(url) ?? undefined
+    return proxyPath ? { url, proxyPath } : { url }
+  })
 
 export const ProductEditPage = () => {
   const { id } = useParams()
