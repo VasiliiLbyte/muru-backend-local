@@ -201,6 +201,10 @@ adminRouter.get('/sync/status', (req, res) => {
 adminRouter.post('/sync', (req, res) => {
   if (!isAdminRequest(req)) return adminForbidden(res)
 
+  if (env.isCatalogCrmMode) {
+    return fail(res, 423, 'Catalog is managed via CRM; sync is disabled', 'LOCKED')
+  }
+
   const telegramUserId = parseTelegramUserId(
     req.header('x-telegram-user-id'),
     req.body?.telegramUserId,
@@ -223,6 +227,10 @@ adminRouter.post('/sync', (req, res) => {
 
 adminRouter.post('/sync/stock', async (req, res, next) => {
   if (!isAdminRequest(req)) return adminForbidden(res)
+
+  if (env.isCatalogCrmMode) {
+    return fail(res, 423, 'Catalog is managed via CRM; sync is disabled', 'LOCKED')
+  }
 
   try {
     const result = await syncCatalogFromGoogle()

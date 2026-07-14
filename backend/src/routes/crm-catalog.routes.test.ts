@@ -114,6 +114,22 @@ describe('crm catalog routes', () => {
     expect(mockListCrmCatalogProducts).toHaveBeenCalledOnce()
   })
 
+  it('GET /api/crm/catalog/meta returns read-only in sheets mode', async () => {
+    mockGetCrmCatalogMeta.mockReturnValue({ catalogSource: 'sheets', readOnly: true })
+    const app = buildApp()
+    const res = await request(app).get('/api/crm/catalog/meta').set('Cookie', 'admin_token=valid')
+    expect(res.status).toBe(200)
+    expect(res.body.data).toEqual({ catalogSource: 'sheets', readOnly: true })
+  })
+
+  it('GET /api/crm/catalog/meta returns writable in crm mode', async () => {
+    mockGetCrmCatalogMeta.mockReturnValue({ catalogSource: 'crm', readOnly: false })
+    const app = buildApp()
+    const res = await request(app).get('/api/crm/catalog/meta').set('Cookie', 'admin_token=valid')
+    expect(res.status).toBe(200)
+    expect(res.body.data).toEqual({ catalogSource: 'crm', readOnly: false })
+  })
+
   it('POST /api/crm/catalog/products returns 423 LOCKED in sheets mode', async () => {
     mockCreateCrmCatalogProduct.mockRejectedValue(new CatalogLockedError())
     const app = buildApp()
