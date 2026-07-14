@@ -15,6 +15,11 @@ const resolvedEnvPath = envCandidatePaths.find((filePath) => existsSync(filePath
 
 if (resolvedEnvPath) {
   dotenv.config({ path: resolvedEnvPath })
+  if (process.env.NODE_ENV !== 'test') {
+    console.log(`[env] loaded: ${resolvedEnvPath}`)
+  }
+} else if (process.env.NODE_ENV !== 'test') {
+  console.log('[env] no .env file, using process.env only')
 }
 
 const envSchema = z.object({
