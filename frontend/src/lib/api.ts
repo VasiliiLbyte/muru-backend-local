@@ -4,6 +4,8 @@ import type { FavoriteItem } from '../types/favorite'
 import { getViteApiBaseUrl } from './api-base-url'
 import { apiErrorMessage, parseApi } from './api-response'
 import { getStoredToken } from './auth'
+import { isMaintenanceApiResponse, setMaintenanceMode } from './maintenance-mode'
+import { getTelegramInitDataForApi } from './telegram-init-data'
 
 export type { ApiResponse } from './api-response'
 
@@ -132,8 +134,25 @@ export type SaveCategoryCoversApiResult = {
 const API_BASE_URL = getViteApiBaseUrl()
 
 const safeFetch = async (url: string, options?: RequestInit): Promise<Response> => {
+  const initData = getTelegramInitDataForApi()
+  const headers = new Headers(options?.headers)
+  if (initData && !headers.has('x-telegram-init-data')) {
+    headers.set('x-telegram-init-data', initData)
+  }
+
   try {
-    const response = await fetch(url, options)
+    const response = await fetch(url, { ...options, headers })
+
+    if (response.status === 503) {
+      const payload = await response.clone().json().catch(() => null)
+      if (isMaintenanceApiResponse(response.status, payload)) {
+        setMaintenanceMode(true)
+        throw new Error(payload.message, {
+          cause: { status: response.status, code: payload.code },
+        })
+      }
+    }
+
     if (response.status === 502 || response.status === 503 || response.status === 504) {
       throw new Error('Сервер временно недоступен. Попробуйте позже.')
     }

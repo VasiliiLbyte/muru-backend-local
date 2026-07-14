@@ -79,6 +79,7 @@ const envSchema = z.object({
   YOOKASSA_WEB_RETURN_URL: z.string().optional(),
   YOOKASSA_VAT_CODE: z.string().optional(),
   YOOKASSA_VERIFY_IP: z.string().optional(),
+  MINIAPP_MAINTENANCE: z.string().optional(),
 })
 
 const parsed = envSchema.safeParse(process.env)
@@ -186,6 +187,8 @@ const DEFAULT_BOT_WELCOME_MESSAGE = `Добро пожаловать в MURU
 
 В мире, где слишком много шума, мы создаём дом, который звучит как уют и спокойствие. MURU - это тишина, ставшая формой.`
 
+const maintenanceMode = parsed.data.MINIAPP_MAINTENANCE?.trim().toLowerCase() === 'true'
+
 const nodeEnv = parsed.data.NODE_ENV || 'development'
 const defaultImageCacheDir =
   nodeEnv === 'production'
@@ -265,4 +268,5 @@ export const env = {
   payments: {
     nativeEnabled: nativePaymentsEnabled,
   },
+  maintenanceMode,
 }

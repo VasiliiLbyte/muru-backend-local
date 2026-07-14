@@ -19,6 +19,10 @@ import { paymentsRouter } from './routes/payments.routes'
 import { profileRouter } from './routes/profile.routes'
 import { yookassaWebhookRouter } from './routes/yookassa-webhook.routes'
 import { errorHandler } from './middleware/error-handler.middleware'
+import {
+  miniappMaintenanceMiddleware,
+  miniappMaintenanceUnlessWebPayments,
+} from './middleware/miniapp-maintenance.middleware'
 import { startTelegramBotPolling } from './services/telegram-bot.service'
 import { fail, ok } from './utils/api-response'
 import { env } from './utils/env'
@@ -78,12 +82,12 @@ app.use('/api/crm/orders', crmOrdersRouter)
 app.use('/api/crm/catalog', crmCatalogRouter)
 app.use('/api/content', contentPublicRouter)
 app.use('/api/admin', adminRouter)
-app.use('/api/catalog', catalogRouter)
-app.use('/api/favorites', favoritesRouter)
-app.use('/api/orders', ordersRouter)
-app.use('/api/payments', paymentsRouter)
-app.use('/api/profile', profileRouter)
-app.use('/api/cdek', cdekRouter)
+app.use('/api/catalog', miniappMaintenanceMiddleware, catalogRouter)
+app.use('/api/favorites', miniappMaintenanceMiddleware, favoritesRouter)
+app.use('/api/orders', miniappMaintenanceMiddleware, ordersRouter)
+app.use('/api/payments', miniappMaintenanceUnlessWebPayments, paymentsRouter)
+app.use('/api/profile', miniappMaintenanceMiddleware, profileRouter)
+app.use('/api/cdek', miniappMaintenanceMiddleware, cdekRouter)
 
 app.get('/api/health', async (_req, res, next) => {
   try {

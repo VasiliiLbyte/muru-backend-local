@@ -5,10 +5,12 @@ import { AdminDashboard } from '../admin/AdminDashboard'
 import { CartProvider, useCart } from '../cart/CartContext'
 import { CatalogSearch } from '../components/CatalogSearch'
 import { BottomNavigation } from '../components/BottomNavigation'
+import { MaintenanceScreen } from '../components/MaintenanceScreen'
 import { FavoritesProvider, useFavorites } from '../favorites/FavoritesContext'
 import { useTelegramWebApp } from '../hooks/useTelegramWebApp'
 import { fetchCatalogProductBySku, fetchCatalogProducts, fetchCatalogTree, fetchMyOrders, notifyRestock, PENDING_CHECKOUT_SUMMARY_KEY, type OrderSuccessSummary } from '../lib/api'
 import { hapticSelection } from '../lib/haptics'
+import { isMaintenanceMode, subscribeMaintenanceMode } from '../lib/maintenance-mode'
 import type { CatalogNode, CatalogProduct, CatalogProductDetail } from '../types/catalog'
 import { CatalogCategoryPage } from '../pages/CatalogCategoryPage'
 import { CatalogHomePage } from '../pages/CatalogHomePage'
@@ -224,6 +226,7 @@ const AppShell = () => {
   const [pendingPayment, setPendingPayment] = useState<string | null>(null)
   const [orderSuccess, setOrderSuccess] = useState<OrderSuccessSummary | null>(null)
   const [search, setSearch] = useState('')
+  const [maintenanceActive, setMaintenanceActive] = useState(isMaintenanceMode())
   const { userId, isAdmin, webApp } = useTelegramWebApp()
   const { addProduct, items: cartItems, clearCartAfterPayment } = useCart()
   const cartItemCount = useMemo(() => cartItems.reduce((n, i) => n + i.quantity, 0), [cartItems])
@@ -232,6 +235,8 @@ const AppShell = () => {
   useEffect(() => {
     fetchCatalogTree().then(setCatalogTree).catch(() => setCatalogTree([]))
   }, [])
+
+  useEffect(() => subscribeMaintenanceMode(() => setMaintenanceActive(isMaintenanceMode())), [])
 
   useEffect(() => {
     const stored = sessionStorage.getItem('muru-pending-payment')
@@ -633,6 +638,10 @@ const AppShell = () => {
   }
 
   const pageContent = renderPage()
+
+  if (maintenanceActive) {
+    return <MaintenanceScreen />
+  }
 
   return (
     <div className="mx-auto flex min-h-screen max-w-[560px] flex-col bg-muru-ivory">

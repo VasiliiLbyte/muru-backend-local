@@ -1,5 +1,7 @@
 import crypto from 'node:crypto'
 
+import { env } from '../utils/env'
+
 export type TelegramUser = {
   id: number
   first_name?: string
@@ -62,6 +64,17 @@ export const validateTelegramInitData = (
  * возвращаем фейкового пользователя без проверки подписи.
  * НА ПРОДЕ ЭТОТ ПУТЬ НЕДОСТУПЕН.
  */
+/**
+ * Resolves Telegram user from WebApp initData (production validation or dev_fallback).
+ */
+export const resolveTelegramUserFromInitData = (initData: string): TelegramUser | null => {
+  let tgUser = validateTelegramInitData(initData, env.telegramBotToken)
+  if (!tgUser && initData === 'dev_fallback') {
+    tgUser = getDevFallbackUser(env.devTelegramUserId)
+  }
+  return tgUser
+}
+
 export const getDevFallbackUser = (devUserId?: string): TelegramUser | null => {
   if (process.env.NODE_ENV === 'production') return null
   const firstId = (devUserId ?? '').split(',')[0]?.trim()

@@ -2,9 +2,8 @@ import type { NextFunction, Request, Response } from 'express'
 import { z } from 'zod'
 
 import { signJwt } from '../services/jwt.service'
-import { getDevFallbackUser, validateTelegramInitData } from '../services/telegram-auth.service'
+import { resolveTelegramUserFromInitData } from '../services/telegram-auth.service'
 import { pool } from '../utils/db'
-import { env } from '../utils/env'
 import { fail, HttpError, ok, zodErrorMessage } from '../utils/api-response'
 
 const authSchema = z.object({
@@ -20,11 +19,7 @@ export const telegramAuthHandler = async (req: Request, res: Response, next: Nex
 
     const { initData } = parsed.data
 
-    let tgUser = validateTelegramInitData(initData, env.telegramBotToken)
-
-    if (!tgUser && initData === 'dev_fallback') {
-      tgUser = getDevFallbackUser(env.devTelegramUserId)
-    }
+    const tgUser = resolveTelegramUserFromInitData(initData)
 
     if (!tgUser) {
       return fail(res, 401, 'Invalid or expired Telegram initData', 'UNAUTHORIZED')
