@@ -48,6 +48,7 @@ const rawInput = {
 describe('createInvoiceForCheckout', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockPoolQuery.mockReset()
     mockComputeTrustedPricing.mockResolvedValue({
       items: [{ sku: 'MU0001', name: 'Vase', price: 1000, quantity: 1 }],
       subtotal: 1000,
@@ -85,8 +86,27 @@ describe('createInvoiceForCheckout', () => {
     )
   })
 
+  it('accepts telegram.me invoice URLs from Telegram API', async () => {
+    const telegramMeUrl = 'https://telegram.me/$eZBtH8-abc'
+    mockCallTelegramApi.mockResolvedValue(telegramMeUrl)
+
+    const result = await createInvoiceForCheckout(rawInput)
+
+    expect(result).toEqual({ invoiceUrl: telegramMeUrl, intentId: 7 })
+    expect(mockPoolQuery).toHaveBeenCalledWith(
+      expect.stringContaining('confirmation_url'),
+      [7, telegramMeUrl],
+    )
+  })
+
   it('rejects non-t.me invoice URLs from Telegram API', async () => {
     mockCallTelegramApi.mockResolvedValue('https://yookassa.ru/checkout/abc')
+
+    await expect(createInvoiceForCheckout(rawInput)).rejects.toThrow(/invalid invoice URL/i)
+  })
+
+  it('rejects t.me URLs without invoice path', async () => {
+    mockCallTelegramApi.mockResolvedValue('https://t.me/noinvoice')
 
     await expect(createInvoiceForCheckout(rawInput)).rejects.toThrow(/invalid invoice URL/i)
   })

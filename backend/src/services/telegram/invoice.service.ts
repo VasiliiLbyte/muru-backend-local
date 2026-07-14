@@ -10,6 +10,11 @@ import { computeTrustedPricing } from '../yookassa/pricing.service'
 import { buildProviderData } from '../yookassa/provider-receipt'
 import { receiptTotalKop } from '../yookassa/receipt'
 
+const TELEGRAM_INVOICE_URL_PREFIXES = ['https://t.me/$', 'https://telegram.me/$'] as const
+
+const isValidTelegramInvoiceUrl = (url: string): boolean =>
+  TELEGRAM_INVOICE_URL_PREFIXES.some((prefix) => url.startsWith(prefix))
+
 export const createInvoiceForCheckout = async (
   raw: RawCheckoutInput,
 ): Promise<{ invoiceUrl: string; intentId: number }> => {
@@ -76,7 +81,7 @@ export const createInvoiceForCheckout = async (
     provider_data: providerData,
   })
 
-  if (!link.startsWith('https://t.me/$')) {
+  if (!isValidTelegramInvoiceUrl(link)) {
     throw new Error('Telegram createInvoiceLink returned an invalid invoice URL')
   }
 
