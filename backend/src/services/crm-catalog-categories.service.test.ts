@@ -61,14 +61,20 @@ describe('crm-catalog-categories.service', () => {
         rows: [
           {
             category_id: 1,
+            id: 10,
             name: 'Dresses',
             slug: 'dresses',
+            cover_image_url: null,
+            sort_order: 0,
             product_count: 3,
           },
           {
             category_id: 3,
+            id: 30,
             name: 'Bags',
             slug: 'bags',
+            cover_image_url: 'https://example.com/bags.webp',
+            sort_order: 1,
             product_count: 2,
           },
         ],
@@ -76,7 +82,7 @@ describe('crm-catalog-categories.service', () => {
 
     const items = await listCrmCategories()
 
-    expect(String(mockQuery.mock.calls[0][0])).toContain('COUNT(DISTINCT p.id)')
+    expect(String(mockQuery.mock.calls[0][0])).toContain('product_subcategories')
     expect(items).toHaveLength(3)
 
     const used = items.find((c) => c.id === 1)!
@@ -84,7 +90,14 @@ describe('crm-catalog-categories.service', () => {
     expect(used.directProductCount).toBe(2)
     expect(used.crossPlacementCount).toBe(1)
     expect(used.subcategories).toEqual([
-      { name: 'Dresses', slug: 'dresses', productCount: 3 },
+      {
+        id: 10,
+        name: 'Dresses',
+        slug: 'dresses',
+        coverImageUrl: null,
+        sortOrder: 0,
+        productCount: 3,
+      },
     ])
     expect(used.isUnused).toBe(false)
 
@@ -93,11 +106,20 @@ describe('crm-catalog-categories.service', () => {
     expect(orphan.isUnused).toBe(true)
 
     const subOnly = items.find((c) => c.id === 3)!
-    expect(subOnly.subcategories).toEqual([{ name: 'Bags', slug: 'bags', productCount: 2 }])
+    expect(subOnly.subcategories).toEqual([
+      {
+        id: 30,
+        name: 'Bags',
+        slug: 'bags',
+        coverImageUrl: 'https://example.com/bags.webp',
+        sortOrder: 1,
+        productCount: 2,
+      },
+    ])
     expect(subOnly.isUnused).toBe(false)
 
     expect(String(mockQuery.mock.calls[0][0])).toContain('cross_placement_count')
-    expect(String(mockQuery.mock.calls[1][0])).toContain('web_subcategory_name')
+    expect(String(mockQuery.mock.calls[1][0])).toContain('FROM subcategories s')
   })
 
   it('deleteCrmCategory returns 409 for virtual Sale category', async () => {
@@ -108,6 +130,18 @@ describe('crm-catalog-categories.service', () => {
       statusCode: 409,
     })
     expect(mockQuery).toHaveBeenCalledTimes(1)
+  })
+
+  it('deleteCrmCategory returns 409 when category has active products via subcategories', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ name: 'Used' }] })
+      .mockResolvedValueOnce({ rows: [{ count: '1' }] })
+
+    await expect(deleteCrmCategory(5)).rejects.toMatchObject({
+      message: 'Category has active products',
+      statusCode: 409,
+    })
+    expect(String(mockQuery.mock.calls[1][0])).toContain('product_subcategories')
   })
 
   it('deleteCrmCategory returns 409 when category has active products', async () => {

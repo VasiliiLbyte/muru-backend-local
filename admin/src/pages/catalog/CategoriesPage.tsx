@@ -5,25 +5,32 @@ import { useCatalogMetaContext } from '../../context/CatalogMetaContext'
 import { ApiError } from '../../lib/api'
 import {
   createCategory,
+  createSubcategory,
   deleteCategory,
+  deleteSubcategory,
   listCategories,
   patchCategory,
-  renameSubcategory,
+  patchSubcategory,
 } from '../../lib/catalog-api'
 import type { CrmCategoryItem, CrmCategorySubcategoryItem } from '../../types/catalog'
 
-type RenamingSub = {
+type EditingSub = {
   categoryId: number
-  oldName: string
+  subId: number
+  name: string
+  coverUrl: string
 }
 
 const getDeleteTitle = (item: CrmCategoryItem): string => {
   if (item.isUnused) return 'Удалить категорию'
   if (item.directProductCount > 0) return 'Есть активные товары в категории'
-  if (item.subcategories.length > 0) return 'Есть подкатегории с товарами'
+  if (item.subcategories.some((s) => s.productCount > 0)) return 'Есть подкатегории с товарами'
   if (item.crossPlacementCount > 0) return 'Категория используется в cross-placements'
   return 'Категорию нельзя удалить'
 }
+
+const getSubDeleteTitle = (sub: CrmCategorySubcategoryItem): string =>
+  sub.productCount > 0 ? 'Есть активные товары в подкатегории' : 'Удалить подкатегорию'
 
 export const CategoriesPage = () => {
   const { readOnly } = useCatalogMetaContext()
@@ -40,9 +47,11 @@ export const CategoriesPage = () => {
   const [editCoverUrl, setEditCoverUrl] = useState('')
   const [savingEdit, setSavingEdit] = useState(false)
 
-  const [renamingSub, setRenamingSub] = useState<RenamingSub | null>(null)
-  const [renameInput, setRenameInput] = useState('')
-  const [renaming, setRenaming] = useState(false)
+  const [newSubNames, setNewSubNames] = useState<Record<number, string>>({})
+  const [creatingSubFor, setCreatingSubFor] = useState<number | null>(null)
+  const [editingSub, setEditingSub] = useState<EditingSub | null>(null)
+  const [savingSub, setSavingSub] = useState(false)
+  const [movingSubKey, setMovingSubKey] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -119,33 +128,86 @@ export const CategoriesPage = () => {
     }
   }
 
-  const startRenameSub = (categoryId: number, sub: CrmCategorySubcategoryItem) => {
-    setRenamingSub({ categoryId, oldName: sub.name })
-    setRenameInput(sub.name)
-  }
-
-  const cancelRenameSub = () => {
-    setRenamingSub(null)
-    setRenameInput('')
-  }
-
-  const onRenameSubcategory = async (categoryId: number, oldName: string) => {
-    if (readOnly || !renameInput.trim()) return
-    setRenaming(true)
+  const onCreateSubcategory = async (categoryId: number) => {
+    const name = (newSubNames[categoryId] ?? '').trim()
+    if (readOnly || !name) return
+    setCreatingSubFor(categoryId)
     setError('')
     try {
-      await renameSubcategory({
-        categoryId,
-        oldSubcategoryName: oldName,
-        newSubcategoryName: renameInput.trim(),
-      })
-      setRenamingSub(null)
-      setRenameInput('')
+      await createSubcategory(categoryId, { name })
+      setNewSubNames((prev) => ({ ...prev, [categoryId]: '' }))
       await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось переименовать подкатегорию')
+      setError(err instanceof Error ? err.message : 'Не удалось создать подкатегорию')
     } finally {
-      setRenaming(false)
+      setCreatingSubFor(null)
+    }
+  }
+
+  const startEditSub = (categoryId: number, sub: CrmCategorySubcategoryItem) => {
+    setEditingSub({
+      categoryId,
+      subId: sub.id,
+      name: sub.name,
+      coverUrl: sub.coverImageUrl ?? '',
+    })
+  }
+
+  const onSaveSubEdit = async () => {
+    if (readOnly || editingSub == null) return
+    setSavingSub(true)
+    setError('')
+    try {
+      await patchSubcategory(editingSub.categoryId, editingSub.subId, {
+        name: editingSub.name.trim(),
+        coverImageUrl: editingSub.coverUrl.trim() || null,
+      })
+      setEditingSub(null)
+      await load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось сохранить подкатегорию')
+    } finally {
+      setSavingSub(false)
+    }
+  }
+
+  const onDeleteSubcategory = async (categoryId: number, sub: CrmCategorySubcategoryItem) => {
+    if (readOnly || sub.productCount > 0) return
+    if (!window.confirm(`Удалить подкатегорию «${sub.name}»?`)) return
+    setError('')
+    try {
+      await deleteSubcategory(categoryId, sub.id)
+      await load()
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        setError(err.message)
+      } else {
+        setError(err instanceof Error ? err.message : 'Не удалось удалить подкатегорию')
+      }
+    }
+  }
+
+  const moveSubcategory = async (
+    categoryId: number,
+    subs: CrmCategorySubcategoryItem[],
+    index: number,
+    direction: -1 | 1,
+  ) => {
+    const targetIndex = index + direction
+    if (targetIndex < 0 || targetIndex >= subs.length) return
+    const current = subs[index]
+    const neighbor = subs[targetIndex]
+    const key = `${categoryId}-${current.id}`
+    setMovingSubKey(key)
+    setError('')
+    try {
+      await patchSubcategory(categoryId, current.id, { sortOrder: neighbor.sortOrder })
+      await patchSubcategory(categoryId, neighbor.id, { sortOrder: current.sortOrder })
+      await load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось изменить порядок')
+    } finally {
+      setMovingSubKey('')
     }
   }
 
@@ -187,7 +249,7 @@ export const CategoriesPage = () => {
             <tbody>
               {items.map((item) => (
                 <Fragment key={item.id}>
-                  <tr key={item.id}>
+                  <tr>
                     <td>
                       {item.name}
                       {item.isUnused ? (
@@ -234,21 +296,20 @@ export const CategoriesPage = () => {
                       </td>
                     ) : null}
                   </tr>
-                  {item.subcategories.map((sub) => {
-                    const isRenaming =
-                      renamingSub?.categoryId === item.id && renamingSub.oldName === sub.name
+                  {item.subcategories.map((sub, subIndex) => {
+                    const isEditing =
+                      editingSub?.categoryId === item.id && editingSub.subId === sub.id
 
                     return (
-                      <tr
-                        key={`${item.id}-${sub.slug}`}
-                        className="catalog-subcategory-row"
-                      >
+                      <tr key={sub.id} className="catalog-subcategory-row">
                         <td>
-                          {isRenaming ? (
+                          {isEditing ? (
                             <input
                               className="field-input"
-                              value={renameInput}
-                              onChange={(e) => setRenameInput(e.target.value)}
+                              value={editingSub.name}
+                              onChange={(e) =>
+                                setEditingSub({ ...editingSub, name: e.target.value })
+                              }
                               autoFocus
                             />
                           ) : (
@@ -257,43 +318,127 @@ export const CategoriesPage = () => {
                         </td>
                         <td>{sub.slug}</td>
                         <td>{sub.productCount}</td>
-                        <td>—</td>
+                        <td>
+                          {isEditing ? (
+                            <>
+                              <input
+                                className="field-input"
+                                value={editingSub.coverUrl}
+                                onChange={(e) =>
+                                  setEditingSub({ ...editingSub, coverUrl: e.target.value })
+                                }
+                              />
+                              <CatalogImageUploadField
+                                label="Обложка"
+                                onSuccess={(result) =>
+                                  setEditingSub({ ...editingSub, coverUrl: result.url })
+                                }
+                              />
+                            </>
+                          ) : sub.coverImageUrl ? (
+                            <img src={sub.coverImageUrl} alt="" className="order-thumb" />
+                          ) : (
+                            '—'
+                          )}
+                        </td>
                         {!readOnly ? (
                           <td>
-                            {isRenaming ? (
+                            {isEditing ? (
                               <>
                                 <button
                                   type="button"
                                   className="link-button"
-                                  disabled={renaming || !renameInput.trim()}
-                                  onClick={() =>
-                                    void onRenameSubcategory(item.id, sub.name)
-                                  }
+                                  disabled={savingSub || !editingSub.name.trim()}
+                                  onClick={() => void onSaveSubEdit()}
                                 >
-                                  {renaming ? 'Сохранение…' : 'Сохранить'}
+                                  {savingSub ? 'Сохранение…' : 'Сохранить'}
                                 </button>
                                 <button
                                   type="button"
                                   className="link-button"
-                                  onClick={cancelRenameSub}
+                                  onClick={() => setEditingSub(null)}
                                 >
                                   Отмена
                                 </button>
                               </>
                             ) : (
-                              <button
-                                type="button"
-                                className="link-button"
-                                onClick={() => startRenameSub(item.id, sub)}
-                              >
-                                Переименовать
-                              </button>
+                              <>
+                                <button
+                                  type="button"
+                                  className="link-button"
+                                  disabled={subIndex === 0 || movingSubKey !== ''}
+                                  onClick={() =>
+                                    void moveSubcategory(item.id, item.subcategories, subIndex, -1)
+                                  }
+                                >
+                                  ↑
+                                </button>
+                                <button
+                                  type="button"
+                                  className="link-button"
+                                  disabled={
+                                    subIndex === item.subcategories.length - 1 ||
+                                    movingSubKey !== ''
+                                  }
+                                  onClick={() =>
+                                    void moveSubcategory(item.id, item.subcategories, subIndex, 1)
+                                  }
+                                >
+                                  ↓
+                                </button>
+                                <button
+                                  type="button"
+                                  className="link-button"
+                                  onClick={() => startEditSub(item.id, sub)}
+                                >
+                                  Изменить
+                                </button>
+                                <button
+                                  type="button"
+                                  className="link-button"
+                                  disabled={sub.productCount > 0}
+                                  title={getSubDeleteTitle(sub)}
+                                  onClick={() => void onDeleteSubcategory(item.id, sub)}
+                                >
+                                  Удалить
+                                </button>
+                              </>
                             )}
                           </td>
                         ) : null}
                       </tr>
                     )
                   })}
+                  {!readOnly ? (
+                    <tr className="catalog-subcategory-row">
+                      <td colSpan={5}>
+                        <div className="form-actions">
+                          <input
+                            className="field-input"
+                            value={newSubNames[item.id] ?? ''}
+                            onChange={(e) =>
+                              setNewSubNames((prev) => ({
+                                ...prev,
+                                [item.id]: e.target.value,
+                              }))
+                            }
+                            placeholder="Новая подкатегория"
+                          />
+                          <button
+                            type="button"
+                            className="secondary-button"
+                            disabled={
+                              creatingSubFor === item.id ||
+                              !(newSubNames[item.id] ?? '').trim()
+                            }
+                            onClick={() => void onCreateSubcategory(item.id)}
+                          >
+                            {creatingSubFor === item.id ? 'Создание…' : 'Добавить подкатегорию'}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : null}
                 </Fragment>
               ))}
             </tbody>

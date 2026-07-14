@@ -35,6 +35,7 @@ export type CrmCatalogProductDetail = {
   webSubcategorySlug: string | null
   subcategory: string | null
   subcategorySlug: string | null
+  subcategoryIds: number[]
   color: string | null
   size: string | null
   colorTags: string[]
@@ -75,9 +76,7 @@ export type CrmCatalogProductCreateBody = {
   discountPercent?: number
   inStock?: number
   categoryId?: number | null
-  webSubcategoryName?: string | null
-  subcategory?: string | null
-  subcategorySlug?: string | null
+  subcategoryIds?: number[]
   color?: string | null
   size?: string | null
   colorTags?: string[]
@@ -95,8 +94,11 @@ export type CrmCatalogProductCreateBody = {
 export type CrmCatalogProductPatchBody = Partial<Omit<CrmCatalogProductCreateBody, 'sku'>>
 
 export type CrmCategorySubcategoryItem = {
+  id: number
   name: string
   slug: string
+  coverImageUrl: string | null
+  sortOrder: number
   productCount: number
 }
 
@@ -141,6 +143,28 @@ export type CrmCategoryPatchBody = {
   name?: string
   slug?: string
   coverImageUrl?: string | null
+}
+
+export type CrmSubcategoryCreateBody = {
+  name: string
+  coverImageUrl?: string | null
+}
+
+export type CrmSubcategoryPatchBody = {
+  name?: string
+  slug?: string
+  coverImageUrl?: string | null
+  sortOrder?: number
+}
+
+export type CrmSubcategoryItem = {
+  id: number
+  categoryId: number
+  name: string
+  slug: string
+  coverImageUrl: string | null
+  sortOrder: number
+  productCount: number
 }
 
 export type CrmRenameSubcategoryBody = {

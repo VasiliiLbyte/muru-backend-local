@@ -14,6 +14,9 @@ import type {
   CrmCharacteristicItem,
   CrmCharacteristicPatchBody,
   CrmRenameSubcategoryBody,
+  CrmSubcategoryCreateBody,
+  CrmSubcategoryItem,
+  CrmSubcategoryPatchBody,
 } from '../types/catalog'
 import { ApiError, apiFetch, type ApiResponse } from './api'
 
@@ -85,6 +88,30 @@ export const patchCategory = (id: number, body: CrmCategoryPatchBody) =>
 
 export const deleteCategory = (id: number) =>
   apiFetch<{ deleted: boolean }>(`${CRM_BASE}/categories/${id}`, { method: 'DELETE' })
+
+export const listSubcategories = (categoryId: number) =>
+  apiFetch<{ items: CrmSubcategoryItem[] }>(`${CRM_BASE}/categories/${categoryId}/subcategories`)
+
+export const createSubcategory = (categoryId: number, body: CrmSubcategoryCreateBody) =>
+  apiFetch<CrmSubcategoryItem>(`${CRM_BASE}/categories/${categoryId}/subcategories`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+
+export const patchSubcategory = (
+  categoryId: number,
+  subId: number,
+  body: CrmSubcategoryPatchBody,
+) =>
+  apiFetch<CrmSubcategoryItem>(`${CRM_BASE}/categories/${categoryId}/subcategories/${subId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  })
+
+export const deleteSubcategory = (categoryId: number, subId: number) =>
+  apiFetch<{ deleted: boolean }>(`${CRM_BASE}/categories/${categoryId}/subcategories/${subId}`, {
+    method: 'DELETE',
+  })
 
 export const renameSubcategory = (body: CrmRenameSubcategoryBody) =>
   apiFetch<{ updatedCount: number }>(`${CRM_BASE}/categories/rename-subcategory`, {

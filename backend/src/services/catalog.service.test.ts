@@ -83,6 +83,7 @@ describe('getCatalogProducts', () => {
     const values = queryMock.mock.calls[0][1] as unknown[]
 
     expect(sql).toContain('c.slug = $1')
+    expect(sql).toContain('product_subcategories')
     expect(sql).not.toContain('pwcp')
     expect(sql).not.toContain('web_subcategory_slug')
     expect(values).toEqual(['кухня-и-столовая'])
@@ -363,18 +364,16 @@ describe('getCatalogTree', () => {
       .mockResolvedValueOnce({
         rows: [
           {
-            category: 'Кухня и столовая',
             category_slug: 'кухня-и-столовая',
-            subcategory: 'Посуда',
-            subcategory_slug: 'посуда',
-            cnt: 12,
+            name: 'Посуда',
+            slug: 'посуда',
+            cover_image_url: 'https://example.com/posuda.webp',
           },
           {
-            category: 'Кухня и столовая',
             category_slug: 'кухня-и-столовая',
-            subcategory: 'Сервировка',
-            subcategory_slug: 'сервировка',
-            cnt: 3,
+            name: 'Сервировка',
+            slug: 'сервировка',
+            cover_image_url: null,
           },
         ],
       })
@@ -382,12 +381,30 @@ describe('getCatalogTree', () => {
     const tree = await getCatalogTree(true)
 
     expect(queryMock).toHaveBeenCalledTimes(5)
-    expect(String(queryMock.mock.calls[4][0])).toContain('p.web_subcategory_slug')
+    expect(String(queryMock.mock.calls[4][0])).toContain('FROM subcategories s')
     const kitchen = tree.find((node) => node.slug === 'кухня-и-столовая')
     expect(kitchen?.children).toEqual([
-      { name: 'Посуда', slug: 'посуда', children: [] },
+      {
+        name: 'Посуда',
+        slug: 'посуда',
+        coverImageUrl: 'https://example.com/posuda.webp',
+        children: [],
+      },
       { name: 'Сервировка', slug: 'сервировка', children: [] },
     ])
+  })
+
+  it('includes category in tree when products exist only via subcategory membership', async () => {
+    queryMock
+      .mockResolvedValueOnce({ rows: [{ name: 'Кухня и столовая' }] })
+      .mockResolvedValueOnce({ rows: [{ slug: 'кухня-и-столовая' }] })
+      .mockResolvedValueOnce({ rows: [{ ok: false }] })
+      .mockResolvedValueOnce({ rows: [] })
+
+    const tree = await getCatalogTree(false)
+
+    expect(String(queryMock.mock.calls[1][0])).toContain('product_subcategories')
+    expect(tree.some((node) => node.slug === 'кухня-и-столовая')).toBe(true)
   })
 })
 

@@ -14,15 +14,19 @@ import {
   createCrmCatalogProductHandler,
   createCrmCategoryHandler,
   createCrmCharacteristicHandler,
+  createCrmSubcategoryHandler,
   deleteCrmCategoryHandler,
+  deleteCrmSubcategoryHandler,
   getCrmCatalogMetaHandler,
   getCrmCatalogProductByIdHandler,
   listCrmCatalogProductsHandler,
   listCrmCategoriesHandler,
   listCrmCharacteristicsHandler,
+  listCrmSubcategoriesHandler,
   patchCrmCatalogProductHandler,
   patchCrmCategoryHandler,
   patchCrmCharacteristicHandler,
+  patchCrmSubcategoryHandler,
   renameCrmSubcategoryHandler,
   unarchiveCrmCatalogProductHandler,
   updateCrmCatalogProductStockHandler,
@@ -40,6 +44,10 @@ crmCatalogRouter.post('/categories', createCrmCategoryHandler)
 crmCatalogRouter.post('/categories/rename-subcategory', renameCrmSubcategoryHandler)
 crmCatalogRouter.patch('/categories/:id', patchCrmCategoryHandler)
 crmCatalogRouter.delete('/categories/:id', deleteCrmCategoryHandler)
+crmCatalogRouter.get('/categories/:id/subcategories', listCrmSubcategoriesHandler)
+crmCatalogRouter.post('/categories/:id/subcategories', createCrmSubcategoryHandler)
+crmCatalogRouter.patch('/categories/:id/subcategories/:subId', patchCrmSubcategoryHandler)
+crmCatalogRouter.delete('/categories/:id/subcategories/:subId', deleteCrmSubcategoryHandler)
 
 crmCatalogRouter.get('/characteristics', listCrmCharacteristicsHandler)
 crmCatalogRouter.post('/characteristics', createCrmCharacteristicHandler)

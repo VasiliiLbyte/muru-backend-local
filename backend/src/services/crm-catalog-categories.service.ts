@@ -15,8 +15,11 @@ import {
 } from './crm-catalog.helpers'
 
 export type CrmCategorySubcategoryItem = {
+  id: number
   name: string
   slug: string
+  coverImageUrl: string | null
+  sortOrder: number
   productCount: number
 }
 
@@ -45,10 +48,24 @@ type CategoryRow = {
 
 type SubcategoryRow = {
   category_id: number
+  id: number
   name: string
   slug: string
+  cover_image_url: string | null
+  sort_order: number
   product_count: number
 }
+
+const MEMBERSHIP_COUNT_SQL = `
+  (SELECT COUNT(DISTINCT pid)::int FROM (
+     SELECT p.id AS pid FROM products p
+     WHERE p.category_id = c.id AND p.is_archived = FALSE
+     UNION
+     SELECT p.id AS pid FROM products p
+     INNER JOIN product_subcategories ps ON ps.product_id = p.id
+     INNER JOIN subcategories s ON s.id = ps.subcategory_id AND s.category_id = c.id
+     WHERE p.is_archived = FALSE
+   ) AS members) AS direct_product_count`
 
 const mapCategoryRow = (
   row: CategoryRow,
@@ -57,7 +74,9 @@ const mapCategoryRow = (
   const directProductCount = row.direct_product_count
   const crossPlacementCount = row.cross_placement_count
   const isUnused =
-    directProductCount === 0 && subcategories.length === 0 && crossPlacementCount === 0
+    directProductCount === 0 &&
+    crossPlacementCount === 0 &&
+    subcategories.every((s) => s.productCount === 0)
 
   return {
     id: row.id,
@@ -77,28 +96,24 @@ export const listCrmCategories = async (): Promise<CrmCategoryItem[]> => {
   const [categoriesResult, subcategoriesResult] = await Promise.all([
     pool.query<CategoryRow>(
       `SELECT c.id, c.name, c.slug, c.cover_image_url, c.cover_drive_filename,
-              COUNT(DISTINCT p.id) FILTER (WHERE p.is_archived = FALSE)::int AS direct_product_count,
+              ${MEMBERSHIP_COUNT_SQL},
               COUNT(DISTINCT pwcp.product_id) FILTER (
                 WHERE pwcp.product_id IS NOT NULL AND p2.is_archived = FALSE
               )::int AS cross_placement_count
        FROM categories c
-       LEFT JOIN products p ON p.category_id = c.id
        LEFT JOIN product_web_cross_placements pwcp ON pwcp.category_id = c.id
        LEFT JOIN products p2 ON p2.id = pwcp.product_id
        GROUP BY c.id
        ORDER BY c.name`,
     ),
     pool.query<SubcategoryRow>(
-      `SELECT p.category_id,
-              TRIM(p.web_subcategory_name) AS name,
-              TRIM(p.web_subcategory_slug) AS slug,
-              COUNT(*)::int AS product_count
-       FROM products p
-       WHERE p.is_archived = FALSE
-         AND p.category_id IS NOT NULL
-         AND TRIM(COALESCE(p.web_subcategory_name, '')) <> ''
-       GROUP BY p.category_id, TRIM(p.web_subcategory_name), TRIM(p.web_subcategory_slug)
-       ORDER BY p.category_id, name`,
+      `SELECT s.category_id, s.id, s.name, s.slug, s.cover_image_url, s.sort_order,
+              COUNT(DISTINCT ps.product_id) FILTER (WHERE p.is_archived = FALSE)::int AS product_count
+       FROM subcategories s
+       LEFT JOIN product_subcategories ps ON ps.subcategory_id = s.id
+       LEFT JOIN products p ON p.id = ps.product_id
+       GROUP BY s.id
+       ORDER BY s.category_id, s.sort_order, s.name`,
     ),
   ])
 
@@ -106,8 +121,11 @@ export const listCrmCategories = async (): Promise<CrmCategoryItem[]> => {
   for (const row of subcategoriesResult.rows) {
     const list = subcategoriesByCategory.get(row.category_id) ?? []
     list.push({
+      id: row.id,
       name: row.name,
       slug: row.slug,
+      coverImageUrl: row.cover_image_url,
+      sortOrder: row.sort_order,
       productCount: row.product_count,
     })
     subcategoriesByCategory.set(row.category_id, list)
@@ -217,9 +235,17 @@ export const deleteCrmCategory = async (id: number): Promise<boolean> => {
   }
 
   const countResult = await pool.query<{ count: string }>(
-    `SELECT COUNT(*)::text AS count
-     FROM products
-     WHERE category_id = $1 AND is_archived = FALSE`,
+    `SELECT COUNT(DISTINCT p.id)::text AS count
+     FROM products p
+     WHERE p.is_archived = FALSE
+       AND (
+         p.category_id = $1
+         OR EXISTS (
+           SELECT 1 FROM product_subcategories ps
+           JOIN subcategories s ON s.id = ps.subcategory_id
+           WHERE ps.product_id = p.id AND s.category_id = $1
+         )
+       )`,
     [id],
   )
   const activeCount = Number(countResult.rows[0]?.count ?? 0)

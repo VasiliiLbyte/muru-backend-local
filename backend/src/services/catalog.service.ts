@@ -1,4 +1,9 @@
 import { SALE_CATEGORY_NAME, TOP_LEVEL_CATEGORIES } from '../constants/catalog-top-level'
+import {
+  categoryHasActiveProductsSql,
+  productInCategoryByNameSql,
+  productInCategoryBySlugSql,
+} from './catalog-membership.helpers'
 import { buildProductTextSearchCondition } from './catalog-product-search'
 import { pool } from '../utils/db'
 import type {
@@ -58,12 +63,11 @@ type ProductDetailRow = ProductRow & {
   specs: Record<string, string> | null
 }
 
-type SubcategoryAggRow = {
-  category: string
+type SubcategoryEntityRow = {
   category_slug: string
-  subcategory: string
-  subcategory_slug: string
-  cnt: number
+  name: string
+  slug: string
+  cover_image_url: string | null
 }
 
 const normalizeImageUrls = (
@@ -122,20 +126,17 @@ const mergeCoverUrlsIntoTree = (nodes: CatalogNode[], coversBySlug: Map<string, 
 }
 
 const attachProductSubcategories = async (nodes: CatalogNode[]): Promise<void> => {
-  const result = await pool.query<SubcategoryAggRow>(
-    `SELECT c.name AS category, c.slug AS category_slug,
-            p.web_subcategory_name AS subcategory,
-            p.web_subcategory_slug AS subcategory_slug,
-            count(*)::int AS cnt
-     FROM products p
-     JOIN categories c ON c.id = p.category_id
-     WHERE p.is_archived = FALSE
-       AND p.web_subcategory_name IS NOT NULL AND trim(p.web_subcategory_name) <> ''
-       AND p.web_subcategory_slug IS NOT NULL AND trim(p.web_subcategory_slug) <> ''
-     GROUP BY c.name, c.slug, p.web_subcategory_name, p.web_subcategory_slug`,
+  const result = await pool.query<SubcategoryEntityRow>(
+    `SELECT c.slug AS category_slug,
+            s.name,
+            s.slug,
+            s.cover_image_url
+     FROM subcategories s
+     JOIN categories c ON c.id = s.category_id
+     ORDER BY c.slug, s.sort_order, s.name`,
   )
 
-  const byCategorySlug = new Map<string, SubcategoryAggRow[]>()
+  const byCategorySlug = new Map<string, SubcategoryEntityRow[]>()
   for (const row of result.rows) {
     const list = byCategorySlug.get(row.category_slug) ?? []
     list.push(row)
@@ -143,10 +144,11 @@ const attachProductSubcategories = async (nodes: CatalogNode[]): Promise<void> =
   }
 
   for (const node of nodes) {
-    const rows = (byCategorySlug.get(node.slug) ?? []).sort((a, b) => b.cnt - a.cnt)
+    const rows = byCategorySlug.get(node.slug) ?? []
     node.children = rows.map((row) => ({
-      name: row.subcategory,
-      slug: row.subcategory_slug,
+      name: row.name,
+      slug: row.slug,
+      coverImageUrl: row.cover_image_url ?? undefined,
       children: [],
     }))
   }
@@ -160,7 +162,7 @@ export const getCatalogTree = async (withSubcategories = false): Promise<Catalog
   const withProducts = await pool.query<{ slug: string }>(
     `SELECT DISTINCT c.slug
      FROM categories c
-     INNER JOIN products p ON p.category_id = c.id AND p.is_archived = FALSE`,
+     WHERE ${categoryHasActiveProductsSql('c')}`,
   )
   const slugsWithProducts = new Set(withProducts.rows.map((row) => row.slug))
 
@@ -266,7 +268,9 @@ export const getCatalogProducts = async (params: {
           `((c.slug = $${catIdx} AND p.web_subcategory_slug = $${subIdx}) OR (c_cross.slug = $${catIdx} AND pwcp.subcategory_slug = $${subIdx}))`,
         )
       } else {
-        conditions.push(`(c.slug = $${catIdx} OR c_cross.slug = $${catIdx})`)
+        conditions.push(
+          `(c.slug = $${catIdx} OR c_cross.slug = $${catIdx} OR ${productInCategoryBySlugSql('p', `$${catIdx}`)})`,
+        )
       }
     } else if (category) {
       values.push(`%${category}%`)
@@ -275,10 +279,12 @@ export const getCatalogProducts = async (params: {
         values.push(`%${subcategory}%`)
         const subIdx = values.length
         conditions.push(
-          `((c.name ILIKE $${catIdx} AND p.web_subcategory_name ILIKE $${subIdx}) OR (c_cross.name ILIKE $${catIdx} AND pwcp.subcategory_name ILIKE $${subIdx}))`,
+          `((c.name ILIKE $${catIdx} AND p.web_subcategory_name ILIKE $${subIdx}) OR (c_cross.name ILIKE $${catIdx} AND pwcp.subcategory_name ILIKE $${subIdx}) OR (${productInCategoryByNameSql('p', `$${catIdx}`)} AND p.web_subcategory_name ILIKE $${subIdx}))`,
         )
       } else {
-        conditions.push(`(c.name ILIKE $${catIdx} OR c_cross.name ILIKE $${catIdx})`)
+        conditions.push(
+          `(c.name ILIKE $${catIdx} OR c_cross.name ILIKE $${catIdx} OR ${productInCategoryByNameSql('p', `$${catIdx}`)})`,
+        )
       }
     } else if (subcategorySlug) {
       values.push(subcategorySlug)
@@ -294,10 +300,14 @@ export const getCatalogProducts = async (params: {
   } else {
     if (categorySlug) {
       values.push(categorySlug)
-      conditions.push(`c.slug = $${values.length}`)
+      conditions.push(
+        `(c.slug = $${values.length} OR ${productInCategoryBySlugSql('p', `$${values.length}`)})`,
+      )
     } else if (category) {
       values.push(`%${category}%`)
-      conditions.push(`c.name ILIKE $${values.length}`)
+      conditions.push(
+        `(c.name ILIKE $${values.length} OR ${productInCategoryByNameSql('p', `$${values.length}`)})`,
+      )
     }
   }
 

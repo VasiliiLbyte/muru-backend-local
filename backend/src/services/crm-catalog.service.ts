@@ -15,6 +15,10 @@ import { env } from '../utils/env'
 
 import { normalizeAdminOrdersPage, normalizeAdminOrdersPageSize } from './admin-orders.helpers'
 import { assertCatalogCrmWritable } from './catalog-source.guard'
+import {
+  getSubcategoryDenormById,
+  validateSubcategoryIdsExist,
+} from './crm-catalog-subcategories.service'
 import { conflictError, slugify } from './crm-catalog.helpers'
 import { validateProductDimsUpdate } from './admin-product-dims.validation'
 
@@ -57,6 +61,7 @@ export type CrmCatalogProductDetail = {
   webSubcategorySlug: string | null
   subcategory: string | null
   subcategorySlug: string | null
+  subcategoryIds: number[]
   color: string | null
   size: string | null
   colorTags: string[]
@@ -179,6 +184,7 @@ const mapDetailRow = (row: ProductRow): CrmCatalogProductDetail => ({
   webSubcategorySlug: row.web_subcategory_slug,
   subcategory: row.subcategory,
   subcategorySlug: row.subcategory_slug,
+  subcategoryIds: [],
   color: row.color,
   size: row.size,
   colorTags: row.color_tags ?? [],
@@ -325,7 +331,67 @@ export const getCrmCatalogProductById = async (id: number): Promise<CrmCatalogPr
     [id],
   )
   if (result.rows.length === 0) return null
-  return mapDetailRow(result.rows[0])
+
+  const subIdsResult = await pool.query<{ subcategory_id: number }>(
+    `SELECT subcategory_id FROM product_subcategories
+     WHERE product_id = $1
+     ORDER BY position`,
+    [id],
+  )
+
+  const product = mapDetailRow(result.rows[0])
+  product.subcategoryIds = subIdsResult.rows.map((row) => row.subcategory_id)
+  return product
+}
+
+type DenormSubcategory = {
+  webSubcategoryName: string | null
+  webSubcategorySlug: string | null
+  subcategory: string | null
+  subcategorySlug: string | null
+}
+
+const emptyDenormSubcategory = (): DenormSubcategory => ({
+  webSubcategoryName: null,
+  webSubcategorySlug: null,
+  subcategory: null,
+  subcategorySlug: null,
+})
+
+const resolveDenormFromSubcategoryIds = async (
+  subcategoryIds: number[],
+): Promise<DenormSubcategory> => {
+  if (subcategoryIds.length === 0) return emptyDenormSubcategory()
+  const primary = await getSubcategoryDenormById(subcategoryIds[0])
+  if (!primary) return emptyDenormSubcategory()
+  return {
+    webSubcategoryName: primary.name,
+    webSubcategorySlug: primary.slug,
+    subcategory: primary.name,
+    subcategorySlug: primary.slug,
+  }
+}
+
+type DbClient = {
+  query: (
+    queryText: string,
+    values?: unknown[],
+  ) => Promise<{ rows: Array<{ id: number }>; rowCount: number | null }>
+}
+
+const syncProductSubcategoryLinks = async (
+  client: DbClient,
+  productId: number,
+  subcategoryIds: number[],
+): Promise<void> => {
+  await client.query(`DELETE FROM product_subcategories WHERE product_id = $1`, [productId])
+  for (let i = 0; i < subcategoryIds.length; i++) {
+    await client.query(
+      `INSERT INTO product_subcategories (product_id, subcategory_id, position)
+       VALUES ($1, $2, $3)`,
+      [productId, subcategoryIds[i], i],
+    )
+  }
 }
 
 const resolveWebSubcategory = (name: string | null | undefined) => {
@@ -375,62 +441,86 @@ export const createCrmCatalogProduct = async (
     await assertNotVirtualSaleCategory(input.categoryId)
   }
 
+  if (input.subcategoryIds !== undefined) {
+    await validateSubcategoryIdsExist(input.subcategoryIds)
+  }
+
   const images = normalizeImageUrls(input.imageUrls, input.imageUrl1, input.imageUrl2)
-  const webSub = resolveWebSubcategory(input.webSubcategoryName)
   const dims = extractDimsInput(input)
+  const denorm =
+    input.subcategoryIds !== undefined
+      ? await resolveDenormFromSubcategoryIds(input.subcategoryIds)
+      : emptyDenormSubcategory()
 
-  const result = await pool.query<{ id: number }>(
-    `INSERT INTO products (
-       sku, name, description, price, discount_percent, in_stock, specs,
-       image_url_1, image_url_2, image_urls, category_id,
-       color, size, color_tags, dimensions_label,
-       weight_grams, dim_length_cm, dim_width_cm, dim_height_cm,
-       dims_source, weight_source,
-       web_subcategory_name, web_subcategory_slug,
-       subcategory, subcategory_slug,
-       is_archived, updated_at
-     ) VALUES (
-       $1, $2, $3, $4, $5, $6, $7::jsonb,
-       $8, $9, $10::jsonb, $11,
-       $12, $13, $14, $15,
-       $16, $17, $18, $19,
-       $20, $21,
-       $22, $23,
-       $24, $25,
-       FALSE, NOW()
-     ) RETURNING id`,
-    [
-      sku,
-      input.name.trim(),
-      input.description?.trim() ?? '',
-      input.price,
-      input.discountPercent ?? 0,
-      input.inStock ?? 0,
-      JSON.stringify(input.specs ?? {}),
-      images.imageUrl1,
-      images.imageUrl2,
-      JSON.stringify(images.imageUrls),
-      input.categoryId ?? null,
-      input.color?.trim() ?? null,
-      input.size?.trim() ?? null,
-      input.colorTags ?? [],
-      input.dimensionsLabel?.trim() ?? '',
-      dims?.weightGrams ?? PRODUCT_DEFAULT_WEIGHT_GRAMS,
-      dims?.lengthCm ?? PRODUCT_DEFAULT_DIM_LENGTH_CM,
-      dims?.widthCm ?? PRODUCT_DEFAULT_DIM_WIDTH_CM,
-      dims?.heightCm ?? PRODUCT_DEFAULT_DIM_HEIGHT_CM,
-      dims ? 'manual' : 'auto',
-      dims ? 'manual' : 'auto',
-      webSub.name,
-      webSub.slug,
-      input.subcategory?.trim() ?? null,
-      input.subcategorySlug?.trim() ?? null,
-    ],
-  )
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
 
-  const product = await getCrmCatalogProductById(result.rows[0].id)
-  if (!product) throw new Error('Product not found after create')
-  return product
+    const result = await client.query<{ id: number }>(
+      `INSERT INTO products (
+         sku, name, description, price, discount_percent, in_stock, specs,
+         image_url_1, image_url_2, image_urls, category_id,
+         color, size, color_tags, dimensions_label,
+         weight_grams, dim_length_cm, dim_width_cm, dim_height_cm,
+         dims_source, weight_source,
+         web_subcategory_name, web_subcategory_slug,
+         subcategory, subcategory_slug,
+         is_archived, updated_at
+       ) VALUES (
+         $1, $2, $3, $4, $5, $6, $7::jsonb,
+         $8, $9, $10::jsonb, $11,
+         $12, $13, $14, $15,
+         $16, $17, $18, $19,
+         $20, $21,
+         $22, $23,
+         $24, $25,
+         FALSE, NOW()
+       ) RETURNING id`,
+      [
+        sku,
+        input.name.trim(),
+        input.description?.trim() ?? '',
+        input.price,
+        input.discountPercent ?? 0,
+        input.inStock ?? 0,
+        JSON.stringify(input.specs ?? {}),
+        images.imageUrl1,
+        images.imageUrl2,
+        JSON.stringify(images.imageUrls),
+        input.categoryId ?? null,
+        input.color?.trim() ?? null,
+        input.size?.trim() ?? null,
+        input.colorTags ?? [],
+        input.dimensionsLabel?.trim() ?? '',
+        dims?.weightGrams ?? PRODUCT_DEFAULT_WEIGHT_GRAMS,
+        dims?.lengthCm ?? PRODUCT_DEFAULT_DIM_LENGTH_CM,
+        dims?.widthCm ?? PRODUCT_DEFAULT_DIM_WIDTH_CM,
+        dims?.heightCm ?? PRODUCT_DEFAULT_DIM_HEIGHT_CM,
+        dims ? 'manual' : 'auto',
+        dims ? 'manual' : 'auto',
+        denorm.webSubcategoryName,
+        denorm.webSubcategorySlug,
+        denorm.subcategory,
+        denorm.subcategorySlug,
+      ],
+    )
+
+    const productId = result.rows[0].id
+    if (input.subcategoryIds !== undefined) {
+      await syncProductSubcategoryLinks(client, productId, input.subcategoryIds)
+    }
+
+    await client.query('COMMIT')
+
+    const product = await getCrmCatalogProductById(productId)
+    if (!product) throw new Error('Product not found after create')
+    return product
+  } catch (error) {
+    await client.query('ROLLBACK')
+    throw error
+  } finally {
+    client.release()
+  }
 }
 
 export const updateCrmCatalogProduct = async (
@@ -442,6 +532,10 @@ export const updateCrmCatalogProduct = async (
 
   if (input.categoryId !== undefined && input.categoryId != null) {
     await assertNotVirtualSaleCategory(input.categoryId)
+  }
+
+  if (input.subcategoryIds !== undefined) {
+    await validateSubcategoryIdsExist(input.subcategoryIds)
   }
 
   const sets: string[] = ['updated_at = NOW()']
@@ -500,19 +594,16 @@ export const updateCrmCatalogProduct = async (
     params.push(JSON.stringify(images.imageUrls))
     sets.push(`image_urls = $${params.length}::jsonb`)
   }
-  if (input.webSubcategoryName !== undefined) {
-    const webSub = resolveWebSubcategory(input.webSubcategoryName)
-    params.push(webSub.name)
+
+  if (input.subcategoryIds !== undefined) {
+    const denorm = await resolveDenormFromSubcategoryIds(input.subcategoryIds)
+    params.push(denorm.webSubcategoryName)
     sets.push(`web_subcategory_name = $${params.length}`)
-    params.push(webSub.slug)
+    params.push(denorm.webSubcategorySlug)
     sets.push(`web_subcategory_slug = $${params.length}`)
-  }
-  if (input.subcategory !== undefined) {
-    params.push(input.subcategory)
+    params.push(denorm.subcategory)
     sets.push(`subcategory = $${params.length}`)
-  }
-  if (input.subcategorySlug !== undefined) {
-    params.push(input.subcategorySlug)
+    params.push(denorm.subcategorySlug)
     sets.push(`subcategory_slug = $${params.length}`)
   }
 
@@ -530,18 +621,45 @@ export const updateCrmCatalogProduct = async (
     sets.push(`weight_source = 'manual'`)
   }
 
-  if (sets.length === 1) {
+  const hasSubcategorySync = input.subcategoryIds !== undefined
+  if (sets.length === 1 && !hasSubcategorySync) {
     throw new Error('No fields to update')
   }
 
-  params.push(id)
-  const result = await pool.query(
-    `UPDATE products SET ${sets.join(', ')} WHERE id = $${params.length}`,
-    params,
-  )
-  if ((result.rowCount ?? 0) === 0) return null
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
 
-  return getCrmCatalogProductById(id)
+    if (sets.length > 1) {
+      params.push(id)
+      const result = await client.query(
+        `UPDATE products SET ${sets.join(', ')} WHERE id = $${params.length}`,
+        params,
+      )
+      if ((result.rowCount ?? 0) === 0) {
+        await client.query('ROLLBACK')
+        return null
+      }
+    } else {
+      const exists = await client.query(`SELECT id FROM products WHERE id = $1`, [id])
+      if (exists.rows.length === 0) {
+        await client.query('ROLLBACK')
+        return null
+      }
+    }
+
+    if (hasSubcategorySync) {
+      await syncProductSubcategoryLinks(client, id, input.subcategoryIds!)
+    }
+
+    await client.query('COMMIT')
+    return getCrmCatalogProductById(id)
+  } catch (error) {
+    await client.query('ROLLBACK')
+    throw error
+  } finally {
+    client.release()
+  }
 }
 
 export const setCrmCatalogProductArchived = async (

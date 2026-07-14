@@ -82,7 +82,7 @@ export const ProductEditPage = () => {
   const [discountPercent, setDiscountPercent] = useState('0')
   const [inStock, setInStock] = useState('0')
   const [categoryId, setCategoryId] = useState('')
-  const [webSubcategoryName, setWebSubcategoryName] = useState('')
+  const [subcategoryIds, setSubcategoryIds] = useState<number[]>([])
   const [imageSlots, setImageSlots] = useState<ProductImageSlot[]>([])
   const [specRows, setSpecRows] = useState<SpecRow[]>([])
   const [weightGrams, setWeightGrams] = useState('')
@@ -99,6 +99,29 @@ export const ProductEditPage = () => {
 
   const characteristicNames = characteristics.map((c) => c.name)
 
+  const subcategoryOptions = categories.flatMap((cat) =>
+    cat.subcategories.map((sub) => ({
+      id: sub.id,
+      label: `${cat.name} / ${sub.name}`,
+    })),
+  )
+
+  const toggleSubcategory = (id: number) => {
+    setSubcategoryIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    )
+  }
+
+  const moveSelectedSubcategory = (index: number, direction: -1 | 1) => {
+    setSubcategoryIds((prev) => {
+      const target = index + direction
+      if (target < 0 || target >= prev.length) return prev
+      const next = [...prev]
+      ;[next[index], next[target]] = [next[target], next[index]]
+      return next
+    })
+  }
+
   const applyProductToForm = useCallback((data: CrmCatalogProductDetail) => {
     setSku(data.sku)
     setName(data.name)
@@ -107,7 +130,7 @@ export const ProductEditPage = () => {
     setDiscountPercent(String(data.discountPercent))
     setInStock(String(data.inStock))
     setCategoryId(data.categoryId != null ? String(data.categoryId) : '')
-    setWebSubcategoryName(data.webSubcategoryName ?? '')
+    setSubcategoryIds(data.subcategoryIds ?? [])
     setImageSlots(productToImageSlots(data))
     setWeightGrams(String(data.weightGrams))
     setDimLengthCm(String(data.dimLengthCm))
@@ -178,7 +201,7 @@ export const ProductEditPage = () => {
       discountPercent: Number(discountPercent) || 0,
       inStock: Number(inStock) || 0,
       categoryId: categoryId ? Number(categoryId) : null,
-      webSubcategoryName: webSubcategoryName.trim() || null,
+      subcategoryIds,
       specs: rowsToSpecs(specRows),
       imageUrls,
       imageUrl1: imageUrls[0],
@@ -423,16 +446,54 @@ export const ProductEditPage = () => {
               ))}
           </select>
 
-          <label className="field-label" htmlFor="product-subcategory">
-            Подкатегория (web)
-          </label>
-          <input
-            id="product-subcategory"
-            className="field-input"
-            value={webSubcategoryName}
-            onChange={(e) => setWebSubcategoryName(e.target.value)}
-            disabled={readOnly}
-          />
+          <label className="field-label">Подкатегории</label>
+          <p className="muted-text">Первая выбранная — основная (write-through в каталог).</p>
+          <div className="catalog-subcategory-picker">
+            {subcategoryOptions.map((opt) => (
+              <label key={opt.id} className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={subcategoryIds.includes(opt.id)}
+                  onChange={() => toggleSubcategory(opt.id)}
+                  disabled={readOnly}
+                />
+                {opt.label}
+              </label>
+            ))}
+          </div>
+          {subcategoryIds.length > 0 ? (
+            <ul className="catalog-subcategory-order">
+              {subcategoryIds.map((subId, index) => {
+                const opt = subcategoryOptions.find((o) => o.id === subId)
+                return (
+                  <li key={subId}>
+                    {index === 0 ? '★ ' : ''}
+                    {opt?.label ?? `ID ${subId}`}
+                    {!readOnly ? (
+                      <>
+                        <button
+                          type="button"
+                          className="link-button"
+                          disabled={index === 0}
+                          onClick={() => moveSelectedSubcategory(index, -1)}
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          className="link-button"
+                          disabled={index === subcategoryIds.length - 1}
+                          onClick={() => moveSelectedSubcategory(index, 1)}
+                        >
+                          ↓
+                        </button>
+                      </>
+                    ) : null}
+                  </li>
+                )
+              })}
+            </ul>
+          ) : null}
         </div>
 
         <div className="form-section">

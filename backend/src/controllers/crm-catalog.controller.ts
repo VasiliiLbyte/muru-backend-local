@@ -4,10 +4,12 @@ import {
   createCrmCatalogProductSchema,
   createCrmCategorySchema,
   createCrmCharacteristicSchema,
+  createCrmSubcategorySchema,
   crmCatalogStockSchema,
   patchCrmCatalogProductSchema,
   patchCrmCategorySchema,
   patchCrmCharacteristicSchema,
+  patchCrmSubcategorySchema,
   renameCrmSubcategorySchema,
 } from '../schemas/crm-catalog.schemas'
 import { CatalogLockedError } from '../services/catalog-source.guard'
@@ -18,6 +20,12 @@ import {
   renameCrmSubcategory,
   updateCrmCategory,
 } from '../services/crm-catalog-categories.service'
+import {
+  createCrmSubcategory,
+  deleteCrmSubcategory,
+  listCrmSubcategories,
+  updateCrmSubcategory,
+} from '../services/crm-catalog-subcategories.service'
 import {
   createCrmCharacteristic,
   listCrmCharacteristics,
@@ -43,8 +51,8 @@ const parseProductId = (req: Request, res: Response): number | null => {
   return parsed
 }
 
-const parseEntityId = (req: Request, res: Response, label: string): number | null => {
-  const parsed = Number(req.params.id)
+const parseEntityId = (req: Request, res: Response, label: string, param = 'id'): number | null => {
+  const parsed = Number(req.params[param])
   if (!Number.isInteger(parsed) || parsed <= 0) {
     fail(res, 400, `Invalid ${label} id`, 'VALIDATION')
     return null
@@ -72,6 +80,11 @@ const handleServiceError = (error: unknown, res: Response, next: NextFunction) =
       : undefined
   if (statusCode === 409) {
     return fail(res, 409, error instanceof Error ? error.message : 'Conflict', 'CONFLICT')
+  }
+  const badRequest =
+    error instanceof Error && (error as Error & { statusCode?: number }).statusCode === 400
+  if (badRequest) {
+    return fail(res, 400, error instanceof Error ? error.message : 'Validation error', 'VALIDATION')
   }
   if (error instanceof Error && error.message.startsWith('All dimension fields')) {
     return fail(res, 400, error.message, 'VALIDATION')
@@ -317,6 +330,92 @@ export const renameCrmSubcategoryHandler = async (
 
     const result = await renameCrmSubcategory(parsed.data)
     return ok(res, result)
+  } catch (error) {
+    return handleServiceError(error, res, next)
+  }
+}
+
+export const listCrmSubcategoriesHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const categoryId = parseEntityId(req, res, 'category')
+    if (categoryId == null) return
+
+    const items = await listCrmSubcategories(categoryId)
+    return ok(res, { items })
+  } catch (error) {
+    next(error)
+  }
+}
+
+export const createCrmSubcategoryHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const categoryId = parseEntityId(req, res, 'category')
+    if (categoryId == null) return
+
+    const parsed = createCrmSubcategorySchema.safeParse(req.body)
+    if (!parsed.success) {
+      throw new HttpError(400, zodErrorMessage(parsed.error.issues), 'VALIDATION', parsed.error.issues)
+    }
+
+    const item = await createCrmSubcategory(categoryId, parsed.data)
+    return ok(res, item, 201)
+  } catch (error) {
+    return handleServiceError(error, res, next)
+  }
+}
+
+export const patchCrmSubcategoryHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const categoryId = parseEntityId(req, res, 'category')
+    if (categoryId == null) return
+
+    const subId = parseEntityId(req, res, 'subcategory', 'subId')
+    if (subId == null) return
+
+    const parsed = patchCrmSubcategorySchema.safeParse(req.body)
+    if (!parsed.success) {
+      throw new HttpError(400, zodErrorMessage(parsed.error.issues), 'VALIDATION', parsed.error.issues)
+    }
+
+    const item = await updateCrmSubcategory(categoryId, subId, parsed.data)
+    if (!item) {
+      return fail(res, 404, 'Subcategory not found', 'NOT_FOUND')
+    }
+    return ok(res, item)
+  } catch (error) {
+    return handleServiceError(error, res, next)
+  }
+}
+
+export const deleteCrmSubcategoryHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const categoryId = parseEntityId(req, res, 'category')
+    if (categoryId == null) return
+
+    const subId = parseEntityId(req, res, 'subcategory', 'subId')
+    if (subId == null) return
+
+    const deleted = await deleteCrmSubcategory(categoryId, subId)
+    if (!deleted) {
+      return fail(res, 404, 'Subcategory not found', 'NOT_FOUND')
+    }
+    return ok(res, { deleted: true })
   } catch (error) {
     return handleServiceError(error, res, next)
   }
