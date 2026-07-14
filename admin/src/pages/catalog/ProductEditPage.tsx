@@ -62,7 +62,7 @@ const productToImageSlots = (product: CrmCatalogProductDetail): ProductImageSlot
 export const ProductEditPage = () => {
   const { id } = useParams()
   const navigate = useNavigate()
-  const isNew = id === 'new'
+  const isNew = !id || id === 'new'
   const productId = isNew ? null : Number(id)
 
   const { readOnly } = useCatalogMetaContext()

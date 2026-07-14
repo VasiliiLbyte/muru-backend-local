@@ -38,6 +38,32 @@ export const miniappMaintenanceMiddleware = (req: Request, res: Response, next: 
   return sendMaintenanceResponse(res)
 }
 
+/**
+ * Bypass maintenance for web/SSR requests without x-telegram-init-data.
+ * Mini app shoppers (with initData) and non-admin users still get 503.
+ */
+export const miniappMaintenanceUnlessNoTelegramInitData = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  if (!env.maintenanceMode) {
+    return next()
+  }
+
+  const initData = req.header('x-telegram-init-data')?.trim()
+  if (!initData) {
+    return next()
+  }
+
+  const telegramUserId = resolveRequestTelegramUserId(req)
+  if (isAdminTelegramUser(telegramUserId)) {
+    return next()
+  }
+
+  return sendMaintenanceResponse(res)
+}
+
 /** Skips storefront web payment routes under /api/payments. */
 export const miniappMaintenanceUnlessWebPayments = (
   req: Request,
