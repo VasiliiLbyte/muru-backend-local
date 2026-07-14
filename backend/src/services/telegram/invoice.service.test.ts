@@ -86,16 +86,17 @@ describe('createInvoiceForCheckout', () => {
     )
   })
 
-  it('accepts telegram.me invoice URLs from Telegram API', async () => {
+  it('normalizes telegram.me invoice URLs to t.me', async () => {
     const telegramMeUrl = 'https://telegram.me/$eZBtH8-abc'
+    const normalizedUrl = 'https://t.me/$eZBtH8-abc'
     mockCallTelegramApi.mockResolvedValue(telegramMeUrl)
 
     const result = await createInvoiceForCheckout(rawInput)
 
-    expect(result).toEqual({ invoiceUrl: telegramMeUrl, intentId: 7 })
+    expect(result).toEqual({ invoiceUrl: normalizedUrl, intentId: 7 })
     expect(mockPoolQuery).toHaveBeenCalledWith(
       expect.stringContaining('confirmation_url'),
-      [7, telegramMeUrl],
+      [7, normalizedUrl],
     )
   })
 

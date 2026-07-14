@@ -15,6 +15,11 @@ const TELEGRAM_INVOICE_URL_PREFIXES = ['https://t.me/$', 'https://telegram.me/$'
 const isValidTelegramInvoiceUrl = (url: string): boolean =>
   TELEGRAM_INVOICE_URL_PREFIXES.some((prefix) => url.startsWith(prefix))
 
+const normalizeTelegramInvoiceUrl = (url: string): string =>
+  url.startsWith('https://telegram.me/$')
+    ? `https://t.me/${url.slice('https://telegram.me/'.length)}`
+    : url
+
 export const createInvoiceForCheckout = async (
   raw: RawCheckoutInput,
 ): Promise<{ invoiceUrl: string; intentId: number }> => {
@@ -85,10 +90,12 @@ export const createInvoiceForCheckout = async (
     throw new Error('Telegram createInvoiceLink returned an invalid invoice URL')
   }
 
+  const invoiceUrl = normalizeTelegramInvoiceUrl(link)
+
   await pool.query(`UPDATE payments SET confirmation_url=$2, updated_at=NOW() WHERE id=$1`, [
     intentId,
-    link,
+    invoiceUrl,
   ])
 
-  return { invoiceUrl: link, intentId }
+  return { invoiceUrl, intentId }
 }

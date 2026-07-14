@@ -75,10 +75,10 @@ describe('POST /api/payments/invoice', () => {
     expect(res.body.data.intentId).toBe(7)
   })
 
-  it('returns 200 and telegram.me invoiceUrl unchanged on success', async () => {
-    const telegramMeUrl = 'https://telegram.me/$eZBtH8-abc'
+  it('returns 200 and normalized t.me invoiceUrl for telegram.me input', async () => {
+    const normalizedUrl = 'https://t.me/$eZBtH8-abc'
     mockCreateInvoiceForCheckout.mockResolvedValue({
-      invoiceUrl: telegramMeUrl,
+      invoiceUrl: normalizedUrl,
       intentId: 7,
     })
 
@@ -89,7 +89,7 @@ describe('POST /api/payments/invoice', () => {
 
     expect(res.status).toBe(200)
     expect(res.body.success).toBe(true)
-    expect(res.body.data.invoiceUrl).toBe(telegramMeUrl)
+    expect(res.body.data.invoiceUrl).toBe(normalizedUrl)
     expect(res.body.data.intentId).toBe(7)
   })
 
