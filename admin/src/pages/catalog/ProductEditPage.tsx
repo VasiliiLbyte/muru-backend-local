@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { ProductImagesEditor } from '../../components/catalog/ProductImagesEditor'
@@ -10,52 +10,20 @@ import {
   createProduct,
   getProduct,
   listCategories,
-  listCharacteristics,
   patchProduct,
   unarchiveProduct,
   updateProductStock,
 } from '../../lib/catalog-api'
-import type {
-  CrmCatalogProductDetail,
-  CrmCategoryItem,
-  CrmCharacteristicItem,
-  ProductImageSlot,
-} from '../../types/catalog'
+import type { CrmCatalogProductDetail, CrmCategoryItem, ProductImageSlot } from '../../types/catalog'
 
-const CUSTOM_SPEC_KEY = '__custom__'
-
-type SpecRow = {
-  id: string
-  keySelect: string
-  customKey: string
-  value: string
-}
-
-const specsToRows = (specs: Record<string, string>, characteristicNames: string[]): SpecRow[] => {
-  const entries = Object.entries(specs)
-  if (entries.length === 0) {
-    return [{ id: '0', keySelect: characteristicNames[0] ?? CUSTOM_SPEC_KEY, customKey: '', value: '' }]
-  }
-  return entries.map(([key, value], index) => {
-    const inDict = characteristicNames.includes(key)
-    return {
-      id: String(index),
-      keySelect: inDict ? key : CUSTOM_SPEC_KEY,
-      customKey: inDict ? '' : key,
-      value,
-    }
-  })
-}
-
-const rowsToSpecs = (rows: SpecRow[]): Record<string, string> => {
-  const specs: Record<string, string> = {}
-  for (const row of rows) {
-    const key = row.keySelect === CUSTOM_SPEC_KEY ? row.customKey.trim() : row.keySelect
-    const value = row.value.trim()
-    if (key && value) specs[key] = value
-  }
-  return specs
-}
+const MANAGED_SPEC_KEYS = [
+  'Материал',
+  'Бренд',
+  'Страна производитель',
+  'Страна',
+  'Размер',
+  'Тип',
+] as const
 
 const productToImageSlots = (product: CrmCatalogProductDetail): ProductImageSlot[] =>
   (product.imageUrls ?? []).map((url) => {
@@ -73,7 +41,6 @@ export const ProductEditPage = () => {
 
   const [product, setProduct] = useState<CrmCatalogProductDetail | null>(null)
   const [categories, setCategories] = useState<CrmCategoryItem[]>([])
-  const [characteristics, setCharacteristics] = useState<CrmCharacteristicItem[]>([])
 
   const [sku, setSku] = useState('')
   const [name, setName] = useState('')
@@ -83,8 +50,12 @@ export const ProductEditPage = () => {
   const [inStock, setInStock] = useState('0')
   const [categoryId, setCategoryId] = useState('')
   const [subcategoryIds, setSubcategoryIds] = useState<number[]>([])
+  const [material, setMaterial] = useState('')
+  const [country, setCountry] = useState('')
+  const [sizeField, setSizeField] = useState('')
+  const [brand, setBrand] = useState('')
+  const [isGiftGuide, setIsGiftGuide] = useState(false)
   const [imageSlots, setImageSlots] = useState<ProductImageSlot[]>([])
-  const [specRows, setSpecRows] = useState<SpecRow[]>([])
   const [weightGrams, setWeightGrams] = useState('')
   const [dimLengthCm, setDimLengthCm] = useState('')
   const [dimWidthCm, setDimWidthCm] = useState('')
@@ -97,18 +68,23 @@ export const ProductEditPage = () => {
   const [archiving, setArchiving] = useState(false)
   const [error, setError] = useState('')
 
-  const characteristicNames = characteristics.map((c) => c.name)
-
   const subcategoryOptions = categories.flatMap((cat) =>
     cat.subcategories.map((sub) => ({
       id: sub.id,
+      name: sub.name,
       label: `${cat.name} / ${sub.name}`,
     })),
   )
 
-  const toggleSubcategory = (id: number) => {
+  const primarySubcategoryName = useMemo(() => {
+    const primaryId = subcategoryIds[0]
+    if (primaryId == null) return null
+    return subcategoryOptions.find((opt) => opt.id === primaryId)?.name ?? null
+  }, [subcategoryIds, subcategoryOptions])
+
+  const toggleSubcategory = (subId: number) => {
     setSubcategoryIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+      prev.includes(subId) ? prev.filter((x) => x !== subId) : [...prev, subId],
     )
   }
 
@@ -123,6 +99,7 @@ export const ProductEditPage = () => {
   }
 
   const applyProductToForm = useCallback((data: CrmCatalogProductDetail) => {
+    const specs = data.specs ?? {}
     setSku(data.sku)
     setName(data.name)
     setDescription(data.description ?? '')
@@ -131,6 +108,11 @@ export const ProductEditPage = () => {
     setInStock(String(data.inStock))
     setCategoryId(data.categoryId != null ? String(data.categoryId) : '')
     setSubcategoryIds(data.subcategoryIds ?? [])
+    setMaterial(specs['Материал'] ?? '')
+    setCountry(specs['Страна производитель'] ?? specs['Страна'] ?? '')
+    setSizeField(specs['Размер'] ?? data.size ?? '')
+    setBrand(specs['Бренд'] ?? '')
+    setIsGiftGuide(data.isGiftGuide ?? false)
     setImageSlots(productToImageSlots(data))
     setWeightGrams(String(data.weightGrams))
     setDimLengthCm(String(data.dimLengthCm))
@@ -140,15 +122,9 @@ export const ProductEditPage = () => {
   }, [])
 
   useEffect(() => {
-    void Promise.all([listCategories(), listCharacteristics()])
-      .then(([cats, chars]) => {
-        setCategories(cats.items)
-        setCharacteristics(chars.items)
-      })
-      .catch(() => {
-        setCategories([])
-        setCharacteristics([])
-      })
+    void listCategories()
+      .then((cats) => setCategories(cats.items))
+      .catch(() => setCategories([]))
   }, [])
 
   const load = useCallback(async () => {
@@ -181,19 +157,29 @@ export const ProductEditPage = () => {
     void load()
   }, [load])
 
-  useEffect(() => {
-    const names = characteristics.map((c) => c.name)
-    if (product) {
-      setSpecRows(specsToRows(product.specs ?? {}, names))
-      return
+  const buildSpecs = (): Record<string, string> => {
+    const base = { ...(product?.specs ?? {}) }
+    for (const key of MANAGED_SPEC_KEYS) {
+      delete base[key]
     }
-    if (isNew) {
-      setSpecRows(specsToRows({}, names))
-    }
-  }, [product, characteristics, isNew])
+
+    const trimmedMaterial = material.trim()
+    const trimmedCountry = country.trim()
+    const trimmedSize = sizeField.trim()
+    const trimmedBrand = brand.trim()
+
+    if (trimmedMaterial) base['Материал'] = trimmedMaterial
+    if (trimmedCountry) base['Страна производитель'] = trimmedCountry
+    if (trimmedSize) base['Размер'] = trimmedSize
+    if (trimmedBrand) base['Бренд'] = trimmedBrand
+    if (primarySubcategoryName) base['Тип'] = primarySubcategoryName
+
+    return base
+  }
 
   const buildBody = () => {
     const imageUrls = imageSlots.map((s) => s.url)
+    const trimmedSize = sizeField.trim()
     return {
       name: name.trim(),
       description,
@@ -202,7 +188,9 @@ export const ProductEditPage = () => {
       inStock: Number(inStock) || 0,
       categoryId: categoryId ? Number(categoryId) : null,
       subcategoryIds,
-      specs: rowsToSpecs(specRows),
+      specs: buildSpecs(),
+      size: trimmedSize || null,
+      isGiftGuide,
       imageUrls,
       imageUrl1: imageUrls[0],
       imageUrl2: imageUrls[1] ?? imageUrls[0],
@@ -274,26 +262,6 @@ export const ProductEditPage = () => {
     } finally {
       setArchiving(false)
     }
-  }
-
-  const addSpecRow = () => {
-    setSpecRows((rows) => [
-      ...rows,
-      {
-        id: String(Date.now()),
-        keySelect: characteristicNames[0] ?? CUSTOM_SPEC_KEY,
-        customKey: '',
-        value: '',
-      },
-    ])
-  }
-
-  const updateSpecRow = (rowId: string, patch: Partial<SpecRow>) => {
-    setSpecRows((rows) => rows.map((row) => (row.id === rowId ? { ...row, ...patch } : row)))
-  }
-
-  const removeSpecRow = (rowId: string) => {
-    setSpecRows((rows) => rows.filter((row) => row.id !== rowId))
   }
 
   if (loading) {
@@ -422,6 +390,16 @@ export const ProductEditPage = () => {
               {savingStock ? 'Сохранение…' : 'Сохранить остаток'}
             </button>
           ) : null}
+
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={isGiftGuide}
+              onChange={(e) => setIsGiftGuide(e.target.checked)}
+              disabled={readOnly}
+            />
+            Гид по подаркам
+          </label>
         </div>
 
         <div className="form-section">
@@ -507,53 +485,55 @@ export const ProductEditPage = () => {
 
         <div className="form-section">
           <h4 className="form-section-title">Характеристики</h4>
-          {specRows.map((row) => (
-            <div key={row.id} className="specs-editor-row">
-              <select
-                className="field-input"
-                value={row.keySelect}
-                onChange={(e) => updateSpecRow(row.id, { keySelect: e.target.value })}
-                disabled={readOnly}
-              >
-                {characteristicNames.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))}
-                <option value={CUSTOM_SPEC_KEY}>Другой…</option>
-              </select>
-              {row.keySelect === CUSTOM_SPEC_KEY ? (
-                <input
-                  className="field-input"
-                  placeholder="Название"
-                  value={row.customKey}
-                  onChange={(e) => updateSpecRow(row.id, { customKey: e.target.value })}
-                  disabled={readOnly}
-                />
-              ) : null}
-              <input
-                className="field-input"
-                placeholder="Значение"
-                value={row.value}
-                onChange={(e) => updateSpecRow(row.id, { value: e.target.value })}
-                disabled={readOnly}
-              />
-              {!readOnly ? (
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() => removeSpecRow(row.id)}
-                >
-                  Удалить
-                </button>
-              ) : null}
-            </div>
-          ))}
-          {!readOnly ? (
-            <button type="button" className="secondary-button" onClick={addSpecRow}>
-              Добавить характеристику
-            </button>
-          ) : null}
+          <label className="field-label" htmlFor="product-material">
+            Материал
+          </label>
+          <input
+            id="product-material"
+            className="field-input"
+            value={material}
+            onChange={(e) => setMaterial(e.target.value)}
+            disabled={readOnly}
+          />
+
+          <label className="field-label" htmlFor="product-country">
+            Страна производитель
+          </label>
+          <input
+            id="product-country"
+            className="field-input"
+            value={country}
+            onChange={(e) => setCountry(e.target.value)}
+            disabled={readOnly}
+          />
+
+          <label className="field-label" htmlFor="product-size">
+            Размер
+          </label>
+          <input
+            id="product-size"
+            className="field-input"
+            value={sizeField}
+            onChange={(e) => setSizeField(e.target.value)}
+            disabled={readOnly}
+          />
+
+          <label className="field-label" htmlFor="product-brand">
+            Бренд
+          </label>
+          <input
+            id="product-brand"
+            className="field-input"
+            value={brand}
+            onChange={(e) => setBrand(e.target.value)}
+            disabled={readOnly}
+          />
+
+          <label className="field-label">Тип</label>
+          <p className="muted-text">{primarySubcategoryName ?? '—'}</p>
+          <p className="muted-text">
+            Заполняется автоматически из основной подкатегории при сохранении.
+          </p>
         </div>
 
         <div className="form-section">

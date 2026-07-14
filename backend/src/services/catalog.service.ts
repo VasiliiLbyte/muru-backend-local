@@ -40,6 +40,7 @@ type ProductRow = {
   price: string
   discount_percent: string
   in_stock: number
+  is_gift_guide: boolean
   image_url_1: string
   image_url_2: string
   image_urls: string[] | null
@@ -239,6 +240,7 @@ export const getCatalogProducts = async (params: {
   color?: string
   size?: string
   priceMax?: number
+  giftGuide?: boolean
 }) => {
   const {
     channel,
@@ -250,6 +252,7 @@ export const getCatalogProducts = async (params: {
     color,
     size,
     priceMax,
+    giftGuide,
   } = params
   const web = isWebChannel(channel)
   const conditions: string[] = ['p.is_archived = FALSE']
@@ -332,6 +335,9 @@ export const getCatalogProducts = async (params: {
     values.push(priceMax)
     conditions.push(`p.price <= $${values.length}`)
   }
+  if (giftGuide === true) {
+    conditions.push('p.is_gift_guide = TRUE')
+  }
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
   const webSelect = web
@@ -356,6 +362,7 @@ export const getCatalogProducts = async (params: {
        p.price::text,
        p.discount_percent::text,
        p.in_stock,
+       p.is_gift_guide,
        p.image_url_1,
        p.image_url_2,
        p.image_urls,
@@ -388,6 +395,7 @@ export const getCatalogProducts = async (params: {
         sizes: [],
         category: row.category_name ?? 'Без категории',
         subcategory: web ? (row.web_subcategory_name?.trim() ?? '') : '',
+        giftGuide: row.is_gift_guide,
       }
       if (web) {
         const subSlug = mapSubcategorySlug(row.web_subcategory_slug)
@@ -452,6 +460,7 @@ export const getCatalogProductBySku = async (
        p.price::text,
        p.discount_percent::text,
        p.in_stock,
+       p.is_gift_guide,
        p.image_url_1,
        p.image_url_2,
        p.image_urls,
@@ -510,6 +519,7 @@ export const getCatalogProductBySku = async (
     sizes: Array.from(sizes),
     category: first.category_name ?? 'Без категории',
     subcategory: web ? (first.web_subcategory_name?.trim() ?? '') : '',
+    giftGuide: first.is_gift_guide,
     description: first.description ?? '',
     specs: first.specs ?? {},
     variants,

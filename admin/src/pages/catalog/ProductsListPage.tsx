@@ -10,6 +10,7 @@ const PAGE_SIZE = 20
 
 type ArchivedFilter = 'false' | 'true' | 'all'
 type StockFilter = 'all' | 'in' | 'out'
+type GiftGuideFilter = 'all' | 'true' | 'false'
 
 export const ProductsListPage = () => {
   const { readOnly } = useCatalogMetaContext()
@@ -20,6 +21,7 @@ export const ProductsListPage = () => {
   const [subcategory, setSubcategory] = useState('')
   const [inStock, setInStock] = useState<StockFilter>('all')
   const [archived, setArchived] = useState<ArchivedFilter>('false')
+  const [giftGuide, setGiftGuide] = useState<GiftGuideFilter>('all')
   const [page, setPage] = useState(1)
   const [data, setData] = useState<CrmCatalogListResult | null>(null)
   const [categories, setCategories] = useState<CrmCategoryItem[]>([])
@@ -36,7 +38,7 @@ export const ProductsListPage = () => {
 
   useEffect(() => {
     setPage(1)
-  }, [q, category, subcategory, inStock, archived])
+  }, [q, category, subcategory, inStock, archived, giftGuide])
 
   useEffect(() => {
     void listCategories()
@@ -55,6 +57,7 @@ export const ProductsListPage = () => {
         subcategory: subcategory || undefined,
         inStock: inStock === 'all' ? undefined : inStock,
         archived,
+        giftGuide,
         page,
         pageSize: PAGE_SIZE,
       })
@@ -65,7 +68,7 @@ export const ProductsListPage = () => {
     } finally {
       setLoading(false)
     }
-  }, [q, category, subcategory, inStock, archived, page])
+  }, [q, category, subcategory, inStock, archived, giftGuide, page])
 
   useEffect(() => {
     void load()
@@ -233,6 +236,20 @@ export const ProductsListPage = () => {
             <option value="false">Активные</option>
             <option value="true">Только архив</option>
             <option value="all">Все</option>
+          </select>
+
+          <label className="field-label" htmlFor="catalog-gift-guide">
+            Гид по подаркам
+          </label>
+          <select
+            id="catalog-gift-guide"
+            className="field-input orders-filter-input"
+            value={giftGuide}
+            onChange={(e) => setGiftGuide(e.target.value as GiftGuideFilter)}
+          >
+            <option value="all">Все</option>
+            <option value="true">Да</option>
+            <option value="false">Нет</option>
           </select>
         </div>
       </div>

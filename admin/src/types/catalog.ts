@@ -11,6 +11,7 @@ export type CrmCatalogListItem = {
   discountPercent: number
   inStock: number
   isArchived: boolean
+  isGiftGuide: boolean
   categoryName: string | null
   webSubcategoryName: string | null
   imageUrl: string | null
@@ -25,6 +26,7 @@ export type CrmCatalogProductDetail = {
   discountPercent: number
   inStock: number
   isArchived: boolean
+  isGiftGuide: boolean
   specs: Record<string, string>
   imageUrls: string[]
   imageUrl1: string
@@ -55,6 +57,7 @@ export type CrmCatalogListParams = {
   subcategory?: string
   inStock?: 'in' | 'out' | 'all'
   archived?: 'true' | 'false' | 'all'
+  giftGuide?: 'true' | 'false' | 'all'
   page?: number
   pageSize?: number
 }
@@ -89,6 +92,7 @@ export type CrmCatalogProductCreateBody = {
   dimLengthCm?: number
   dimWidthCm?: number
   dimHeightCm?: number
+  isGiftGuide?: boolean
 }
 
 export type CrmCatalogProductPatchBody = Partial<Omit<CrmCatalogProductCreateBody, 'sku'>>

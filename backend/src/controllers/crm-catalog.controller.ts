@@ -70,6 +70,11 @@ const parseArchived = (value: unknown): 'true' | 'false' | 'all' | undefined => 
   return undefined
 }
 
+const parseGiftGuide = (value: unknown): 'true' | 'false' | 'all' | undefined => {
+  if (value === 'true' || value === 'false' || value === 'all') return value
+  return undefined
+}
+
 const handleServiceError = (error: unknown, res: Response, next: NextFunction) => {
   if (error instanceof CatalogLockedError) {
     return fail(res, 423, error.message, 'LOCKED')
@@ -115,6 +120,7 @@ export const listCrmCatalogProductsHandler = async (
       subcategory: typeof req.query.subcategory === 'string' ? req.query.subcategory : undefined,
       inStock: parseInStock(req.query.inStock),
       archived: parseArchived(req.query.archived),
+      giftGuide: parseGiftGuide(req.query.giftGuide),
       page: req.query.page,
       pageSize: req.query.pageSize,
     })

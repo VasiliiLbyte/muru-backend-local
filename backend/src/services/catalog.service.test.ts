@@ -18,6 +18,7 @@ const baseProductRow = {
   price: '1000',
   discount_percent: '0',
   in_stock: 5,
+  is_gift_guide: false,
   image_url_1: 'https://example.com/1.webp',
   image_url_2: 'https://example.com/1.webp',
   image_urls: ['https://example.com/1.webp'],
@@ -69,6 +70,16 @@ describe('getCatalogProducts', () => {
 
     expect(products[0].subcategory).toBe('')
     expect(products[0].subcategorySlug).toBeUndefined()
+    expect(products[0].giftGuide).toBe(false)
+  })
+
+  it('filters gift guide products when giftGuide=true', async () => {
+    queryMock.mockResolvedValueOnce({ rows: [] })
+
+    await getCatalogProducts({ giftGuide: true })
+
+    const sql = String(queryMock.mock.calls[0][0])
+    expect(sql).toContain('p.is_gift_guide = TRUE')
   })
 
   it('filters only by primary category slug without channel', async () => {

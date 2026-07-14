@@ -65,6 +65,7 @@ const productDetailRow = {
   subcategory: 'Bags',
   subcategory_slug: 'bags',
   is_archived: false,
+  is_gift_guide: false,
   created_at: new Date(),
   updated_at: new Date(),
 }
@@ -72,6 +73,13 @@ const productDetailRow = {
 describe('crm-catalog.service', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockQuery.mockReset()
+    mockClientQuery.mockReset()
+    mockConnect.mockReset()
+    mockConnect.mockImplementation(async () => ({
+      query: (...args: unknown[]) => mockClientQuery(...args),
+      release: vi.fn(),
+    }))
     mockEnv.catalogSource = 'sheets'
   })
 
@@ -230,5 +238,56 @@ describe('crm-catalog.service', () => {
 
     expect(product?.subcategoryIds).toEqual([7, 9])
     expect(String(mockQuery.mock.calls[1][0])).toContain('product_subcategories')
+  })
+
+  it('list applies giftGuide=true filter', async () => {
+    mockEnv.catalogSource = 'crm'
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ total: '0' }] })
+      .mockResolvedValueOnce({ rows: [] })
+
+    await listCrmCatalogProducts({ giftGuide: 'true' })
+
+    const countSql = String(mockQuery.mock.calls[0][0])
+    expect(countSql).toContain('p.is_gift_guide = TRUE')
+  })
+
+  it('createCrmCatalogProduct writes is_gift_guide when provided', async () => {
+    mockEnv.catalogSource = 'crm'
+    mockQuery
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ ...productDetailRow, is_gift_guide: true }] })
+      .mockResolvedValueOnce({ rows: [] })
+    mockClientQuery
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ id: 42 }] })
+      .mockResolvedValueOnce({ rows: [] })
+
+    const product = await createCrmCatalogProduct({
+      sku: 'MU0042',
+      name: 'Test',
+      price: 100,
+      isGiftGuide: true,
+    })
+
+    const insertParams = mockClientQuery.mock.calls[1][1] as unknown[]
+    expect(insertParams[25]).toBe(true)
+    expect(product.isGiftGuide).toBe(true)
+  })
+
+  it('updateCrmCatalogProduct writes is_gift_guide when provided', async () => {
+    mockEnv.catalogSource = 'crm'
+    mockClientQuery
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [] })
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ ...productDetailRow, is_gift_guide: true }] })
+      .mockResolvedValueOnce({ rows: [] })
+
+    await updateCrmCatalogProduct(42, { isGiftGuide: true })
+
+    const updateSql = String(mockClientQuery.mock.calls[1][0])
+    expect(updateSql).toContain('is_gift_guide')
   })
 })

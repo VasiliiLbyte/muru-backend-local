@@ -37,6 +37,7 @@ export type CrmCatalogListItem = {
   discountPercent: number
   inStock: number
   isArchived: boolean
+  isGiftGuide: boolean
   categoryName: string | null
   webSubcategoryName: string | null
   imageUrl: string | null
@@ -51,6 +52,7 @@ export type CrmCatalogProductDetail = {
   discountPercent: number
   inStock: number
   isArchived: boolean
+  isGiftGuide: boolean
   specs: Record<string, string>
   imageUrls: string[]
   imageUrl1: string
@@ -81,6 +83,7 @@ export type CrmCatalogListFilters = {
   subcategory?: string
   inStock?: 'in' | 'out' | 'all'
   archived?: 'true' | 'false' | 'all'
+  giftGuide?: 'true' | 'false' | 'all'
   page?: unknown
   pageSize?: unknown
 }
@@ -103,6 +106,7 @@ type ProductRow = {
   discount_percent: string
   in_stock: number
   is_archived: boolean
+  is_gift_guide: boolean
   specs: Record<string, string> | null
   image_url_1: string
   image_url_2: string
@@ -158,6 +162,7 @@ const mapListRow = (row: ProductRow): CrmCatalogListItem => ({
   discountPercent: Number(row.discount_percent) || 0,
   inStock: row.in_stock,
   isArchived: row.is_archived,
+  isGiftGuide: row.is_gift_guide,
   categoryName: row.category_name,
   webSubcategoryName: row.web_subcategory_name,
   imageUrl: pickImageUrl(row),
@@ -172,6 +177,7 @@ const mapDetailRow = (row: ProductRow): CrmCatalogProductDetail => ({
   discountPercent: Number(row.discount_percent) || 0,
   inStock: row.in_stock,
   isArchived: row.is_archived,
+  isGiftGuide: row.is_gift_guide,
   specs: row.specs ?? {},
   imageUrls: Array.isArray(row.image_urls)
     ? row.image_urls.filter(Boolean)
@@ -207,6 +213,7 @@ const PRODUCT_SELECT = `
   p.discount_percent::text,
   p.in_stock,
   p.is_archived,
+  p.is_gift_guide,
   p.specs,
   p.image_url_1,
   p.image_url_2,
@@ -246,6 +253,13 @@ const buildListFilters = (filters: CrmCatalogListFilters): FilterBuildResult => 
     where.push('p.is_archived = TRUE')
   } else if (archived === 'false') {
     where.push('p.is_archived = FALSE')
+  }
+
+  const giftGuide = filters.giftGuide ?? 'all'
+  if (giftGuide === 'true') {
+    where.push('p.is_gift_guide = TRUE')
+  } else if (giftGuide === 'false') {
+    where.push('p.is_gift_guide = FALSE')
   }
 
   const inStock = filters.inStock ?? 'all'
@@ -465,7 +479,7 @@ export const createCrmCatalogProduct = async (
          dims_source, weight_source,
          web_subcategory_name, web_subcategory_slug,
          subcategory, subcategory_slug,
-         is_archived, updated_at
+         is_gift_guide, is_archived, updated_at
        ) VALUES (
          $1, $2, $3, $4, $5, $6, $7::jsonb,
          $8, $9, $10::jsonb, $11,
@@ -474,7 +488,7 @@ export const createCrmCatalogProduct = async (
          $20, $21,
          $22, $23,
          $24, $25,
-         FALSE, NOW()
+         $26, FALSE, NOW()
        ) RETURNING id`,
       [
         sku,
@@ -502,6 +516,7 @@ export const createCrmCatalogProduct = async (
         denorm.webSubcategorySlug,
         denorm.subcategory,
         denorm.subcategorySlug,
+        input.isGiftGuide ?? false,
       ],
     )
 
@@ -580,6 +595,10 @@ export const updateCrmCatalogProduct = async (
   if (input.dimensionsLabel !== undefined) {
     params.push(input.dimensionsLabel)
     sets.push(`dimensions_label = $${params.length}`)
+  }
+  if (input.isGiftGuide !== undefined) {
+    params.push(input.isGiftGuide)
+    sets.push(`is_gift_guide = $${params.length}`)
   }
   if (input.specs !== undefined) {
     params.push(JSON.stringify(input.specs))
