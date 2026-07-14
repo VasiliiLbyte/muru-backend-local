@@ -76,6 +76,10 @@ export const createInvoiceForCheckout = async (
     provider_data: providerData,
   })
 
+  if (!link.startsWith('https://t.me/$')) {
+    throw new Error('Telegram createInvoiceLink returned an invalid invoice URL')
+  }
+
   await pool.query(`UPDATE payments SET confirmation_url=$2, updated_at=NOW() WHERE id=$1`, [
     intentId,
     link,

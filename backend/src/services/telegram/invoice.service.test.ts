@@ -66,6 +66,7 @@ describe('createInvoiceForCheckout', () => {
     const result = await createInvoiceForCheckout(rawInput)
 
     expect(result).toEqual({ invoiceUrl: 'https://t.me/$invoice/abc', intentId: 7 })
+    expect(result.invoiceUrl.startsWith('https://t.me/$')).toBe(true)
     expect(mockPoolQuery).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO payments'),
       expect.arrayContaining(['1000.00', 123]),
@@ -82,5 +83,11 @@ describe('createInvoiceForCheckout', () => {
       expect.stringContaining('confirmation_url'),
       [7, 'https://t.me/$invoice/abc'],
     )
+  })
+
+  it('rejects non-t.me invoice URLs from Telegram API', async () => {
+    mockCallTelegramApi.mockResolvedValue('https://yookassa.ru/checkout/abc')
+
+    await expect(createInvoiceForCheckout(rawInput)).rejects.toThrow(/invalid invoice URL/i)
   })
 })
