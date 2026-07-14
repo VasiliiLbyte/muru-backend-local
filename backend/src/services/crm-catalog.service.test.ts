@@ -28,7 +28,7 @@ import {
   renameCrmSubcategory,
 } from './crm-catalog-categories.service'
 import { createCrmCharacteristic } from './crm-catalog-characteristics.service'
-import { createCrmCatalogProduct, listCrmCatalogProducts } from './crm-catalog.service'
+import { createCrmCatalogProduct, listCrmCatalogProducts, updateCrmCatalogProduct } from './crm-catalog.service'
 
 describe('crm-catalog.service', () => {
   beforeEach(() => {
@@ -85,5 +85,38 @@ describe('crm-catalog.service', () => {
     await expect(createCrmCharacteristic({ name: 'Material' })).rejects.toMatchObject({
       statusCode: 409,
     })
+  })
+
+  it('createCrmCatalogProduct returns 409 when assigning virtual Sale category', async () => {
+    mockEnv.catalogSource = 'crm'
+    mockQuery
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ name: 'Распродажа' }] })
+
+    await expect(
+      createCrmCatalogProduct({
+        sku: 'MU9999',
+        name: 'Test',
+        price: 100,
+        categoryId: 7,
+      }),
+    ).rejects.toMatchObject({
+      message: 'Cannot assign a product directly to the virtual Sale category',
+      statusCode: 409,
+    })
+    expect(mockQuery).toHaveBeenCalledTimes(2)
+  })
+
+  it('updateCrmCatalogProduct returns 409 when assigning virtual Sale category', async () => {
+    mockEnv.catalogSource = 'crm'
+    mockQuery.mockResolvedValueOnce({ rows: [{ name: 'Распродажа' }] })
+
+    await expect(
+      updateCrmCatalogProduct(1, { categoryId: 7 }),
+    ).rejects.toMatchObject({
+      message: 'Cannot assign a product directly to the virtual Sale category',
+      statusCode: 409,
+    })
+    expect(mockQuery).toHaveBeenCalledTimes(1)
   })
 })

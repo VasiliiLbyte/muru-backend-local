@@ -3,6 +3,7 @@ import type {
   PatchCrmCategoryInput,
   RenameCrmSubcategoryInput,
 } from '../schemas/crm-catalog.schemas'
+import { SALE_CATEGORY_NAME } from '../constants/catalog-top-level'
 import { pool } from '../utils/db'
 
 import { assertCatalogCrmWritable } from './catalog-source.guard'
@@ -145,6 +146,20 @@ export const updateCrmCategory = async (
 ): Promise<CrmCategoryItem | null> => {
   assertCatalogCrmWritable()
 
+  const current = await pool.query<{ name: string; slug: string }>(
+    'SELECT name, slug FROM categories WHERE id = $1',
+    [id],
+  )
+  const row = current.rows[0]
+  if (row?.name === SALE_CATEGORY_NAME) {
+    if (input.name !== undefined && input.name.trim() !== SALE_CATEGORY_NAME) {
+      throw conflictError('Sale category name cannot be changed')
+    }
+    if (input.slug !== undefined && input.slug.trim() !== row.slug) {
+      throw conflictError('Sale category slug cannot be changed')
+    }
+  }
+
   const sets: string[] = []
   const params: unknown[] = []
 
@@ -192,6 +207,14 @@ export const updateCrmCategory = async (
 
 export const deleteCrmCategory = async (id: number): Promise<boolean> => {
   assertCatalogCrmWritable()
+
+  const nameRow = await pool.query<{ name: string }>(
+    'SELECT name FROM categories WHERE id = $1',
+    [id],
+  )
+  if (nameRow.rows[0]?.name === SALE_CATEGORY_NAME) {
+    throw conflictError('Sale category is virtual and cannot be deleted')
+  }
 
   const countResult = await pool.query<{ count: string }>(
     `SELECT COUNT(*)::text AS count

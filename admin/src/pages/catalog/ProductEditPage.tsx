@@ -414,11 +414,13 @@ export const ProductEditPage = () => {
             disabled={readOnly}
           >
             <option value="">—</option>
-            {categories.map((cat) => (
-              <option key={cat.id} value={cat.id}>
-                {cat.name}
-              </option>
-            ))}
+            {categories
+              .filter((cat) => cat.name !== 'Распродажа')
+              .map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.name}
+                </option>
+              ))}
           </select>
 
           <label className="field-label" htmlFor="product-subcategory">

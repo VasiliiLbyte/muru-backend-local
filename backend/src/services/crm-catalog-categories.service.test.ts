@@ -16,7 +16,7 @@ vi.mock('../utils/db', () => ({
   },
 }))
 
-import { deleteCrmCategory, listCrmCategories } from './crm-catalog-categories.service'
+import { deleteCrmCategory, listCrmCategories, updateCrmCategory } from './crm-catalog-categories.service'
 
 describe('crm-catalog-categories.service', () => {
   beforeEach(() => {
@@ -100,18 +100,31 @@ describe('crm-catalog-categories.service', () => {
     expect(String(mockQuery.mock.calls[1][0])).toContain('web_subcategory_name')
   })
 
-  it('deleteCrmCategory returns 409 when category has active products', async () => {
-    mockQuery.mockResolvedValueOnce({ rows: [{ count: '2' }] })
+  it('deleteCrmCategory returns 409 for virtual Sale category', async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [{ name: 'Распродажа' }] })
 
-    await expect(deleteCrmCategory(5)).rejects.toMatchObject({
-      message: 'Category has active products',
+    await expect(deleteCrmCategory(7)).rejects.toMatchObject({
+      message: 'Sale category is virtual and cannot be deleted',
       statusCode: 409,
     })
     expect(mockQuery).toHaveBeenCalledTimes(1)
   })
 
+  it('deleteCrmCategory returns 409 when category has active products', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ name: 'Used' }] })
+      .mockResolvedValueOnce({ rows: [{ count: '2' }] })
+
+    await expect(deleteCrmCategory(5)).rejects.toMatchObject({
+      message: 'Category has active products',
+      statusCode: 409,
+    })
+    expect(mockQuery).toHaveBeenCalledTimes(2)
+  })
+
   it('deleteCrmCategory returns 409 when category has cross placements', async () => {
     mockQuery
+      .mockResolvedValueOnce({ rows: [{ name: 'Used' }] })
       .mockResolvedValueOnce({ rows: [{ count: '0' }] })
       .mockResolvedValueOnce({ rows: [{ count: '1' }] })
 
@@ -119,11 +132,12 @@ describe('crm-catalog-categories.service', () => {
       message: 'Category is used in web cross placements',
       statusCode: 409,
     })
-    expect(String(mockQuery.mock.calls[1][0])).toContain('product_web_cross_placements')
+    expect(String(mockQuery.mock.calls[2][0])).toContain('product_web_cross_placements')
   })
 
   it('deleteCrmCategory deletes unused category', async () => {
     mockQuery
+      .mockResolvedValueOnce({ rows: [{ name: 'Orphan' }] })
       .mockResolvedValueOnce({ rows: [{ count: '0' }] })
       .mockResolvedValueOnce({ rows: [{ count: '0' }] })
       .mockResolvedValueOnce({ rowCount: 1 })
@@ -131,11 +145,12 @@ describe('crm-catalog-categories.service', () => {
     const deleted = await deleteCrmCategory(9)
 
     expect(deleted).toBe(true)
-    expect(String(mockQuery.mock.calls[2][0])).toContain('DELETE FROM categories')
+    expect(String(mockQuery.mock.calls[3][0])).toContain('DELETE FROM categories')
   })
 
   it('deleteCrmCategory returns 409 on foreign key violation', async () => {
     mockQuery
+      .mockResolvedValueOnce({ rows: [{ name: 'Orphan' }] })
       .mockResolvedValueOnce({ rows: [{ count: '0' }] })
       .mockResolvedValueOnce({ rows: [{ count: '0' }] })
       .mockRejectedValueOnce(Object.assign(new Error('fk'), { code: '23503' }))
@@ -144,5 +159,57 @@ describe('crm-catalog-categories.service', () => {
       message: 'Category is referenced by other records',
       statusCode: 409,
     })
+  })
+
+  it('updateCrmCategory returns 409 when renaming Sale category', async () => {
+    mockQuery.mockResolvedValueOnce({
+      rows: [{ name: 'Распродажа', slug: 'распродажа' }],
+    })
+
+    await expect(updateCrmCategory(7, { name: 'Sale' })).rejects.toMatchObject({
+      message: 'Sale category name cannot be changed',
+      statusCode: 409,
+    })
+    expect(mockQuery).toHaveBeenCalledTimes(1)
+  })
+
+  it('updateCrmCategory returns 409 when changing Sale slug', async () => {
+    mockQuery.mockResolvedValueOnce({
+      rows: [{ name: 'Распродажа', slug: 'распродажа' }],
+    })
+
+    await expect(updateCrmCategory(7, { slug: 'sale' })).rejects.toMatchObject({
+      message: 'Sale category slug cannot be changed',
+      statusCode: 409,
+    })
+  })
+
+  it('updateCrmCategory allows cover-only patch for Sale category', async () => {
+    mockQuery
+      .mockResolvedValueOnce({
+        rows: [{ name: 'Распродажа', slug: 'распродажа' }],
+      })
+      .mockResolvedValueOnce({ rowCount: 1 })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: 7,
+            name: 'Распродажа',
+            slug: 'распродажа',
+            cover_image_url: 'https://example.com/cover.webp',
+            cover_drive_filename: null,
+            direct_product_count: 0,
+            cross_placement_count: 0,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] })
+
+    const updated = await updateCrmCategory(7, {
+      coverImageUrl: 'https://example.com/cover.webp',
+    })
+
+    expect(updated?.coverImageUrl).toBe('https://example.com/cover.webp')
+    expect(String(mockQuery.mock.calls[1][0])).toContain('cover_image_url')
   })
 })

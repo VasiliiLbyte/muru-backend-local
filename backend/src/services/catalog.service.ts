@@ -1,4 +1,4 @@
-import { TOP_LEVEL_CATEGORIES } from '../constants/catalog-top-level'
+import { SALE_CATEGORY_NAME, TOP_LEVEL_CATEGORIES } from '../constants/catalog-top-level'
 import { buildProductTextSearchCondition } from './catalog-product-search'
 import { pool } from '../utils/db'
 import type {
@@ -24,6 +24,10 @@ const slugify = (value: string) =>
     .trim()
     .replace(/\s+/g, '-')
     .replace(/[^a-z0-9а-яё-]/gi, '')
+
+const isSaleCategoryFilter = (category?: string, categorySlug?: string): boolean =>
+  categorySlug === slugify(SALE_CATEGORY_NAME) ||
+  category?.trim().toLowerCase() === SALE_CATEGORY_NAME.toLowerCase()
 
 type ProductRow = {
   sku: string
@@ -160,7 +164,20 @@ export const getCatalogTree = async (withSubcategories = false): Promise<Catalog
   )
   const slugsWithProducts = new Set(withProducts.rows.map((row) => row.slug))
 
-  const filtered = fullTree.filter((node) => slugsWithProducts.has(node.slug))
+  const saleExistsResult = await pool.query<{ ok: boolean }>(
+    `SELECT EXISTS(
+       SELECT 1
+       FROM products p
+       WHERE p.is_archived = FALSE
+         AND p.discount_percent > 0
+     ) AS ok`,
+  )
+  const saleSlug = slugify(SALE_CATEGORY_NAME)
+  const hasDiscounted = saleExistsResult.rows[0]?.ok === true
+
+  const filtered = fullTree.filter((node) =>
+    node.slug === saleSlug ? hasDiscounted : slugsWithProducts.has(node.slug),
+  )
 
   const covers = await pool.query<{ slug: string; cover_image_url: string }>(
     `SELECT slug, cover_image_url FROM categories
@@ -236,7 +253,9 @@ export const getCatalogProducts = async (params: {
   const conditions: string[] = ['p.is_archived = FALSE']
   const values: Array<string | number> = []
 
-  if (web) {
+  if (isSaleCategoryFilter(category, categorySlug)) {
+    conditions.push('p.discount_percent > 0')
+  } else if (web) {
     if (categorySlug) {
       values.push(categorySlug)
       const catIdx = values.length

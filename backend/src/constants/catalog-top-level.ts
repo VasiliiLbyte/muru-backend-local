@@ -2,6 +2,8 @@
  * Canonical top-level catalog sections used by the Mini App home grid and API tree.
  * Sheet/Drive sync maps arbitrary section strings onto one of these names so DB slugs match UI routes.
  */
+export const SALE_CATEGORY_NAME = 'Распродажа' as const
+
 export const TOP_LEVEL_CATEGORIES = [
   'Флористика',
   'Натуральный декор',

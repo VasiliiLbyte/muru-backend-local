@@ -184,6 +184,37 @@ describe('getCatalogProducts', () => {
     expect(products[0].webPrimarySubcategory).toBeUndefined()
     expect(products[0].webCrossPlacement).toBeUndefined()
   })
+
+  it('filters Sale category by discount_percent for telegram channel', async () => {
+    queryMock.mockResolvedValueOnce({ rows: [] })
+
+    await getCatalogProducts({ categorySlug: 'распродажа' })
+
+    const sql = String(queryMock.mock.calls[0][0])
+    expect(sql).toContain('p.discount_percent > 0')
+    expect(sql).not.toContain('c.slug =')
+  })
+
+  it('filters Sale category by discount_percent for category name', async () => {
+    queryMock.mockResolvedValueOnce({ rows: [] })
+
+    await getCatalogProducts({ category: 'Распродажа' })
+
+    const sql = String(queryMock.mock.calls[0][0])
+    expect(sql).toContain('p.discount_percent > 0')
+    expect(sql).not.toContain('c.name ILIKE')
+  })
+
+  it('filters Sale category by discount_percent for web channel', async () => {
+    queryMock.mockResolvedValueOnce({ rows: [] })
+
+    await getCatalogProducts({ channel: 'web', categorySlug: 'распродажа' })
+
+    const sql = String(queryMock.mock.calls[0][0])
+    expect(sql).toContain('p.discount_percent > 0')
+    expect(sql).not.toMatch(/WHERE[\s\S]*c\.slug =/)
+    expect(sql).not.toMatch(/WHERE[\s\S]*c_cross\.slug/)
+  })
 })
 
 describe('getCatalogProductBySku', () => {
@@ -285,19 +316,49 @@ describe('getCatalogTree', () => {
     queryMock
       .mockResolvedValueOnce({ rows: [{ name: 'Кухня и столовая' }] })
       .mockResolvedValueOnce({ rows: [{ slug: 'кухня-и-столовая' }] })
+      .mockResolvedValueOnce({ rows: [{ ok: false }] })
       .mockResolvedValueOnce({ rows: [] })
 
     const tree = await getCatalogTree(false)
 
-    expect(queryMock).toHaveBeenCalledTimes(3)
-    expect(String(queryMock.mock.calls[2][0])).toContain('cover_image_url')
+    expect(queryMock).toHaveBeenCalledTimes(4)
+    expect(String(queryMock.mock.calls[2][0])).toContain('discount_percent > 0')
+    expect(String(queryMock.mock.calls[3][0])).toContain('cover_image_url')
     expect(tree[0]?.children).toEqual([])
+  })
+
+  it('includes Sale node when discounted products exist even without direct category membership', async () => {
+    queryMock
+      .mockResolvedValueOnce({
+        rows: [{ name: 'Кухня и столовая' }, { name: 'Распродажа' }],
+      })
+      .mockResolvedValueOnce({ rows: [{ slug: 'кухня-и-столовая' }] })
+      .mockResolvedValueOnce({ rows: [{ ok: true }] })
+      .mockResolvedValueOnce({ rows: [] })
+
+    const tree = await getCatalogTree(false)
+
+    expect(tree.some((node) => node.slug === 'распродажа')).toBe(true)
+    expect(tree.some((node) => node.slug === 'кухня-и-столовая')).toBe(true)
+  })
+
+  it('omits Sale node when no discounted products exist', async () => {
+    queryMock
+      .mockResolvedValueOnce({ rows: [{ name: 'Распродажа' }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ ok: false }] })
+      .mockResolvedValueOnce({ rows: [] })
+
+    const tree = await getCatalogTree(false)
+
+    expect(tree.some((node) => node.slug === 'распродажа')).toBe(false)
   })
 
   it('attaches real subcategory children when withSubcategories is true', async () => {
     queryMock
       .mockResolvedValueOnce({ rows: [{ name: 'Кухня и столовая' }] })
       .mockResolvedValueOnce({ rows: [{ slug: 'кухня-и-столовая' }] })
+      .mockResolvedValueOnce({ rows: [{ ok: false }] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({
         rows: [
@@ -320,8 +381,8 @@ describe('getCatalogTree', () => {
 
     const tree = await getCatalogTree(true)
 
-    expect(queryMock).toHaveBeenCalledTimes(4)
-    expect(String(queryMock.mock.calls[3][0])).toContain('p.web_subcategory_slug')
+    expect(queryMock).toHaveBeenCalledTimes(5)
+    expect(String(queryMock.mock.calls[4][0])).toContain('p.web_subcategory_slug')
     const kitchen = tree.find((node) => node.slug === 'кухня-и-столовая')
     expect(kitchen?.children).toEqual([
       { name: 'Посуда', slug: 'посуда', children: [] },

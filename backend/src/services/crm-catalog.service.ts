@@ -4,6 +4,7 @@ import {
   PRODUCT_DEFAULT_DIM_WIDTH_CM,
   PRODUCT_DEFAULT_WEIGHT_GRAMS,
 } from '../constants/product-shipping-defaults'
+import { SALE_CATEGORY_NAME } from '../constants/catalog-top-level'
 import type {
   CreateCrmCatalogProductInput,
   PatchCrmCatalogProductInput,
@@ -345,6 +346,19 @@ const validateDimsOrThrow = (input: CreateCrmCatalogProductInput | PatchCrmCatal
   }
 }
 
+const assertNotVirtualSaleCategory = async (
+  categoryId: number | null | undefined,
+): Promise<void> => {
+  if (categoryId == null) return
+  const { rows } = await pool.query<{ name: string }>(
+    'SELECT name FROM categories WHERE id = $1',
+    [categoryId],
+  )
+  if (rows[0]?.name === SALE_CATEGORY_NAME) {
+    throw conflictError('Cannot assign a product directly to the virtual Sale category')
+  }
+}
+
 export const createCrmCatalogProduct = async (
   input: CreateCrmCatalogProductInput,
 ): Promise<CrmCatalogProductDetail> => {
@@ -355,6 +369,10 @@ export const createCrmCatalogProduct = async (
   const existing = await pool.query('SELECT id FROM products WHERE sku = $1', [sku])
   if (existing.rows.length > 0) {
     throw conflictError(`Product with sku ${sku} already exists`)
+  }
+
+  if (input.categoryId != null) {
+    await assertNotVirtualSaleCategory(input.categoryId)
   }
 
   const images = normalizeImageUrls(input.imageUrls, input.imageUrl1, input.imageUrl2)
@@ -421,6 +439,10 @@ export const updateCrmCatalogProduct = async (
 ): Promise<CrmCatalogProductDetail | null> => {
   assertCatalogCrmWritable()
   validateDimsOrThrow(input)
+
+  if (input.categoryId !== undefined && input.categoryId != null) {
+    await assertNotVirtualSaleCategory(input.categoryId)
+  }
 
   const sets: string[] = ['updated_at = NOW()']
   const params: unknown[] = []
