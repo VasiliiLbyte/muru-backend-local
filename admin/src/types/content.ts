@@ -39,6 +39,7 @@ export type CrmLookbookDto = {
   title: string
   description: string | null
   coverImage: ContentImage | null
+  bannerImage: ContentImage | null
   images: ContentImage[]
   seoTitle: string
   seoDescription: string
@@ -88,6 +89,7 @@ export type LookbookWriteInput = {
   title: string
   description?: string | null
   coverImage?: ContentImage | null
+  bannerImage?: ContentImage | null
   seoTitle?: string
   seoDescription?: string
   isVisible?: boolean

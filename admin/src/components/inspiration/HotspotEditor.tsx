@@ -17,7 +17,7 @@ import type { CrmCatalogListItem } from '../../types/catalog'
 
 type HotspotEditorProps = {
   lookbookId: string
-  coverImage: ContentImage
+  bannerImage: ContentImage
   readOnly?: boolean
 }
 
@@ -30,8 +30,8 @@ const clampPercent = (value: number) => Math.min(100, Math.max(0, value))
 
 const roundPercent = (value: number) => Math.round(value * 100) / 100
 
-export const HotspotEditor = ({ lookbookId, coverImage, readOnly = false }: HotspotEditorProps) => {
-  const coverRef = useRef<HTMLDivElement>(null)
+export const HotspotEditor = ({ lookbookId, bannerImage, readOnly = false }: HotspotEditorProps) => {
+  const bannerRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{
     hotspotId: string
     originX: number
@@ -58,7 +58,7 @@ export const HotspotEditor = ({ lookbookId, coverImage, readOnly = false }: Hots
 
   const [draftCoords, setDraftCoords] = useState<Record<string, { x: string; y: string }>>({})
 
-  const coverSrc = categoryCoverPreviewSrc(coverImage.url) ?? coverImage.url
+  const bannerSrc = categoryCoverPreviewSrc(bannerImage.url) ?? bannerImage.url
 
   const loadProductLabels = useCallback(async (items: CrmLookbookHotspot[]) => {
     const ids = [...new Set(items.map((item) => item.productId))]
@@ -101,7 +101,7 @@ export const HotspotEditor = ({ lookbookId, coverImage, readOnly = false }: Hots
     void loadHotspots()
   }, [loadHotspots])
 
-  const onCoverClick = (event: React.MouseEvent<HTMLImageElement>) => {
+  const onBannerClick = (event: React.MouseEvent<HTMLImageElement>) => {
     if (readOnly || pickerOpen) return
     const rect = event.currentTarget.getBoundingClientRect()
     if (rect.width <= 0 || rect.height <= 0) return
@@ -193,8 +193,8 @@ export const HotspotEditor = ({ lookbookId, coverImage, readOnly = false }: Hots
     if (readOnly) return
     event.preventDefault()
     event.stopPropagation()
-    const cover = coverRef.current
-    if (!cover) return
+    const banner = bannerRef.current
+    if (!banner) return
     dragRef.current = {
       hotspotId: hotspot.id,
       originX: hotspot.xPercent,
@@ -207,10 +207,10 @@ export const HotspotEditor = ({ lookbookId, coverImage, readOnly = false }: Hots
 
   const onMarkerPointerMove = (event: React.PointerEvent<HTMLButtonElement>) => {
     const drag = dragRef.current
-    const cover = coverRef.current
-    if (!drag || !cover || drag.hotspotId !== event.currentTarget.dataset.hotspotId) return
+    const banner = bannerRef.current
+    if (!drag || !banner || drag.hotspotId !== event.currentTarget.dataset.hotspotId) return
 
-    const rect = cover.getBoundingClientRect()
+    const rect = banner.getBoundingClientRect()
     if (rect.width <= 0 || rect.height <= 0) return
 
     const xPx = event.clientX - rect.left
@@ -269,16 +269,16 @@ export const HotspotEditor = ({ lookbookId, coverImage, readOnly = false }: Hots
 
       <p className="muted-text">
         {readOnly
-          ? 'Точки на обложке (только просмотр)'
-          : 'Кликните по обложке, чтобы добавить точку и привязать товар'}
+          ? 'Точки на баннере (только просмотр)'
+          : 'Кликните по баннеру, чтобы добавить точку и привязать товар'}
       </p>
 
-      <div className="hotspot-editor-cover" ref={coverRef}>
+      <div className="hotspot-editor-cover" ref={bannerRef}>
         <img
-          src={coverSrc}
-          alt={coverImage.alt ?? 'Обложка лукбука'}
+          src={bannerSrc}
+          alt={bannerImage.alt ?? 'Баннер лукбука'}
           className="hotspot-editor-cover-img"
-          onClick={onCoverClick}
+          onClick={onBannerClick}
         />
         {hotspots.map((hotspot) => (
           <button
