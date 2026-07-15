@@ -1,0 +1,31 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  background: var(--muru-app-bg);
+  color: var(--muru-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.muru-display {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.muted-text {
+  color: var(--muru-muted);
+}
+
+.error-text {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--muru-danger);
+}

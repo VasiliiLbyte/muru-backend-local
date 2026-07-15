@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
+import { Button, Card, Field, Input } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 
 export const LoginPage = () => {
@@ -28,43 +29,39 @@ export const LoginPage = () => {
   }
 
   return (
-    <main className="auth-page">
-      <form className="auth-card" onSubmit={onSubmit}>
-        <h1>MURU Admin</h1>
-        <p className="auth-subtitle">Войдите в CRM</p>
+    <main className="auth-page muru-rise">
+      <Card className="muru-card--auth">
+        <h1 className="muru-card__title muru-display">MURU</h1>
+        <p className="muru-card__subtitle">Admin CRM</p>
 
-        <label className="field-label" htmlFor="email">
-          Email
-        </label>
-        <input
-          id="email"
-          className="field-input"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          autoComplete="username"
-          required
-        />
+        <form className="auth-form" onSubmit={onSubmit}>
+          <Field label="Email" htmlFor="email">
+            <Input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="username"
+              required
+            />
+          </Field>
 
-        <label className="field-label" htmlFor="password">
-          Пароль
-        </label>
-        <input
-          id="password"
-          className="field-input"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          autoComplete="current-password"
-          required
-        />
+          <Field label="Пароль" htmlFor="password" error={error || undefined}>
+            <Input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+              required
+            />
+          </Field>
 
-        {error ? <p className="error-text">{error}</p> : null}
-
-        <button className="primary-button" type="submit" disabled={submitting}>
-          {submitting ? 'Вход...' : 'Войти'}
-        </button>
-      </form>
+          <Button type="submit" loading={submitting} fullWidth>
+            {submitting ? 'Вход...' : 'Войти'}
+          </Button>
+        </form>
+      </Card>
     </main>
   )
 }

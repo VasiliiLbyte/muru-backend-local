@@ -1,4 +1,6 @@
-import { NavLink, Outlet, Navigate } from 'react-router-dom'
+import { Navigate, Outlet } from 'react-router-dom'
+
+import { Tabs, TabsList, TabsTrigger } from '../ui'
 
 const tabs = [
   { to: '/content/pages', label: 'Страницы' },
@@ -9,17 +11,15 @@ export const ContentLayout = () => (
   <div className="content-module">
     <header className="content-header">
       <h2 className="content-title">Контент</h2>
-      <nav className="content-tabs" aria-label="Разделы контента">
-        {tabs.map((tab) => (
-          <NavLink
-            key={tab.to}
-            to={tab.to}
-            className={({ isActive }) => `content-tab${isActive ? ' content-tab-active' : ''}`}
-          >
-            {tab.label}
-          </NavLink>
-        ))}
-      </nav>
+      <Tabs>
+        <TabsList aria-label="Разделы контента">
+          {tabs.map((tab) => (
+            <TabsTrigger key={tab.to} to={tab.to}>
+              {tab.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
     </header>
     <Outlet />
   </div>

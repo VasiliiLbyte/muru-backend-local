@@ -1,0 +1,88 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&display=swap');
+
+:root {
+  /* Brand palette */
+  --muru-olive: #5d6b3a;
+  --muru-olive-soft: #6b7350;
+  --muru-ivory: #f5f0e0;
+  --muru-text: #2c2c2c;
+  --muru-accent: #d4c4a8;
+  --muru-app-bg: #faf8f2;
+  --muru-success: #4a7c59;
+  --muru-warning: #b8860b;
+  --muru-danger: #a4442e;
+
+  /* Surfaces & borders */
+  --muru-surface: #ffffff;
+  --muru-surface-muted: #f9fafb;
+  --muru-border: #e5e7eb;
+  --muru-border-input: #d1d5db;
+  --muru-border-subtle: #f3f4f6;
+
+  /* Text shades */
+  --muru-text-strong: #111827;
+  --muru-muted: #6b7280;
+  --muru-muted-light: #9ca3af;
+
+  /* Semantic backgrounds (legacy pages) */
+  --muru-success-bg: #dcfce7;
+  --muru-success-text: #166534;
+  --muru-warning-bg: #fef3c7;
+  --muru-warning-text: #92400e;
+  --muru-warning-border: #fcd34d;
+  --muru-info-bg: #dbeafe;
+  --muru-info-text: #1d4ed8;
+  --muru-purple-bg: #ede9fe;
+  --muru-purple-text: #6d28d9;
+
+  /* Radii */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-pill: 999px;
+
+  /* Typography */
+  --font-body: Montserrat, 'Segoe UI', sans-serif;
+  --font-display: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(44, 44, 44, 0.06);
+  --shadow-md: 0 4px 12px rgba(44, 44, 44, 0.08);
+  --shadow-lg: 0 8px 24px rgba(44, 44, 44, 0.1);
+
+  /* Motion */
+  --motion-fast: 0.15s ease;
+  --motion-base: 0.25s ease;
+  --motion-slow: 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Focus */
+  --focus-ring: 0 0 0 3px rgba(93, 107, 58, 0.25);
+}
+
+@keyframes muru-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.muru-rise {
+  animation: muru-rise var(--motion-slow) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .muru-rise {
+    animation: none;
+  }
+}
+
+@keyframes muru-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

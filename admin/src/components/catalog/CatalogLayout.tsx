@@ -1,6 +1,7 @@
-import { NavLink, Outlet, Navigate } from 'react-router-dom'
+import { Outlet, Navigate } from 'react-router-dom'
 
 import { CatalogMetaProvider, useCatalogMetaContext } from '../../context/CatalogMetaContext'
+import { Tabs, TabsList, TabsTrigger } from '../ui'
 import { CatalogReadOnlyBanner } from './CatalogReadOnlyBanner'
 
 const tabs = [
@@ -17,17 +18,15 @@ const CatalogLayoutInner = () => {
     <div className="content-module">
       <header className="content-header">
         <h2 className="content-title">Каталог и разделы</h2>
-        <nav className="content-tabs" aria-label="Разделы каталога">
-          {tabs.map((tab) => (
-            <NavLink
-              key={tab.to}
-              to={tab.to}
-              className={({ isActive }) => `content-tab${isActive ? ' content-tab-active' : ''}`}
-            >
-              {tab.label}
-            </NavLink>
-          ))}
-        </nav>
+        <Tabs>
+          <TabsList aria-label="Разделы каталога">
+            {tabs.map((tab) => (
+              <TabsTrigger key={tab.to} to={tab.to}>
+                {tab.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
       </header>
 
       {loading ? <p className="muted-text">Загрузка режима каталога...</p> : null}
