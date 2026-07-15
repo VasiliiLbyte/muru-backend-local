@@ -283,7 +283,6 @@ export const HotspotEditor = ({ lookbookId, bannerImage, readOnly = false }: Hot
         yPercent: drag.latestY,
       })
       await loadHotspots()
-      toast.success('Координаты сохранены')
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Не удалось сохранить координаты'
       setError(message)

@@ -206,57 +206,6 @@ a.primary-button {
   word-break: break-all;
 }
 
-.hotspot-editor {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.hotspot-editor-cover {
-  position: relative;
-  display: inline-block;
-  max-width: 100%;
-}
-
-.hotspot-editor-cover-img {
-  display: block;
-  max-width: 100%;
-  max-height: 480px;
-  object-fit: contain;
-  border-radius: var(--r-sm);
-  border: 1px solid var(--muru-border);
-  cursor: crosshair;
-}
-
-.hotspot-marker {
-  position: absolute;
-  width: 28px;
-  height: 28px;
-  margin: 0;
-  padding: 0;
-  border: 2px solid var(--muru-surface);
-  border-radius: 50%;
-  background: rgba(44, 44, 44, 0.85);
-  color: var(--muru-surface);
-  font-size: 1rem;
-  line-height: 1;
-  cursor: grab;
-  transform: translate(-50%, -50%);
-  touch-action: none;
-}
-
-.hotspot-marker:active {
-  cursor: grabbing;
-}
-
-.hotspot-editor-table {
-  margin-top: 8px;
-}
-
-.hotspot-coord-input {
-  width: 5rem;
-}
-
 .hotspot-picker {
   margin-top: 8px;
   padding: 12px;
@@ -283,53 +232,6 @@ a.primary-button {
 .sku-row-actions {
   display: flex;
   gap: 6px;
-}
-
-.tiptap-editor {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.tiptap-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.tiptap-toolbar button {
-  border: 1px solid var(--muru-border-input);
-  background: var(--muru-surface);
-  border-radius: 6px;
-  padding: 6px 10px;
-  cursor: pointer;
-}
-
-.tiptap-content {
-  border: 1px solid var(--muru-border-input);
-  border-radius: var(--r-sm);
-  background: var(--muru-surface);
-  min-height: 220px;
-  padding: 12px;
-}
-
-.tiptap-content .ProseMirror {
-  outline: none;
-  min-height: 180px;
-}
-
-.tiptap-content h2 {
-  margin: 0.8em 0 0.4em;
-  font-size: 1.25rem;
-}
-
-.tiptap-content p {
-  margin: 0.5em 0;
-}
-
-.tiptap-content ul,
-.tiptap-content ol {
-  padding-left: 1.4rem;
 }
 
 .orders-module {
