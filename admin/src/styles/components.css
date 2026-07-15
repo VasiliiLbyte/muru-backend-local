@@ -331,6 +331,12 @@
   transform: scaleX(1);
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .muru-tabs__trigger::after {
+    transition: none;
+  }
+}
+
 /* Layout shell */
 .layout-shell {
   min-height: 100vh;
@@ -1326,8 +1332,38 @@
 }
 
 .orders-status-tab--active {
-  background: var(--muru-olive-soft);
-  color: var(--muru-olive);
+  background: var(--muru-olive);
+  color: var(--muru-surface);
+}
+
+.orders-pagination {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.catalog-bulk-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.order-thumb {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--muru-border);
+}
+
+.catalog-subcategory-row td:first-child {
+  padding-left: 2rem;
+}
+
+.catalog-subcategory-row td {
+  background: var(--muru-surface-muted);
+  font-size: 0.92rem;
 }
 
 .order-detail-meta {

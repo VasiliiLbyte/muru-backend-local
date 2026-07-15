@@ -15,9 +15,11 @@ This repo is a **code executor** workspace. Work from orchestrator prompts (Plan
 | Forward-port (prod sync) | `/Users/vasilii/Desktop/code /muru-docs/FORWARD_PORT.md` |
 | Deploy runbook | `/Users/vasilii/Desktop/code /muru-docs/DEPLOY.md` |
 | Progress / task context | `/Users/vasilii/Desktop/code /muru-docs/PROGRESS.md` |
+| Admin design system | `admin/DESIGN.md` |
 
 Read `API_CONTRACT.md` before changing payments, catalog API, CDEK, or auth.  
-Read `FORWARD_PORT.md` if changes must also land in `MURU_miniAPP` (prod).
+Read `FORWARD_PORT.md` if changes must also land in `MURU_miniAPP` (prod).  
+Read `admin/DESIGN.md` before any work in `admin/`. New UI must use `components/ui/` only.
 
 ## Execution rules
 

@@ -170,7 +170,7 @@ export const ProductsListPage = () => {
         }
       />
 
-      <div className="catalog-filters">
+      <div className="filters-panel">
         <Field label="Поиск" htmlFor="catalog-q">
           <Input
             id="catalog-q"

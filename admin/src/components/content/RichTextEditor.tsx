@@ -5,7 +5,7 @@ import StarterKit from '@tiptap/starter-kit'
 import { useEffect, useRef } from 'react'
 
 import { uploadImage } from '../../lib/content-api'
-import { Button, ImageUploader, type ImageUploaderHandle, usePrompt, useToast } from '../ui'
+import { Button, ImageUploader, SkeletonText, type ImageUploaderHandle, usePrompt, useToast } from '../ui'
 
 type RichTextEditorProps = {
   label?: string
@@ -36,7 +36,7 @@ export const RichTextEditor = ({ label, value, onChange }: RichTextEditorProps) 
   }, [editor, value])
 
   if (!editor) {
-    return <p className="muted-text">Загрузка редактора...</p>
+    return <SkeletonText lines={3} />
   }
 
   const setLink = async () => {
