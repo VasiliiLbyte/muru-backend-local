@@ -1,7 +1,22 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { ArrowDown, ArrowUp, Star } from 'lucide-react'
 
 import { ProductImagesEditor } from '../../components/catalog/ProductImagesEditor'
+import {
+  Badge,
+  Button,
+  Card,
+  Checkbox,
+  Field,
+  IconButton,
+  Input,
+  PageHeader,
+  Select,
+  SkeletonForm,
+  Textarea,
+  useToast,
+} from '../../components/ui'
 import { useCatalogMetaContext } from '../../context/CatalogMetaContext'
 import { ApiError } from '../../lib/api'
 import { buildProxiedImageUrl } from '../../lib/images'
@@ -38,6 +53,7 @@ export const ProductEditPage = () => {
   const productId = isNew ? null : Number(id)
 
   const { readOnly } = useCatalogMetaContext()
+  const toast = useToast()
 
   const [product, setProduct] = useState<CrmCatalogProductDetail | null>(null)
   const [categories, setCategories] = useState<CrmCategoryItem[]>([])
@@ -73,6 +89,7 @@ export const ProductEditPage = () => {
       id: sub.id,
       name: sub.name,
       label: `${cat.name} / ${sub.name}`,
+      categoryName: cat.name,
     })),
   )
 
@@ -214,6 +231,7 @@ export const ProductEditPage = () => {
           sku: sku.trim(),
           ...buildBody(),
         })
+        toast.success('Сохранено')
         navigate(`/catalog/products/${created.id}`, { replace: true })
         return
       }
@@ -221,11 +239,16 @@ export const ProductEditPage = () => {
       const updated = await patchProduct(productId!, buildBody())
       setProduct(updated)
       applyProductToForm(updated)
+      toast.success('Сохранено')
     } catch (err) {
       if (err instanceof ApiError && err.code === 'LOCKED') {
-        setError('Каталог доступен только для чтения (Google Sheets)')
+        const message = 'Каталог доступен только для чтения (Google Sheets)'
+        setError(message)
+        toast.error(message)
       } else {
-        setError(err instanceof Error ? err.message : 'Не удалось сохранить')
+        const message = err instanceof Error ? err.message : 'Не удалось сохранить'
+        setError(message)
+        toast.error(message)
       }
     } finally {
       setSaving(false)
@@ -240,8 +263,11 @@ export const ProductEditPage = () => {
       const updated = await updateProductStock(productId, Number(inStock) || 0)
       setProduct(updated)
       applyProductToForm(updated)
+      toast.success('Сохранено')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось сохранить остаток')
+      const message = err instanceof Error ? err.message : 'Не удалось сохранить остаток'
+      setError(message)
+      toast.error(message)
     } finally {
       setSavingStock(false)
     }
@@ -257,371 +283,345 @@ export const ProductEditPage = () => {
         : await archiveProduct(product.id)
       setProduct(updated)
       applyProductToForm(updated)
+      toast.success('Сохранено')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось изменить статус архива')
+      const message = err instanceof Error ? err.message : 'Не удалось изменить статус архива'
+      setError(message)
+      toast.error(message)
     } finally {
       setArchiving(false)
     }
   }
 
   if (loading) {
-    return <p className="muted-text">Загрузка...</p>
+    return (
+      <section className="page-stack">
+        <SkeletonForm />
+      </section>
+    )
   }
 
   if (!isNew && !product) {
     return (
-      <section className="orders-module">
+      <section className="page-stack">
         <p className="error-text">{error || 'Товар не найден'}</p>
-        <Link className="link-button" to="/catalog/products">
-          ← К списку
+        <Link className="muru-page-header__back" to="/catalog/products">
+          К списку
         </Link>
       </section>
     )
   }
 
+  const pageTitle = isNew ? 'Новый товар' : name || product?.sku || 'Товар'
+
   return (
-    <section className="orders-module">
-      <div className="content-form-header">
-        <h3 className="content-title">{isNew ? 'Новый товар' : `Товар ${product?.sku}`}</h3>
-        <Link className="link-button" to="/catalog/products">
-          ← К списку
-        </Link>
-      </div>
+    <section className="page-stack">
+      <PageHeader
+        title={pageTitle}
+        backTo="/catalog/products"
+        backLabel="К списку"
+        actions={
+          !isNew && !readOnly ? (
+            <Button
+              type="button"
+              variant="danger"
+              loading={archiving}
+              onClick={() => void onToggleArchive()}
+            >
+              {product?.isArchived ? 'Разархивировать' : 'Архивировать'}
+            </Button>
+          ) : undefined
+        }
+      />
 
       {error ? <p className="error-text">{error}</p> : null}
 
       {!isNew && product?.isArchived ? (
-        <p>
-          <span className="badge badge-hidden">Архив</span>
-        </p>
+        <Badge variant="neutral">Архив</Badge>
       ) : null}
 
-      <form onSubmit={onSave}>
-        <div className="form-section">
-          <h4 className="form-section-title">Основное</h4>
+      <form className="form-stack" onSubmit={onSave}>
+        <Card title="Основное">
           {isNew ? (
-            <>
-              <label className="field-label" htmlFor="product-sku">
-                SKU
-              </label>
-              <input
+            <Field label="SKU" htmlFor="product-sku">
+              <Input
                 id="product-sku"
-                className="field-input"
                 value={sku}
                 onChange={(e) => setSku(e.target.value)}
                 disabled={readOnly}
                 required
               />
-            </>
+            </Field>
           ) : (
             <p className="muted-text">SKU: {product?.sku}</p>
           )}
 
-          <label className="field-label" htmlFor="product-name">
-            Название
-          </label>
-          <input
-            id="product-name"
-            className="field-input"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            disabled={readOnly}
-            required
-          />
+          <Field label="Название" htmlFor="product-name">
+            <Input
+              id="product-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              disabled={readOnly}
+              required
+            />
+          </Field>
 
-          <label className="field-label" htmlFor="product-description">
-            Описание
-          </label>
-          <textarea
-            id="product-description"
-            className="field-input field-textarea"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            disabled={readOnly}
-          />
-
-          <label className="field-label" htmlFor="product-price">
-            Цена
-          </label>
-          <input
-            id="product-price"
-            className="field-input"
-            type="number"
-            min="0"
-            step="0.01"
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            disabled={readOnly}
-          />
-
-          <label className="field-label" htmlFor="product-discount">
-            Скидка (%)
-          </label>
-          <input
-            id="product-discount"
-            className="field-input"
-            type="number"
-            min="0"
-            max="100"
-            value={discountPercent}
-            onChange={(e) => setDiscountPercent(e.target.value)}
-            disabled={readOnly}
-          />
-
-          <label className="field-label" htmlFor="product-stock">
-            Остаток
-          </label>
-          <input
-            id="product-stock"
-            className="field-input"
-            type="number"
-            min="0"
-            value={inStock}
-            onChange={(e) => setInStock(e.target.value)}
-            disabled={readOnly}
-          />
-          {!isNew && !readOnly ? (
-            <button
-              type="button"
-              className="secondary-button"
-              disabled={savingStock}
-              onClick={() => void onSaveStock()}
-            >
-              {savingStock ? 'Сохранение…' : 'Сохранить остаток'}
-            </button>
-          ) : null}
-
-          <label className="checkbox-label">
-            <input
-              type="checkbox"
-              checked={isGiftGuide}
-              onChange={(e) => setIsGiftGuide(e.target.checked)}
+          <Field label="Описание" htmlFor="product-description">
+            <Textarea
+              id="product-description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
               disabled={readOnly}
             />
-            Гид по подаркам
-          </label>
-        </div>
+          </Field>
 
-        <div className="form-section">
-          <h4 className="form-section-title">Категория</h4>
-          <label className="field-label" htmlFor="product-category">
-            Категория
-          </label>
-          <select
-            id="product-category"
-            className="field-input"
-            value={categoryId}
-            onChange={(e) => setCategoryId(e.target.value)}
-            disabled={readOnly}
-          >
-            <option value="">—</option>
-            {categories
-              .filter((cat) => cat.name !== 'Распродажа')
-              .map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.name}
-                </option>
-              ))}
-          </select>
+          <Field label="Цена" htmlFor="product-price">
+            <Input
+              id="product-price"
+              type="number"
+              min="0"
+              step="0.01"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              disabled={readOnly}
+            />
+          </Field>
 
-          <label className="field-label">Подкатегории</label>
-          <p className="muted-text">Первая выбранная — основная (write-through в каталог).</p>
-          <div className="catalog-subcategory-picker">
-            {subcategoryOptions.map((opt) => (
-              <label key={opt.id} className="checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={subcategoryIds.includes(opt.id)}
-                  onChange={() => toggleSubcategory(opt.id)}
-                  disabled={readOnly}
-                />
-                {opt.label}
-              </label>
-            ))}
-          </div>
-          {subcategoryIds.length > 0 ? (
-            <ul className="catalog-subcategory-order">
-              {subcategoryIds.map((subId, index) => {
-                const opt = subcategoryOptions.find((o) => o.id === subId)
-                return (
-                  <li key={subId}>
-                    {index === 0 ? '★ ' : ''}
-                    {opt?.label ?? `ID ${subId}`}
-                    {!readOnly ? (
-                      <>
-                        <button
-                          type="button"
-                          className="link-button"
-                          disabled={index === 0}
-                          onClick={() => moveSelectedSubcategory(index, -1)}
-                        >
-                          ↑
-                        </button>
-                        <button
-                          type="button"
-                          className="link-button"
-                          disabled={index === subcategoryIds.length - 1}
-                          onClick={() => moveSelectedSubcategory(index, 1)}
-                        >
-                          ↓
-                        </button>
-                      </>
-                    ) : null}
-                  </li>
-                )
-              })}
-            </ul>
+          <Field label="Скидка (%)" htmlFor="product-discount">
+            <Input
+              id="product-discount"
+              type="number"
+              min="0"
+              max="100"
+              value={discountPercent}
+              onChange={(e) => setDiscountPercent(e.target.value)}
+              disabled={readOnly}
+            />
+          </Field>
+
+          <Field label="Остаток" htmlFor="product-stock">
+            <Input
+              id="product-stock"
+              type="number"
+              min="0"
+              value={inStock}
+              onChange={(e) => setInStock(e.target.value)}
+              disabled={readOnly}
+            />
+          </Field>
+
+          {!isNew && !readOnly ? (
+            <Button
+              type="button"
+              variant="secondary"
+              loading={savingStock}
+              onClick={() => void onSaveStock()}
+            >
+              Сохранить остаток
+            </Button>
           ) : null}
-        </div>
 
-        <div className="form-section">
-          <h4 className="form-section-title">Фото</h4>
-          <ProductImagesEditor
-            value={imageSlots}
-            onChange={setImageSlots}
+          <Checkbox
+            label="Гид по подаркам"
+            checked={isGiftGuide}
+            onChange={(e) => setIsGiftGuide(e.target.checked)}
             disabled={readOnly}
           />
-        </div>
+        </Card>
 
-        <div className="form-section">
-          <h4 className="form-section-title">Характеристики</h4>
-          <label className="field-label" htmlFor="product-material">
-            Материал
-          </label>
-          <input
-            id="product-material"
-            className="field-input"
-            value={material}
-            onChange={(e) => setMaterial(e.target.value)}
-            disabled={readOnly}
-          />
+        <Card title="Категория">
+          <Field label="Категория" htmlFor="product-category">
+            <Select
+              id="product-category"
+              value={categoryId}
+              onChange={(e) => setCategoryId(e.target.value)}
+              disabled={readOnly}
+            >
+              <option value="">—</option>
+              {categories
+                .filter((cat) => cat.name !== 'Распродажа')
+                .map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+            </Select>
+          </Field>
 
-          <label className="field-label" htmlFor="product-country">
-            Страна производитель
-          </label>
-          <input
-            id="product-country"
-            className="field-input"
-            value={country}
-            onChange={(e) => setCountry(e.target.value)}
-            disabled={readOnly}
-          />
+          <p className="muted-text">Первая выбранная — основная (write-through в каталог).</p>
 
-          <label className="field-label" htmlFor="product-size">
-            Размер
-          </label>
-          <input
-            id="product-size"
-            className="field-input"
-            value={sizeField}
-            onChange={(e) => setSizeField(e.target.value)}
-            disabled={readOnly}
-          />
+          <div className="catalog-subcategory-picker">
+            {categories
+              .filter((cat) => cat.subcategories.length > 0)
+              .map((cat) => (
+                <Card key={cat.id} title={cat.name}>
+                  {cat.subcategories.map((sub) => (
+                    <Checkbox
+                      key={sub.id}
+                      label={sub.name}
+                      checked={subcategoryIds.includes(sub.id)}
+                      onChange={() => toggleSubcategory(sub.id)}
+                      disabled={readOnly}
+                    />
+                  ))}
+                </Card>
+              ))}
+          </div>
 
-          <label className="field-label" htmlFor="product-brand">
-            Бренд
-          </label>
-          <input
-            id="product-brand"
-            className="field-input"
-            value={brand}
-            onChange={(e) => setBrand(e.target.value)}
-            disabled={readOnly}
-          />
+          {subcategoryIds.length > 0 ? (
+            <Card title="Порядок подкатегорий">
+              <ul className="catalog-subcategory-order">
+                {subcategoryIds.map((subId, index) => {
+                  const opt = subcategoryOptions.find((o) => o.id === subId)
+                  return (
+                    <li key={subId} className="catalog-subcategory-order__row">
+                      <span className="catalog-subcategory-order__label">
+                        {index === 0 ? (
+                          <Star size={14} className="catalog-subcategory-order__star" aria-hidden />
+                        ) : null}
+                        {opt?.label ?? `ID ${subId}`}
+                      </span>
+                      {!readOnly ? (
+                        <span className="catalog-subcategory-order__actions">
+                          <IconButton
+                            aria-label="Переместить вверх"
+                            disabled={index === 0}
+                            onClick={() => moveSelectedSubcategory(index, -1)}
+                          >
+                            <ArrowUp size={16} />
+                          </IconButton>
+                          <IconButton
+                            aria-label="Переместить вниз"
+                            disabled={index === subcategoryIds.length - 1}
+                            onClick={() => moveSelectedSubcategory(index, 1)}
+                          >
+                            <ArrowDown size={16} />
+                          </IconButton>
+                        </span>
+                      ) : null}
+                    </li>
+                  )
+                })}
+              </ul>
+            </Card>
+          ) : null}
+        </Card>
 
-          <label className="field-label">Тип</label>
-          <p className="muted-text">{primarySubcategoryName ?? '—'}</p>
-          <p className="muted-text">
-            Заполняется автоматически из основной подкатегории при сохранении.
-          </p>
-        </div>
+        <Card title="Фото">
+          <ProductImagesEditor value={imageSlots} onChange={setImageSlots} disabled={readOnly} />
+        </Card>
 
-        <div className="form-section">
-          <h4 className="form-section-title">Габариты</h4>
+        <Card title="Характеристики">
+          <Field label="Материал" htmlFor="product-material">
+            <Input
+              id="product-material"
+              value={material}
+              onChange={(e) => setMaterial(e.target.value)}
+              disabled={readOnly}
+            />
+          </Field>
+
+          <Field label="Страна производитель" htmlFor="product-country">
+            <Input
+              id="product-country"
+              value={country}
+              onChange={(e) => setCountry(e.target.value)}
+              disabled={readOnly}
+            />
+          </Field>
+
+          <Field label="Размер" htmlFor="product-size">
+            <Input
+              id="product-size"
+              value={sizeField}
+              onChange={(e) => setSizeField(e.target.value)}
+              disabled={readOnly}
+            />
+          </Field>
+
+          <Field label="Бренд" htmlFor="product-brand">
+            <Input
+              id="product-brand"
+              value={brand}
+              onChange={(e) => setBrand(e.target.value)}
+              disabled={readOnly}
+            />
+          </Field>
+
+          <Field label="Тип">
+            <p className="muted-text">{primarySubcategoryName ?? '—'}</p>
+            <p className="muted-text">
+              Заполняется автоматически из основной подкатегории при сохранении.
+            </p>
+          </Field>
+        </Card>
+
+        <Card title="Габариты">
           <p className="muted-text">
             Ручной ввод габаритов/веса сохраняется на бэкенде как source: manual.
           </p>
-          <label className="field-label" htmlFor="product-weight">
-            Вес (г)
-          </label>
-          <input
-            id="product-weight"
-            className="field-input"
-            type="number"
-            min="1"
-            value={weightGrams}
-            onChange={(e) => setWeightGrams(e.target.value)}
-            disabled={readOnly}
-          />
-          <label className="field-label" htmlFor="product-dim-l">
-            Длина (см)
-          </label>
-          <input
-            id="product-dim-l"
-            className="field-input"
-            type="number"
-            min="1"
-            value={dimLengthCm}
-            onChange={(e) => setDimLengthCm(e.target.value)}
-            disabled={readOnly}
-          />
-          <label className="field-label" htmlFor="product-dim-w">
-            Ширина (см)
-          </label>
-          <input
-            id="product-dim-w"
-            className="field-input"
-            type="number"
-            min="1"
-            value={dimWidthCm}
-            onChange={(e) => setDimWidthCm(e.target.value)}
-            disabled={readOnly}
-          />
-          <label className="field-label" htmlFor="product-dim-h">
-            Высота (см)
-          </label>
-          <input
-            id="product-dim-h"
-            className="field-input"
-            type="number"
-            min="1"
-            value={dimHeightCm}
-            onChange={(e) => setDimHeightCm(e.target.value)}
-            disabled={readOnly}
-          />
-          <label className="field-label" htmlFor="product-dims-label">
-            Размер (label)
-          </label>
-          <input
-            id="product-dims-label"
-            className="field-input"
-            value={dimensionsLabel}
-            onChange={(e) => setDimensionsLabel(e.target.value)}
-            disabled={readOnly}
-          />
-        </div>
 
-        <div className="form-actions">
-          {!readOnly ? (
-            <button type="submit" className="primary-button" disabled={saving}>
-              {saving ? 'Сохранение…' : 'Сохранить'}
-            </button>
-          ) : null}
-          {!isNew && !readOnly ? (
-            <button
-              type="button"
-              className="secondary-button"
-              disabled={archiving}
-              onClick={() => void onToggleArchive()}
-            >
-              {archiving
-                ? 'Обновление…'
-                : product?.isArchived
-                  ? 'Разархивировать'
-                  : 'Архивировать'}
-            </button>
-          ) : null}
-        </div>
+          <Field label="Вес (г)" htmlFor="product-weight">
+            <Input
+              id="product-weight"
+              type="number"
+              min="1"
+              value={weightGrams}
+              onChange={(e) => setWeightGrams(e.target.value)}
+              disabled={readOnly}
+            />
+          </Field>
+
+          <Field label="Длина (см)" htmlFor="product-dim-l">
+            <Input
+              id="product-dim-l"
+              type="number"
+              min="1"
+              value={dimLengthCm}
+              onChange={(e) => setDimLengthCm(e.target.value)}
+              disabled={readOnly}
+            />
+          </Field>
+
+          <Field label="Ширина (см)" htmlFor="product-dim-w">
+            <Input
+              id="product-dim-w"
+              type="number"
+              min="1"
+              value={dimWidthCm}
+              onChange={(e) => setDimWidthCm(e.target.value)}
+              disabled={readOnly}
+            />
+          </Field>
+
+          <Field label="Высота (см)" htmlFor="product-dim-h">
+            <Input
+              id="product-dim-h"
+              type="number"
+              min="1"
+              value={dimHeightCm}
+              onChange={(e) => setDimHeightCm(e.target.value)}
+              disabled={readOnly}
+            />
+          </Field>
+
+          <Field label="Размер (label)" htmlFor="product-dims-label">
+            <Input
+              id="product-dims-label"
+              value={dimensionsLabel}
+              onChange={(e) => setDimensionsLabel(e.target.value)}
+              disabled={readOnly}
+            />
+          </Field>
+        </Card>
+
+        {!readOnly ? (
+          <div className="form-actions">
+            <Button type="submit" loading={saving}>
+              Сохранить
+            </Button>
+          </div>
+        ) : null}
       </form>
     </section>
   )

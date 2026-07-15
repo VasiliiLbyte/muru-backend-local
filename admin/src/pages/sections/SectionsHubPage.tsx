@@ -1,6 +1,24 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { FolderTree } from 'lucide-react'
 
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  Input,
+  PageHeader,
+  SkeletonTable,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  useToast,
+} from '../../components/ui'
 import { useCatalogMetaContext } from '../../context/CatalogMetaContext'
 import { createCategory, listCategories } from '../../lib/catalog-api'
 import { categoryCoverPreviewSrc, SALE_CATEGORY_NAME } from '../../lib/category-cover'
@@ -14,6 +32,7 @@ const sectionLinks = [
 
 export const SectionsHubPage = () => {
   const { readOnly } = useCatalogMetaContext()
+  const toast = useToast()
 
   const [items, setItems] = useState<CrmCategoryItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -47,103 +66,109 @@ export const SectionsHubPage = () => {
       await createCategory({ name: newName.trim() })
       setNewName('')
       await load()
+      toast.success('Категория создана')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось создать категорию')
+      const message = err instanceof Error ? err.message : 'Не удалось создать категорию'
+      setError(message)
+      toast.error(message)
     } finally {
       setCreating(false)
     }
   }
 
-  const renderCategoryRow = (item: CrmCategoryItem) => {
-    const isSale = item.name === SALE_CATEGORY_NAME
-    const coverSrc = categoryCoverPreviewSrc(item.coverImageUrl)
-
-    return (
-      <tr key={item.id}>
-        <td>
-          <Link className="link-button" to={`/catalog/sections/categories/${item.id}`}>
-            {item.name}
-          </Link>
-          {isSale ? (
-            <span className="catalog-badge-cross" title="Виртуальная категория">
-              виртуальная
-            </span>
-          ) : null}
-          {!isSale && item.isUnused ? (
-            <span className="catalog-badge-unused">Не используется</span>
-          ) : null}
-        </td>
-        <td>{item.slug}</td>
-        <td>
-          {item.directProductCount}
-          {item.crossPlacementCount > 0 ? (
-            <span className="catalog-badge-cross" title="Cross-placement товаров">
-              +{item.crossPlacementCount} cross
-            </span>
-          ) : null}
-        </td>
-        <td>{coverSrc ? <img src={coverSrc} alt="" className="order-thumb" /> : '—'}</td>
-        <td>
-          <Link className="link-button" to={`/catalog/sections/categories/${item.id}`}>
-            {isSale ? 'Просмотр' : 'Управление'}
-          </Link>
-        </td>
-      </tr>
-    )
-  }
-
   return (
-    <section className="orders-module">
-      <h3 className="content-title">Разделы витрины</h3>
+    <section className="page-stack">
+      <PageHeader title="Разделы витрины" />
       {error ? <p className="error-text">{error}</p> : null}
 
-      <div className="form-section">
-        <h4 className="form-section-title">Контентные разделы</h4>
-        <ul className="catalog-section-links">
+      <Card title="Контентные разделы">
+        <div className="section-links-grid">
           {sectionLinks.map((link) => (
-            <li key={link.to}>
-              <Link className="link-button" to={link.to}>
-                {link.label}
-              </Link>
-              <span className="muted-text"> — {link.hint}</span>
-            </li>
+            <Link key={link.to} className="section-link-card" to={link.to}>
+              <span className="section-link-card__title">{link.label}</span>
+              <span className="section-link-card__hint">{link.hint}</span>
+            </Link>
           ))}
-        </ul>
-      </div>
+        </div>
+      </Card>
 
       {!readOnly ? (
-        <form className="form-section" onSubmit={onCreate}>
-          <h4 className="form-section-title">Создать категорию</h4>
-          <input
-            className="field-input"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            placeholder="Название"
-            required
-          />
-          <button type="submit" className="primary-button" disabled={creating}>
-            {creating ? 'Создание…' : 'Создать'}
-          </button>
-        </form>
+        <Card title="Создать категорию">
+          <form className="form-stack" onSubmit={onCreate}>
+            <Field label="Название" htmlFor="new-category-name">
+              <Input
+                id="new-category-name"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Название"
+                required
+              />
+            </Field>
+            <Button type="submit" loading={creating}>
+              Создать
+            </Button>
+          </form>
+        </Card>
       ) : null}
 
       {loading ? (
-        <p className="muted-text">Загрузка...</p>
+        <SkeletonTable rows={6} cols={5} />
+      ) : items.length === 0 ? (
+        <EmptyState icon={FolderTree} title="Категории не найдены" />
       ) : (
-        <div className="table-wrap">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Категория</th>
-                <th>Slug</th>
-                <th>Товаров</th>
-                <th>Обложка</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>{items.map(renderCategoryRow)}</tbody>
-          </table>
-        </div>
+        <Table>
+          <TableHeader sticky>
+            <TableRow hover={false}>
+              <TableHead>Категория</TableHead>
+              <TableHead>Slug</TableHead>
+              <TableHead numeric>Товаров</TableHead>
+              <TableHead>Обложка</TableHead>
+              <TableHead />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {items.map((item) => {
+              const isSale = item.name === SALE_CATEGORY_NAME
+              const coverSrc = categoryCoverPreviewSrc(item.coverImageUrl)
+              return (
+                <TableRow key={item.id}>
+                  <TableCell>
+                    <Link className="muru-page-header__back" to={`/catalog/sections/categories/${item.id}`}>
+                      {item.name}
+                    </Link>
+                    {isSale ? (
+                      <Badge variant="neutral" className="inline-badge">
+                        виртуальная
+                      </Badge>
+                    ) : null}
+                    {!isSale && item.isUnused ? (
+                      <Badge variant="warning" className="inline-badge">
+                        не используется
+                      </Badge>
+                    ) : null}
+                  </TableCell>
+                  <TableCell>{item.slug}</TableCell>
+                  <TableCell numeric>
+                    {item.directProductCount}
+                    {item.crossPlacementCount > 0 ? (
+                      <Badge variant="neutral" className="inline-badge">
+                        +{item.crossPlacementCount} cross
+                      </Badge>
+                    ) : null}
+                  </TableCell>
+                  <TableCell>
+                    {coverSrc ? <img src={coverSrc} alt="" className="order-thumb" /> : '—'}
+                  </TableCell>
+                  <TableCell>
+                    <Link className="muru-page-header__back" to={`/catalog/sections/categories/${item.id}`}>
+                      {isSale ? 'Просмотр' : 'Управление'}
+                    </Link>
+                  </TableCell>
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </Table>
       )}
     </section>
   )

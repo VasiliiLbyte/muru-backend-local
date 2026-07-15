@@ -1,6 +1,25 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Gift, Plus, X } from 'lucide-react'
 
+import {
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  IconButton,
+  Input,
+  PageHeader,
+  SkeletonTable,
+  Table,
+  TableActions,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  useToast,
+} from '../../components/ui'
 import { useCatalogMetaContext } from '../../context/CatalogMetaContext'
 import { listProducts, patchProduct } from '../../lib/catalog-api'
 import type { CrmCatalogListItem, CrmCatalogListResult } from '../../types/catalog'
@@ -10,6 +29,7 @@ const PAGE_SIZE = 20
 
 export const GiftGuideListPage = () => {
   const { readOnly } = useCatalogMetaContext()
+  const toast = useToast()
 
   const [qInput, setQInput] = useState('')
   const [q, setQ] = useState('')
@@ -70,8 +90,11 @@ export const GiftGuideListPage = () => {
     try {
       await patchProduct(item.id, { isGiftGuide: false })
       await load()
+      toast.success('Товар убран из гида')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось убрать товар из гида')
+      const message = err instanceof Error ? err.message : 'Не удалось убрать товар из гида'
+      setError(message)
+      toast.error(message)
     } finally {
       setTogglingId(null)
     }
@@ -105,144 +128,154 @@ export const GiftGuideListPage = () => {
       await patchProduct(item.id, { isGiftGuide: true })
       setAddResults((prev) => prev.filter((row) => row.id !== item.id))
       await load()
+      toast.success('Товар добавлен в гид')
     } catch (err) {
-      setAddError(err instanceof Error ? err.message : 'Не удалось добавить товар')
+      const message = err instanceof Error ? err.message : 'Не удалось добавить товар'
+      setAddError(message)
+      toast.error(message)
     } finally {
       setAddingId(null)
     }
   }
 
   return (
-    <section className="orders-module">
-      <div className="content-form-header">
-        <h3 className="content-title">Гид по подаркам</h3>
-        {!readOnly ? (
-          <button type="button" className="secondary-button" onClick={() => setAddOpen(true)}>
-            Добавить товар
-          </button>
-        ) : null}
-      </div>
+    <section className="page-stack">
+      <PageHeader
+        title="Гид по подаркам"
+        backTo="/catalog/sections"
+        backLabel="К разделам"
+        actions={
+          !readOnly ? (
+            <Button type="button" variant="secondary" onClick={() => setAddOpen((v) => !v)}>
+              Добавить товар
+            </Button>
+          ) : undefined
+        }
+      />
 
       {error ? <p className="error-text">{error}</p> : null}
 
-      <div className="form-section">
-        <input
-          className="field-input"
+      <Field label="Поиск" htmlFor="gift-guide-q">
+        <Input
+          id="gift-guide-q"
           value={qInput}
           onChange={(e) => setQInput(e.target.value)}
           placeholder="Поиск по SKU или названию"
         />
-      </div>
+      </Field>
 
       {loading ? (
-        <p className="muted-text">Загрузка...</p>
+        <SkeletonTable rows={6} cols={readOnly ? 3 : 4} />
       ) : (data?.items.length ?? 0) === 0 ? (
-        <p className="muted-text">Пока нет товаров в подборке подарков</p>
+        <EmptyState icon={Gift} title="Пока нет товаров в подборке подарков" />
       ) : (
-        <div className="table-wrap">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>SKU</th>
-                <th>Название</th>
-                <th>Цена</th>
-                {!readOnly ? <th /> : null}
-              </tr>
-            </thead>
-            <tbody>
-              {data!.items.map((item) => (
-                <tr key={item.id}>
-                  <td>
-                    <Link className="link-button" to={`/catalog/products/${item.id}`}>
-                      {item.sku}
-                    </Link>
-                  </td>
-                  <td>{item.name}</td>
-                  <td>{formatMoney(item.price)}</td>
-                  {!readOnly ? (
-                    <td>
-                      <button
-                        type="button"
-                        className="link-button"
+        <Table>
+          <TableHeader sticky>
+            <TableRow hover={false}>
+              <TableHead>SKU</TableHead>
+              <TableHead>Название</TableHead>
+              <TableHead numeric>Цена</TableHead>
+              {!readOnly ? <TableHead /> : null}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {data!.items.map((item) => (
+              <TableRow key={item.id}>
+                <TableCell>
+                  <Link className="muru-page-header__back" to={`/catalog/products/${item.id}`}>
+                    {item.sku}
+                  </Link>
+                </TableCell>
+                <TableCell>{item.name}</TableCell>
+                <TableCell numeric>{formatMoney(item.price)}</TableCell>
+                {!readOnly ? (
+                  <TableCell>
+                    <TableActions>
+                      <IconButton
+                        variant="danger"
+                        aria-label="Убрать из гида"
                         disabled={togglingId === item.id}
                         onClick={() => void onRemove(item)}
                       >
-                        {togglingId === item.id ? 'Сохранение…' : 'Убрать из гида'}
-                      </button>
-                    </td>
-                  ) : null}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                        <X size={16} />
+                      </IconButton>
+                    </TableActions>
+                  </TableCell>
+                ) : null}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       )}
 
       {totalPages > 1 ? (
-        <div className="form-actions">
-          <button
+        <div className="orders-pagination">
+          <Button
             type="button"
-            className="secondary-button"
+            variant="secondary"
             disabled={page <= 1}
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
             Назад
-          </button>
+          </Button>
           <span className="muted-text">
             Страница {page} из {totalPages}
           </span>
-          <button
+          <Button
             type="button"
-            className="secondary-button"
+            variant="secondary"
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
           >
             Вперёд
-          </button>
+          </Button>
         </div>
       ) : null}
 
-      {addOpen ? (
-        <div className="form-section">
-          <h4 className="form-section-title">Добавить товар в гид</h4>
+      {addOpen && !readOnly ? (
+        <Card title="Добавить товар в гид">
           {addError ? <p className="error-text">{addError}</p> : null}
           <div className="form-actions">
-            <input
-              className="field-input"
+            <Input
               value={addQuery}
               onChange={(e) => setAddQuery(e.target.value)}
               placeholder="SKU или название"
             />
-            <button
+            <Button
               type="button"
-              className="primary-button"
-              disabled={addLoading || !addQuery.trim()}
+              loading={addLoading}
+              disabled={!addQuery.trim()}
               onClick={() => void onSearchAdd()}
             >
-              {addLoading ? 'Поиск…' : 'Найти'}
-            </button>
-            <button type="button" className="secondary-button" onClick={() => setAddOpen(false)}>
+              Найти
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => setAddOpen(false)}>
               Закрыть
-            </button>
+            </Button>
           </div>
           {addResults.length > 0 ? (
-            <ul className="catalog-section-links">
-              {addResults.map((item) => (
-                <li key={item.id}>
-                  {item.sku} — {item.name}
-                  <button
-                    type="button"
-                    className="link-button"
-                    disabled={addingId === item.id}
-                    onClick={() => void onAdd(item)}
-                  >
-                    {addingId === item.id ? 'Добавление…' : 'Добавить'}
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <Table>
+              <TableBody>
+                {addResults.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell>
+                      {item.sku} — {item.name}
+                    </TableCell>
+                    <TableCell>
+                      <IconButton
+                        aria-label="Добавить в гид"
+                        disabled={addingId === item.id}
+                        onClick={() => void onAdd(item)}
+                      >
+                        <Plus size={16} />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           ) : null}
-        </div>
+        </Card>
       ) : null}
     </section>
   )

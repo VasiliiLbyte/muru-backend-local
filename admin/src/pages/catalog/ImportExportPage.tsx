@@ -1,6 +1,20 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 
+import {
+  Button,
+  Card,
+  FileDropzone,
+  PageHeader,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  useConfirm,
+  useToast,
+} from '../../components/ui'
 import { useCatalogMetaContext } from '../../context/CatalogMetaContext'
 import { ApiError } from '../../lib/api'
 import { downloadExport, importCatalog } from '../../lib/catalog-api'
@@ -17,7 +31,8 @@ const triggerDownload = (blob: Blob, filename: string) => {
 
 export const ImportExportPage = () => {
   const { readOnly } = useCatalogMetaContext()
-  const fileRef = useRef<HTMLInputElement>(null)
+  const confirm = useConfirm()
+  const toast = useToast()
 
   const [file, setFile] = useState<File | null>(null)
   const [exporting, setExporting] = useState<'xlsx' | 'csv' | null>(null)
@@ -32,8 +47,11 @@ export const ImportExportPage = () => {
     try {
       const { blob, filename } = await downloadExport(format)
       triggerDownload(blob, filename)
+      toast.success('Экспорт скачан')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось экспортировать каталог')
+      const message = err instanceof Error ? err.message : 'Не удалось экспортировать каталог'
+      setError(message)
+      toast.error(message)
     } finally {
       setExporting(null)
     }
@@ -47,11 +65,16 @@ export const ImportExportPage = () => {
     try {
       const result = await importCatalog(file, true)
       setReport(result)
+      toast.success('Предпросмотр готов')
     } catch (err) {
       if (err instanceof ApiError && err.code === 'LOCKED') {
-        setError('Каталог доступен только для чтения (Google Sheets)')
+        const message = 'Каталог доступен только для чтения (Google Sheets)'
+        setError(message)
+        toast.error(message)
       } else {
-        setError(err instanceof Error ? err.message : 'Не удалось выполнить предпросмотр')
+        const message = err instanceof Error ? err.message : 'Не удалось выполнить предпросмотр'
+        setError(message)
+        toast.error(message)
       }
     } finally {
       setImporting(false)
@@ -60,7 +83,12 @@ export const ImportExportPage = () => {
 
   const onImport = async () => {
     if (!file || readOnly) return
-    if (!window.confirm('Импортировать товары из файла? Данные в CRM будут обновлены.')) return
+    const ok = await confirm({
+      title: 'Импортировать товары?',
+      message: 'Данные в CRM будут обновлены из выбранного файла.',
+      confirmLabel: 'Импортировать',
+    })
+    if (!ok) return
 
     setImporting(true)
     setError('')
@@ -69,11 +97,16 @@ export const ImportExportPage = () => {
       const result = await importCatalog(file, false)
       setReport(result)
       setImportSuccess(true)
+      toast.success('Импорт завершён')
     } catch (err) {
       if (err instanceof ApiError && err.code === 'LOCKED') {
-        setError('Каталог доступен только для чтения (Google Sheets)')
+        const message = 'Каталог доступен только для чтения (Google Sheets)'
+        setError(message)
+        toast.error(message)
       } else {
-        setError(err instanceof Error ? err.message : 'Не удалось импортировать каталог')
+        const message = err instanceof Error ? err.message : 'Не удалось импортировать каталог'
+        setError(message)
+        toast.error(message)
       }
     } finally {
       setImporting(false)
@@ -81,110 +114,110 @@ export const ImportExportPage = () => {
   }
 
   return (
-    <section className="orders-module">
-      <h3 className="content-title">Импорт / Экспорт</h3>
+    <section className="page-stack">
+      <PageHeader title="Импорт / Экспорт" />
       {error ? <p className="error-text">{error}</p> : null}
 
-      <div className="form-section">
-        <h4 className="form-section-title">Экспорт</h4>
+      <Card title="Экспорт">
         <div className="form-actions">
-          <button
+          <Button
             type="button"
-            className="primary-button"
+            loading={exporting === 'xlsx'}
             disabled={exporting !== null}
             onClick={() => void onExport('xlsx')}
           >
-            {exporting === 'xlsx' ? 'Скачивание…' : 'Скачать XLSX'}
-          </button>
-          <button
+            Скачать XLSX
+          </Button>
+          <Button
             type="button"
-            className="secondary-button"
+            variant="secondary"
+            loading={exporting === 'csv'}
             disabled={exporting !== null}
             onClick={() => void onExport('csv')}
           >
-            {exporting === 'csv' ? 'Скачивание…' : 'Скачать CSV'}
-          </button>
+            Скачать CSV
+          </Button>
         </div>
-      </div>
+      </Card>
 
       {!readOnly ? (
-        <div className="form-section">
-          <h4 className="form-section-title">Импорт</h4>
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            onChange={(e) => {
-              setFile(e.target.files?.[0] ?? null)
-              setReport(null)
-              setImportSuccess(false)
-            }}
-          />
-          <div className="form-actions">
-            <button
-              type="button"
-              className="secondary-button"
-              disabled={!file || importing}
-              onClick={() => void onDryRun()}
-            >
-              {importing ? 'Обработка…' : 'Предпросмотр (dry-run)'}
-            </button>
-            <button
-              type="button"
-              className="primary-button"
-              disabled={!file || importing}
-              onClick={() => void onImport()}
-            >
-              {importing ? 'Импорт…' : 'Импортировать'}
-            </button>
+        <Card title="Импорт">
+          <div className="form-stack">
+            <FileDropzone
+              accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              fileName={file?.name ?? null}
+              onFileSelect={(selected) => {
+                setFile(selected)
+                setReport(null)
+                setImportSuccess(false)
+              }}
+            />
+            <div className="form-actions">
+              <Button
+                type="button"
+                variant="secondary"
+                loading={importing}
+                disabled={!file}
+                onClick={() => void onDryRun()}
+              >
+                Предпросмотр (dry-run)
+              </Button>
+              <Button
+                type="button"
+                loading={importing}
+                disabled={!file}
+                onClick={() => void onImport()}
+              >
+                Импортировать
+              </Button>
+            </div>
           </div>
-        </div>
+        </Card>
       ) : null}
 
       {report ? (
-        <div className="form-section">
-          <h4 className="form-section-title">Отчёт импорта</h4>
-          <p>dryRun: {report.dryRun ? 'да' : 'нет'}</p>
-          <p>Строк всего: {report.totalRows}</p>
-          <p>Разобрано: {report.parsed}</p>
-          <p>Создать: {report.created}</p>
-          <p>Обновить: {report.updated}</p>
-          <p>Пропущено: {report.skipped}</p>
+        <Card title="Отчёт импорта">
+          <div className="form-stack">
+            <p>dryRun: {report.dryRun ? 'да' : 'нет'}</p>
+            <p>Строк всего: {report.totalRows}</p>
+            <p>Разобрано: {report.parsed}</p>
+            <p>Создать: {report.created}</p>
+            <p>Обновить: {report.updated}</p>
+            <p>Пропущено: {report.skipped}</p>
 
-          {report.errors.length > 0 ? (
-            <div className="table-wrap">
-              <table className="data-table import-report-table">
-                <thead>
-                  <tr>
-                    <th>Строка</th>
-                    <th>SKU</th>
-                    <th>Ошибка</th>
-                  </tr>
-                </thead>
-                <tbody>
+            {report.errors.length > 0 ? (
+              <Table>
+                <TableHeader sticky>
+                  <TableRow hover={false}>
+                    <TableHead numeric>Строка</TableHead>
+                    <TableHead>SKU</TableHead>
+                    <TableHead>Ошибка</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {report.errors.map((err, index) => (
-                    <tr key={`${err.row}-${index}`}>
-                      <td>{err.row}</td>
-                      <td>{err.sku ?? '—'}</td>
-                      <td>{err.message}</td>
-                    </tr>
+                    <TableRow key={`${err.row}-${index}`}>
+                      <TableCell numeric>{err.row}</TableCell>
+                      <TableCell>{err.sku ?? '—'}</TableCell>
+                      <TableCell>{err.message}</TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p className="muted-text">Ошибок нет</p>
-          )}
+                </TableBody>
+              </Table>
+            ) : (
+              <p className="muted-text">Ошибок нет</p>
+            )}
 
-          {importSuccess ? (
-            <p>
-              Импорт завершён.{' '}
-              <Link className="link-button" to="/catalog/products">
-                Перейти к списку товаров
-              </Link>
-            </p>
-          ) : null}
-        </div>
+            {importSuccess ? (
+              <p>
+                Импорт завершён.{' '}
+                <Link className="muru-page-header__back" to="/catalog/products">
+                  Перейти к списку товаров
+                </Link>
+              </p>
+            ) : null}
+          </div>
+        </Card>
       ) : null}
     </section>
   )

@@ -10,7 +10,16 @@ type CardProps = {
 
 export const Card = ({ children, title, className }: CardProps) => (
   <div className={cn('muru-card', className)}>
-    {title ? <h2 className="muru-card__header">{title}</h2> : null}
+    {title ? <CardHeader>{title}</CardHeader> : null}
     {children}
   </div>
+)
+
+type CardHeaderProps = {
+  children: ReactNode
+  className?: string
+}
+
+export const CardHeader = ({ children, className }: CardHeaderProps) => (
+  <h2 className={cn('muru-card__header', className)}>{children}</h2>
 )

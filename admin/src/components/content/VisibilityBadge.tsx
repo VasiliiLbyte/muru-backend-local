@@ -1,3 +1,5 @@
+import { Badge } from '../ui/Badge'
+
 type VisibilityBadgeProps = {
   visible: boolean
   visibleLabel?: string
@@ -9,7 +11,7 @@ export const VisibilityBadge = ({
   visibleLabel = 'Видно',
   hiddenLabel = 'Скрыто',
 }: VisibilityBadgeProps) => (
-  <span className={`badge ${visible ? 'badge-visible' : 'badge-hidden'}`}>
+  <Badge variant={visible ? 'success' : 'neutral'}>
     {visible ? visibleLabel : hiddenLabel}
-  </span>
+  </Badge>
 )

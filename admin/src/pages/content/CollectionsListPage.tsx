@@ -2,10 +2,12 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { ContentListPage } from '../../components/content/ContentListPage'
+import { useConfirm } from '../../components/ui'
 import { deleteCollection, listCollections } from '../../lib/content-api'
 
 export const CollectionsListPage = () => {
   const navigate = useNavigate()
+  const confirm = useConfirm()
   const [items, setItems] = useState<
     { id: string; slug: string; title: string; isVisible: boolean; updatedAt: string }[]
   >([])
@@ -30,7 +32,13 @@ export const CollectionsListPage = () => {
   }, [load])
 
   const onDelete = async (id: string) => {
-    if (!window.confirm('Удалить коллекцию?')) return
+    const ok = await confirm({
+      title: 'Удалить коллекцию?',
+      message: 'Запись будет удалена без возможности восстановления.',
+      confirmLabel: 'Удалить',
+      variant: 'danger',
+    })
+    if (!ok) return
     try {
       await deleteCollection(id)
       await load()

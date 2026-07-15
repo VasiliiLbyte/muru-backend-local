@@ -1,5 +1,22 @@
 import { useCallback, useEffect, useState } from 'react'
+import { List } from 'lucide-react'
 
+import {
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  Input,
+  PageHeader,
+  SkeletonTable,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  useToast,
+} from '../../components/ui'
 import { useCatalogMetaContext } from '../../context/CatalogMetaContext'
 import {
   createCharacteristic,
@@ -10,6 +27,7 @@ import type { CrmCharacteristicItem } from '../../types/catalog'
 
 export const CharacteristicsPage = () => {
   const { readOnly } = useCatalogMetaContext()
+  const toast = useToast()
 
   const [items, setItems] = useState<CrmCharacteristicItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -48,8 +66,11 @@ export const CharacteristicsPage = () => {
       setNewName('')
       setNewSortOrder('0')
       await load()
+      toast.success('Характеристика добавлена')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось добавить характеристику')
+      const message = err instanceof Error ? err.message : 'Не удалось добавить характеристику'
+      setError(message)
+      toast.error(message)
     } finally {
       setCreating(false)
     }
@@ -61,63 +82,65 @@ export const CharacteristicsPage = () => {
     try {
       await patchCharacteristic(id, patch)
       await load()
+      toast.success('Сохранено')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось обновить характеристику')
+      const message = err instanceof Error ? err.message : 'Не удалось обновить характеристику'
+      setError(message)
+      toast.error(message)
     }
   }
 
   return (
-    <section className="orders-module">
-      <h3 className="content-title">Характеристики</h3>
+    <section className="page-stack">
+      <PageHeader title="Характеристики" />
       {error ? <p className="error-text">{error}</p> : null}
 
       {!readOnly ? (
-        <form className="form-section" onSubmit={onCreate}>
-          <h4 className="form-section-title">Добавить</h4>
-          <input
-            className="field-input"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            placeholder="Название"
-            required
-          />
-          <input
-            className="field-input"
-            type="number"
-            value={newSortOrder}
-            onChange={(e) => setNewSortOrder(e.target.value)}
-            placeholder="sortOrder"
-          />
-          <button type="submit" className="primary-button" disabled={creating}>
-            {creating ? 'Добавление…' : 'Добавить'}
-          </button>
-        </form>
+        <Card title="Добавить">
+          <form className="form-stack" onSubmit={onCreate}>
+            <Field label="Название" htmlFor="char-name">
+              <Input
+                id="char-name"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Название"
+                required
+              />
+            </Field>
+            <Field label="Порядок" htmlFor="char-sort">
+              <Input
+                id="char-sort"
+                type="number"
+                value={newSortOrder}
+                onChange={(e) => setNewSortOrder(e.target.value)}
+              />
+            </Field>
+            <Button type="submit" loading={creating}>
+              Добавить
+            </Button>
+          </form>
+        </Card>
       ) : null}
 
       {loading ? (
-        <p className="muted-text">Загрузка...</p>
+        <SkeletonTable rows={5} cols={3} />
+      ) : items.length === 0 ? (
+        <EmptyState icon={List} title="Характеристики не найдены" />
       ) : (
-        <div className="table-wrap">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Название</th>
-                <th>sortOrder</th>
-                {!readOnly ? <th /> : null}
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item) => (
-                <CharacteristicRow
-                  key={item.id}
-                  item={item}
-                  readOnly={readOnly}
-                  onPatch={onPatch}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Table>
+          <TableHeader sticky>
+            <TableRow hover={false}>
+              <TableHead>Название</TableHead>
+              <TableHead numeric>sortOrder</TableHead>
+              {!readOnly ? <TableHead /> : null}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {items.map((item) => (
+              <CharacteristicRow key={item.id} item={item} readOnly={readOnly} onPatch={onPatch} />
+            ))}
+          </TableBody>
+        </Table>
       )}
     </section>
   )
@@ -152,31 +175,26 @@ const CharacteristicRow = ({
 
   if (readOnly) {
     return (
-      <tr>
-        <td>{item.name}</td>
-        <td>{item.sortOrder}</td>
-      </tr>
+      <TableRow hover={false}>
+        <TableCell>{item.name}</TableCell>
+        <TableCell numeric>{item.sortOrder}</TableCell>
+      </TableRow>
     )
   }
 
   return (
-    <tr>
-      <td>
-        <input className="field-input" value={name} onChange={(e) => setName(e.target.value)} />
-      </td>
-      <td>
-        <input
-          className="field-input"
-          type="number"
-          value={sortOrder}
-          onChange={(e) => setSortOrder(e.target.value)}
-        />
-      </td>
-      <td>
-        <button type="button" className="secondary-button" disabled={saving} onClick={() => void onSave()}>
-          {saving ? '…' : 'Сохранить'}
-        </button>
-      </td>
-    </tr>
+    <TableRow>
+      <TableCell>
+        <Input value={name} onChange={(e) => setName(e.target.value)} />
+      </TableCell>
+      <TableCell numeric>
+        <Input type="number" value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} />
+      </TableCell>
+      <TableCell>
+        <Button type="button" variant="secondary" loading={saving} onClick={() => void onSave()}>
+          Сохранить
+        </Button>
+      </TableCell>
+    </TableRow>
   )
 }

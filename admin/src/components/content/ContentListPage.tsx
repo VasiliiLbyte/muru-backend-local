@@ -1,3 +1,19 @@
+import { FileText, Pencil, Trash2 } from 'lucide-react'
+
+import {
+  Button,
+  EmptyState,
+  IconButton,
+  PageHeader,
+  SkeletonTable,
+  Table,
+  TableActions,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../ui'
 import { VisibilityBadge } from './VisibilityBadge'
 
 export type ContentListItem = {
@@ -38,76 +54,92 @@ export const ContentListPage = ({
   onDelete,
 }: ContentListPageProps) => {
   if (loading) {
-    return <p className="muted-text">Загрузка...</p>
+    return (
+      <section className="page-stack">
+        <PageHeader title={title} />
+        <SkeletonTable rows={5} cols={5} />
+      </section>
+    )
   }
 
   return (
-    <section className="content-list">
-      <div className="content-list-header">
-        <h3 className="content-list-title">{title}</h3>
-        <button type="button" className="primary-button" onClick={onCreate}>
-          Создать
-        </button>
-      </div>
+    <section className="page-stack">
+      <PageHeader
+        title={title}
+        actions={
+          <Button type="button" onClick={onCreate}>
+            Создать
+          </Button>
+        }
+      />
 
       {error ? <p className="error-text">{error}</p> : null}
 
-      <div className="table-wrap">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Slug</th>
-              <th>Название</th>
-              <th>Статус</th>
-              <th>Обновлено</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {items.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="muted-text">
-                  Пока нет записей
-                </td>
-              </tr>
-            ) : (
-              items.map((item) => {
-                const visible =
-                  visibilityKey === 'isActive'
-                    ? Boolean(item.isActive)
-                    : item.isVisible !== false
+      {items.length === 0 ? (
+        <EmptyState
+          icon={FileText}
+          title="Пока нет записей"
+          action={
+            <Button type="button" onClick={onCreate}>
+              Создать
+            </Button>
+          }
+        />
+      ) : (
+        <Table>
+          <TableHeader sticky>
+            <TableRow hover={false}>
+              <TableHead>Slug</TableHead>
+              <TableHead>Название</TableHead>
+              <TableHead>Статус</TableHead>
+              <TableHead>Обновлено</TableHead>
+              <TableHead />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {items.map((item) => {
+              const visible =
+                visibilityKey === 'isActive'
+                  ? Boolean(item.isActive)
+                  : item.isVisible !== false
 
-                return (
-                  <tr key={item.id}>
-                    <td>{item.slug ?? '—'}</td>
-                    <td>{item.title}</td>
-                    <td>
-                      <VisibilityBadge
-                        visible={visible}
-                        visibleLabel={visibilityKey === 'isActive' ? 'Активен' : 'Видно'}
-                        hiddenLabel={visibilityKey === 'isActive' ? 'Неактивен' : 'Скрыто'}
-                      />
-                    </td>
-                    <td>{formatDate(item.updatedAt)}</td>
-                    <td className="table-actions">
-                      <button type="button" className="link-button" onClick={() => onEdit(item.id)}>
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        className="link-button link-button-danger"
+              return (
+                <TableRow key={item.id}>
+                  <TableCell>{item.slug ?? '—'}</TableCell>
+                  <TableCell>{item.title}</TableCell>
+                  <TableCell>
+                    <VisibilityBadge
+                      visible={visible}
+                      visibleLabel={visibilityKey === 'isActive' ? 'Активен' : 'Видно'}
+                      hiddenLabel={visibilityKey === 'isActive' ? 'Неактивен' : 'Скрыто'}
+                    />
+                  </TableCell>
+                  <TableCell>{formatDate(item.updatedAt)}</TableCell>
+                  <TableCell>
+                    <TableActions>
+                      <IconButton
+                        aria-label="Редактировать"
+                        title="Редактировать"
+                        onClick={() => onEdit(item.id)}
+                      >
+                        <Pencil size={16} />
+                      </IconButton>
+                      <IconButton
+                        variant="danger"
+                        aria-label="Удалить"
+                        title="Удалить"
                         onClick={() => onDelete(item.id)}
                       >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                )
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+                        <Trash2 size={16} />
+                      </IconButton>
+                    </TableActions>
+                  </TableCell>
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </Table>
+      )}
     </section>
   )
 }

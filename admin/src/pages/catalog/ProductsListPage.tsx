@@ -1,9 +1,29 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { Package } from 'lucide-react'
 
+import {
+  Badge,
+  Button,
+  Checkbox,
+  EmptyState,
+  Field,
+  Input,
+  PageHeader,
+  Select,
+  SkeletonTable,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  useConfirm,
+  useToast,
+} from '../../components/ui'
 import { useCatalogMetaContext } from '../../context/CatalogMetaContext'
 import { archiveProduct, listCategories, listProducts } from '../../lib/catalog-api'
-import type { CrmCatalogListItem, CrmCatalogListResult, CrmCategoryItem } from '../../types/catalog'
+import type { CrmCatalogListResult, CrmCategoryItem } from '../../types/catalog'
 import { formatMoney } from '../../utils/order-labels'
 
 const PAGE_SIZE = 20
@@ -14,6 +34,9 @@ type GiftGuideFilter = 'all' | 'true' | 'false'
 
 export const ProductsListPage = () => {
   const { readOnly } = useCatalogMetaContext()
+  const navigate = useNavigate()
+  const confirm = useConfirm()
+  const toast = useToast()
 
   const [qInput, setQInput] = useState('')
   const [q, setQ] = useState('')
@@ -29,7 +52,6 @@ export const ProductsListPage = () => {
   const [error, setError] = useState('')
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [bulkArchiving, setBulkArchiving] = useState(false)
-  const [bulkMessage, setBulkMessage] = useState('')
 
   useEffect(() => {
     const timer = setTimeout(() => setQ(qInput.trim()), 300)
@@ -49,7 +71,6 @@ export const ProductsListPage = () => {
   const load = useCallback(async () => {
     setLoading(true)
     setError('')
-    setBulkMessage('')
     try {
       const result = await listProducts({
         q: q || undefined,
@@ -111,10 +132,15 @@ export const ProductsListPage = () => {
 
   const onBulkArchive = async () => {
     if (readOnly || selectedIds.size === 0) return
-    if (!window.confirm(`Архивировать выбранные товары (${selectedIds.size})?`)) return
+    const ok = await confirm({
+      title: 'Архивировать выбранные товары?',
+      message: `Будет архивировано товаров: ${selectedIds.size}.`,
+      confirmLabel: 'Архивировать',
+      variant: 'danger',
+    })
+    if (!ok) return
 
     setBulkArchiving(true)
-    setBulkMessage('')
     setError('')
 
     const ids = [...selectedIds]
@@ -122,73 +148,41 @@ export const ProductsListPage = () => {
     const failed = results.filter((r) => r.status === 'rejected').length
     const succeeded = ids.length - failed
 
-    setBulkMessage(
-      failed > 0
-        ? `Архивировано: ${succeeded}, ошибок: ${failed}`
-        : `Архивировано товаров: ${succeeded}`,
-    )
+    if (failed > 0) {
+      toast.error(`Архивировано: ${succeeded}, ошибок: ${failed}`)
+    } else {
+      toast.success(`Архивировано товаров: ${succeeded}`)
+    }
     setBulkArchiving(false)
     await load()
   }
 
-  const renderRow = (item: CrmCatalogListItem) => (
-    <tr key={item.id}>
-      {!readOnly ? (
-        <td>
-          <input
-            type="checkbox"
-            checked={selectedIds.has(item.id)}
-            onChange={() => toggleRow(item.id)}
-            aria-label={`Выбрать ${item.sku}`}
-          />
-        </td>
-      ) : null}
-      <td>
-        <Link className="link-button" to={`/catalog/products/${item.id}`}>
-          {item.sku}
-        </Link>
-      </td>
-      <td>{item.name}</td>
-      <td>{item.categoryName ?? '—'}</td>
-      <td>{item.webSubcategoryName ?? '—'}</td>
-      <td>{formatMoney(item.price)}</td>
-      <td>{item.inStock}</td>
-      <td>
-        {item.isArchived ? <span className="badge badge-hidden">Архив</span> : '—'}
-      </td>
-    </tr>
-  )
-
   return (
-    <section className="orders-module">
-      <div className="content-form-header">
-        <h3 className="content-title">Товары</h3>
-        {!readOnly ? (
-          <Link className="primary-button" to="/catalog/products/new">
-            Создать товар
-          </Link>
-        ) : null}
-      </div>
+    <section className="page-stack">
+      <PageHeader
+        title="Товары"
+        actions={
+          !readOnly ? (
+            <Button type="button" onClick={() => navigate('/catalog/products/new')}>
+              Создать товар
+            </Button>
+          ) : undefined
+        }
+      />
 
-      <div className="orders-filters">
-        <div className="orders-filter-row">
-          <label className="field-label" htmlFor="catalog-q">
-            Поиск
-          </label>
-          <input
+      <div className="catalog-filters">
+        <Field label="Поиск" htmlFor="catalog-q">
+          <Input
             id="catalog-q"
-            className="field-input orders-search-input"
             value={qInput}
             onChange={(e) => setQInput(e.target.value)}
             placeholder="SKU или название"
           />
+        </Field>
 
-          <label className="field-label" htmlFor="catalog-category">
-            Категория
-          </label>
-          <select
+        <Field label="Категория" htmlFor="catalog-category">
+          <Select
             id="catalog-category"
-            className="field-input orders-filter-input"
             value={category}
             onChange={(e) => setCategory(e.target.value)}
           >
@@ -198,140 +192,147 @@ export const ProductsListPage = () => {
                 {cat.name}
               </option>
             ))}
-          </select>
+          </Select>
+        </Field>
 
-          <label className="field-label" htmlFor="catalog-subcategory">
-            Подкатегория
-          </label>
-          <input
+        <Field label="Подкатегория" htmlFor="catalog-subcategory">
+          <Input
             id="catalog-subcategory"
-            className="field-input orders-filter-input"
             value={subcategory}
             onChange={(e) => setSubcategory(e.target.value)}
           />
+        </Field>
 
-          <label className="field-label" htmlFor="catalog-stock">
-            Остаток
-          </label>
-          <select
+        <Field label="Остаток" htmlFor="catalog-stock">
+          <Select
             id="catalog-stock"
-            className="field-input orders-filter-input"
             value={inStock}
             onChange={(e) => setInStock(e.target.value as StockFilter)}
           >
             <option value="all">Все</option>
             <option value="in">В наличии</option>
             <option value="out">Нет в наличии</option>
-          </select>
+          </Select>
+        </Field>
 
-          <label className="field-label" htmlFor="catalog-archived">
-            Архив
-          </label>
-          <select
+        <Field label="Архив" htmlFor="catalog-archived">
+          <Select
             id="catalog-archived"
-            className="field-input orders-filter-input"
             value={archived}
             onChange={(e) => setArchived(e.target.value as ArchivedFilter)}
           >
             <option value="false">Активные</option>
             <option value="true">Только архив</option>
             <option value="all">Все</option>
-          </select>
+          </Select>
+        </Field>
 
-          <label className="field-label" htmlFor="catalog-gift-guide">
-            Гид по подаркам
-          </label>
-          <select
+        <Field label="Гид по подаркам" htmlFor="catalog-gift-guide">
+          <Select
             id="catalog-gift-guide"
-            className="field-input orders-filter-input"
             value={giftGuide}
             onChange={(e) => setGiftGuide(e.target.value as GiftGuideFilter)}
           >
             <option value="all">Все</option>
             <option value="true">Да</option>
             <option value="false">Нет</option>
-          </select>
-        </div>
+          </Select>
+        </Field>
       </div>
 
       {!readOnly ? (
         <div className="catalog-bulk-bar">
-          <label>
-            <input
-              type="checkbox"
-              checked={allOnPageSelected}
-              onChange={toggleSelectAll}
-              disabled={pageIds.length === 0}
-            />{' '}
-            Выбрать все на странице
-          </label>
-          <button
+          <Checkbox
+            label="Выбрать все на странице"
+            checked={allOnPageSelected}
+            onChange={toggleSelectAll}
+            disabled={pageIds.length === 0}
+          />
+          <Button
             type="button"
-            className="secondary-button"
-            disabled={bulkArchiving || selectedIds.size === 0}
+            variant="secondary"
+            loading={bulkArchiving}
+            disabled={selectedIds.size === 0}
             onClick={() => void onBulkArchive()}
           >
-            {bulkArchiving ? 'Архивирование…' : 'Архивировать выбранные'}
-          </button>
+            Архивировать выбранные
+          </Button>
         </div>
       ) : null}
 
       {error ? <p className="error-text">{error}</p> : null}
-      {bulkMessage ? <p className="muted-text">{bulkMessage}</p> : null}
 
       {loading ? (
-        <p className="muted-text">Загрузка...</p>
+        <SkeletonTable rows={8} cols={readOnly ? 7 : 8} />
+      ) : !data || data.items.length === 0 ? (
+        <EmptyState icon={Package} title="Товары не найдены" />
       ) : (
-        <div className="table-wrap">
-          <table className="data-table">
-            <thead>
-              <tr>
-                {!readOnly ? <th /> : null}
-                <th>SKU</th>
-                <th>Название</th>
-                <th>Категория</th>
-                <th>Подкатегория</th>
-                <th>Цена</th>
-                <th>Остаток</th>
-                <th>Статус</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data && data.items.length > 0 ? (
-                data.items.map(renderRow)
-              ) : (
-                <tr>
-                  <td colSpan={readOnly ? 7 : 8} className="muted-text">
-                    Товары не найдены
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <Table>
+          <TableHeader sticky>
+            <TableRow hover={false}>
+              {!readOnly ? <TableHead /> : null}
+              <TableHead>SKU</TableHead>
+              <TableHead>Название</TableHead>
+              <TableHead>Категория</TableHead>
+              <TableHead>Подкатегория</TableHead>
+              <TableHead numeric>Цена</TableHead>
+              <TableHead numeric>Остаток</TableHead>
+              <TableHead>Статус</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {data.items.map((item) => (
+              <TableRow key={item.id}>
+                {!readOnly ? (
+                  <TableCell>
+                    <Checkbox
+                      label=""
+                      aria-label={`Выбрать ${item.sku}`}
+                      checked={selectedIds.has(item.id)}
+                      onChange={() => toggleRow(item.id)}
+                    />
+                  </TableCell>
+                ) : null}
+                <TableCell>
+                  <Link className="muru-page-header__back" to={`/catalog/products/${item.id}`}>
+                    {item.sku}
+                  </Link>
+                </TableCell>
+                <TableCell>{item.name}</TableCell>
+                <TableCell>{item.categoryName ?? '—'}</TableCell>
+                <TableCell>{item.webSubcategoryName ?? '—'}</TableCell>
+                <TableCell numeric>{formatMoney(item.price)}</TableCell>
+                <TableCell numeric>{item.inStock}</TableCell>
+                <TableCell>
+                  {item.isArchived ? <Badge variant="neutral">Архив</Badge> : '—'}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       )}
 
       <div className="orders-pagination">
-        <button
+        <Button
           type="button"
-          className="secondary-button"
+          variant="secondary"
           disabled={page <= 1}
           onClick={() => setPage((p) => Math.max(1, p - 1))}
         >
           Назад
-        </button>
+        </Button>
         <span className="muted-text">
           Страница {page} из {totalPages}
           {data ? ` · всего ${data.total}` : ''}
         </span>
-        <button
+        <Button
           type="button"
-          className="secondary-button"
+          variant="secondary"
           disabled={page >= totalPages}
           onClick={() => setPage((p) => p + 1)}
         >
           Вперёд
-        </button>
+        </Button>
       </div>
     </section>
   )

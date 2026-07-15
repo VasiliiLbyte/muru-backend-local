@@ -1,4 +1,7 @@
+import { ArrowDown, ArrowUp, Trash2 } from 'lucide-react'
+
 import type { ProductImageSlot } from '../../types/catalog'
+import { IconButton } from '../ui/IconButton'
 import { CatalogImageUploadField } from './CatalogImageUploadField'
 
 const MAX_IMAGES = 3
@@ -34,33 +37,34 @@ export const ProductImagesEditor = ({ value, onChange, disabled = false }: Produ
   return (
     <div className="product-images-editor">
       {value.map((slot, index) => (
-        <div key={`${slot.url}-${index}`} className="product-image-slot">
-          <img src={imagePreviewSrc(slot)} alt="" className="image-preview" />
-          <div className="product-image-slot-actions">
-            <button
-              type="button"
-              className="secondary-button"
+        <div key={`${slot.url}-${index}`} className="product-image-slot-card">
+          <img src={imagePreviewSrc(slot)} alt="" className="product-image-slot-card__img" />
+          <div className="product-image-slot-card__overlay">
+            <IconButton
+              aria-label="Переместить вверх"
+              title="Вверх"
               disabled={disabled || index === 0}
               onClick={() => onMove(index, -1)}
             >
-              ↑
-            </button>
-            <button
-              type="button"
-              className="secondary-button"
+              <ArrowUp size={18} />
+            </IconButton>
+            <IconButton
+              aria-label="Переместить вниз"
+              title="Вниз"
               disabled={disabled || index === value.length - 1}
               onClick={() => onMove(index, 1)}
             >
-              ↓
-            </button>
-            <button
-              type="button"
-              className="secondary-button"
+              <ArrowDown size={18} />
+            </IconButton>
+            <IconButton
+              variant="danger"
+              aria-label="Удалить фото"
+              title="Удалить"
               disabled={disabled}
               onClick={() => onRemove(index)}
             >
-              Удалить
-            </button>
+              <Trash2 size={18} />
+            </IconButton>
           </div>
         </div>
       ))}

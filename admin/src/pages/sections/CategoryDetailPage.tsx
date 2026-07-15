@@ -1,7 +1,27 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
+import { ArrowDown, ArrowUp, Pencil, Trash2 } from 'lucide-react'
 
 import { CatalogImageUploadField } from '../../components/catalog/CatalogImageUploadField'
+import {
+  Badge,
+  Button,
+  Card,
+  Field,
+  IconButton,
+  Input,
+  PageHeader,
+  SkeletonForm,
+  Table,
+  TableActions,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  useConfirm,
+  useToast,
+} from '../../components/ui'
 import { useCatalogMetaContext } from '../../context/CatalogMetaContext'
 import { ApiError } from '../../lib/api'
 import {
@@ -37,6 +57,8 @@ export const CategoryDetailPage = () => {
   const navigate = useNavigate()
   const categoryId = Number(id)
   const { readOnly } = useCatalogMetaContext()
+  const confirm = useConfirm()
+  const toast = useToast()
 
   const [category, setCategory] = useState<CrmCategoryItem | null>(null)
   const [loading, setLoading] = useState(true)
@@ -101,8 +123,11 @@ export const CategoryDetailPage = () => {
         coverImageUrl: editCoverUrl.trim() || null,
       })
       await load()
+      toast.success('Сохранено')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось сохранить категорию')
+      const message = err instanceof Error ? err.message : 'Не удалось сохранить категорию'
+      setError(message)
+      toast.error(message)
     } finally {
       setSavingCategory(false)
     }
@@ -110,16 +135,26 @@ export const CategoryDetailPage = () => {
 
   const onDeleteCategory = async () => {
     if (isReadOnlyCategory || category == null || !category.isUnused) return
-    if (!window.confirm('Удалить категорию?')) return
+    const ok = await confirm({
+      title: 'Удалить категорию?',
+      message: `Категория «${category.name}» будет удалена без возможности восстановления.`,
+      confirmLabel: 'Удалить',
+      variant: 'danger',
+    })
+    if (!ok) return
     setError('')
     try {
       await deleteCategory(category.id)
+      toast.success('Категория удалена')
       navigate('/catalog/sections')
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         setError(err.message)
+        toast.error(err.message)
       } else {
-        setError(err instanceof Error ? err.message : 'Не удалось удалить категорию')
+        const message = err instanceof Error ? err.message : 'Не удалось удалить категорию'
+        setError(message)
+        toast.error(message)
       }
     }
   }
@@ -132,8 +167,11 @@ export const CategoryDetailPage = () => {
       await createSubcategory(category.id, { name: newSubName.trim() })
       setNewSubName('')
       await load()
+      toast.success('Подкатегория создана')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось создать подкатегорию')
+      const message = err instanceof Error ? err.message : 'Не удалось создать подкатегорию'
+      setError(message)
+      toast.error(message)
     } finally {
       setCreatingSub(false)
     }
@@ -150,8 +188,11 @@ export const CategoryDetailPage = () => {
       })
       setEditingSub(null)
       await load()
+      toast.success('Сохранено')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось сохранить подкатегорию')
+      const message = err instanceof Error ? err.message : 'Не удалось сохранить подкатегорию'
+      setError(message)
+      toast.error(message)
     } finally {
       setSavingSub(false)
     }
@@ -159,16 +200,26 @@ export const CategoryDetailPage = () => {
 
   const onDeleteSubcategory = async (sub: CrmCategorySubcategoryItem) => {
     if (isReadOnlyCategory || category == null || sub.productCount > 0) return
-    if (!window.confirm(`Удалить подкатегорию «${sub.name}»?`)) return
+    const ok = await confirm({
+      title: 'Удалить подкатегорию?',
+      message: `Подкатегория «${sub.name}» будет удалена без возможности восстановления.`,
+      confirmLabel: 'Удалить',
+      variant: 'danger',
+    })
+    if (!ok) return
     setError('')
     try {
       await deleteSubcategory(category.id, sub.id)
       await load()
+      toast.success('Подкатегория удалена')
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         setError(err.message)
+        toast.error(err.message)
       } else {
-        setError(err instanceof Error ? err.message : 'Не удалось удалить подкатегорию')
+        const message = err instanceof Error ? err.message : 'Не удалось удалить подкатегорию'
+        setError(message)
+        toast.error(message)
       }
     }
   }
@@ -186,48 +237,47 @@ export const CategoryDetailPage = () => {
       await patchSubcategory(category.id, current.id, { sortOrder: neighbor.sortOrder })
       await patchSubcategory(category.id, neighbor.id, { sortOrder: current.sortOrder })
       await load()
+      toast.success('Порядок обновлён')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось изменить порядок')
+      const message = err instanceof Error ? err.message : 'Не удалось изменить порядок'
+      setError(message)
+      toast.error(message)
     } finally {
       setMovingSubKey('')
     }
   }
 
-  if (loading) return <p className="muted-text">Загрузка...</p>
+  if (loading) {
+    return (
+      <section className="page-stack">
+        <SkeletonForm />
+      </section>
+    )
+  }
 
   if (!category) {
     return (
-      <section className="orders-module">
+      <section className="page-stack">
         <p className="error-text">Категория не найдена</p>
-        <Link className="link-button" to="/catalog/sections">
-          ← К разделам
-        </Link>
+        <PageHeader title="Категория" backTo="/catalog/sections" backLabel="К разделам" />
       </section>
     )
   }
 
   return (
-    <section className="orders-module">
-      <div className="content-form-header">
-        <h3 className="content-title">
-          {category.name}
-          {isSale ? (
-            <span className="catalog-badge-cross" title="Виртуальная категория">
-              виртуальная
-            </span>
-          ) : null}
-        </h3>
-        <Link className="link-button" to="/catalog/sections">
-          ← К разделам
-        </Link>
-      </div>
+    <section className="page-stack">
+      <PageHeader title={category.name} backTo="/catalog/sections" backLabel="К разделам" />
+      {isSale ? (
+        <Badge variant="neutral" className="inline-badge">
+          виртуальная
+        </Badge>
+      ) : null}
 
       {error ? <p className="error-text">{error}</p> : null}
 
-      <div className="form-section">
-        <h4 className="form-section-title">Категория</h4>
+      <Card title="Категория">
         {isReadOnlyCategory ? (
-          <>
+          <div className="form-stack">
             <p>
               <span className="muted-text">Slug: </span>
               {category.slug}
@@ -241,209 +291,185 @@ export const CategoryDetailPage = () => {
             ) : (
               <p className="muted-text">Обложка не задана</p>
             )}
-          </>
+          </div>
         ) : (
-          <>
-            <label className="field-label">Название</label>
-            <input
-              className="field-input"
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-            />
-            <label className="field-label">Slug</label>
-            <input
-              className="field-input"
-              value={editSlug}
-              onChange={(e) => setEditSlug(e.target.value)}
-            />
-            <label className="field-label">Cover URL</label>
-            <input
-              className="field-input"
-              value={editCoverUrl}
-              onChange={(e) => setEditCoverUrl(e.target.value)}
-            />
+          <div className="form-stack">
+            <Field label="Название" htmlFor="cat-name">
+              <Input id="cat-name" value={editName} onChange={(e) => setEditName(e.target.value)} />
+            </Field>
+            <Field label="Slug" htmlFor="cat-slug">
+              <Input id="cat-slug" value={editSlug} onChange={(e) => setEditSlug(e.target.value)} />
+            </Field>
+            <Field label="Cover URL" htmlFor="cat-cover">
+              <Input
+                id="cat-cover"
+                value={editCoverUrl}
+                onChange={(e) => setEditCoverUrl(e.target.value)}
+              />
+            </Field>
             <CatalogImageUploadField
               label="Загрузить обложку"
               onSuccess={(result) => setEditCoverUrl(result.url)}
             />
             {coverPreview ? <img src={coverPreview} alt="" className="order-thumb" /> : null}
             <div className="form-actions">
-              <button
+              <Button type="button" loading={savingCategory} onClick={() => void onSaveCategory()}>
+                Сохранить категорию
+              </Button>
+              <Button
                 type="button"
-                className="primary-button"
-                disabled={savingCategory}
-                onClick={() => void onSaveCategory()}
-              >
-                {savingCategory ? 'Сохранение…' : 'Сохранить категорию'}
-              </button>
-              <button
-                type="button"
-                className="link-button"
+                variant="danger"
                 disabled={!category.isUnused}
                 title={getDeleteTitle(category)}
                 onClick={() => void onDeleteCategory()}
               >
                 Удалить категорию
-              </button>
+              </Button>
             </div>
-          </>
+          </div>
         )}
-      </div>
+      </Card>
 
-      <div className="form-section">
-        <h4 className="form-section-title">Подкатегории</h4>
-        <div className="table-wrap catalog-category-tree">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Название</th>
-                <th>Slug</th>
-                <th>Товаров</th>
-                <th>Обложка</th>
-                {!isReadOnlyCategory ? <th /> : null}
-              </tr>
-            </thead>
-            <tbody>
-              {category.subcategories.map((sub, subIndex) => {
-                const isEditing = editingSub?.subId === sub.id
-                const subCover = categoryCoverPreviewSrc(
-                  isEditing ? editingSub.coverUrl : sub.coverImageUrl,
-                )
+      <Card title="Подкатегории">
+        <Table>
+          <TableHeader sticky>
+            <TableRow hover={false}>
+              <TableHead>Название</TableHead>
+              <TableHead>Slug</TableHead>
+              <TableHead numeric>Товаров</TableHead>
+              <TableHead>Обложка</TableHead>
+              {!isReadOnlyCategory ? <TableHead /> : null}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {category.subcategories.map((sub, subIndex) => {
+              const isEditing = editingSub?.subId === sub.id
+              const subCover = categoryCoverPreviewSrc(
+                isEditing ? editingSub.coverUrl : sub.coverImageUrl,
+              )
 
-                return (
-                  <tr key={sub.id} className="catalog-subcategory-row">
-                    <td>
-                      {isEditing ? (
-                        <input
-                          className="field-input"
-                          value={editingSub.name}
+              return (
+                <TableRow key={sub.id} className="catalog-subcategory-row">
+                  <TableCell>
+                    {isEditing ? (
+                      <Input
+                        value={editingSub.name}
+                        onChange={(e) => setEditingSub({ ...editingSub, name: e.target.value })}
+                        autoFocus
+                      />
+                    ) : (
+                      sub.name
+                    )}
+                  </TableCell>
+                  <TableCell>{sub.slug}</TableCell>
+                  <TableCell numeric>{sub.productCount}</TableCell>
+                  <TableCell>
+                    {isEditing ? (
+                      <div className="form-stack">
+                        <Input
+                          value={editingSub.coverUrl}
                           onChange={(e) =>
-                            setEditingSub({ ...editingSub, name: e.target.value })
+                            setEditingSub({ ...editingSub, coverUrl: e.target.value })
                           }
-                          autoFocus
                         />
-                      ) : (
-                        sub.name
-                      )}
-                    </td>
-                    <td>{sub.slug}</td>
-                    <td>{sub.productCount}</td>
-                    <td>
+                        <CatalogImageUploadField
+                          label="Обложка"
+                          onSuccess={(result) =>
+                            setEditingSub({ ...editingSub, coverUrl: result.url })
+                          }
+                        />
+                      </div>
+                    ) : subCover ? (
+                      <img src={subCover} alt="" className="order-thumb" />
+                    ) : (
+                      '—'
+                    )}
+                  </TableCell>
+                  {!isReadOnlyCategory ? (
+                    <TableCell>
                       {isEditing ? (
-                        <>
-                          <input
-                            className="field-input"
-                            value={editingSub.coverUrl}
-                            onChange={(e) =>
-                              setEditingSub({ ...editingSub, coverUrl: e.target.value })
-                            }
-                          />
-                          <CatalogImageUploadField
-                            label="Обложка"
-                            onSuccess={(result) =>
-                              setEditingSub({ ...editingSub, coverUrl: result.url })
-                            }
-                          />
-                        </>
-                      ) : subCover ? (
-                        <img src={subCover} alt="" className="order-thumb" />
+                        <TableActions>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            loading={savingSub}
+                            disabled={!editingSub.name.trim()}
+                            onClick={() => void onSaveSubEdit()}
+                          >
+                            Сохранить
+                          </Button>
+                          <Button type="button" variant="ghost" onClick={() => setEditingSub(null)}>
+                            Отмена
+                          </Button>
+                        </TableActions>
                       ) : (
-                        '—'
+                        <TableActions>
+                          <IconButton
+                            aria-label="Переместить вверх"
+                            disabled={subIndex === 0 || movingSubKey !== ''}
+                            onClick={() => void moveSubcategory(subIndex, -1)}
+                          >
+                            <ArrowUp size={16} />
+                          </IconButton>
+                          <IconButton
+                            aria-label="Переместить вниз"
+                            disabled={
+                              subIndex === category.subcategories.length - 1 || movingSubKey !== ''
+                            }
+                            onClick={() => void moveSubcategory(subIndex, 1)}
+                          >
+                            <ArrowDown size={16} />
+                          </IconButton>
+                          <IconButton
+                            aria-label="Изменить"
+                            onClick={() =>
+                              setEditingSub({
+                                subId: sub.id,
+                                name: sub.name,
+                                coverUrl: sub.coverImageUrl ?? '',
+                              })
+                            }
+                          >
+                            <Pencil size={16} />
+                          </IconButton>
+                          <IconButton
+                            variant="danger"
+                            aria-label="Удалить"
+                            title={getSubDeleteTitle(sub)}
+                            disabled={sub.productCount > 0}
+                            onClick={() => void onDeleteSubcategory(sub)}
+                          >
+                            <Trash2 size={16} />
+                          </IconButton>
+                        </TableActions>
                       )}
-                    </td>
-                    {!isReadOnlyCategory ? (
-                      <td>
-                        {isEditing ? (
-                          <>
-                            <button
-                              type="button"
-                              className="link-button"
-                              disabled={savingSub || !editingSub.name.trim()}
-                              onClick={() => void onSaveSubEdit()}
-                            >
-                              {savingSub ? 'Сохранение…' : 'Сохранить'}
-                            </button>
-                            <button
-                              type="button"
-                              className="link-button"
-                              onClick={() => setEditingSub(null)}
-                            >
-                              Отмена
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              type="button"
-                              className="link-button"
-                              disabled={subIndex === 0 || movingSubKey !== ''}
-                              onClick={() => void moveSubcategory(subIndex, -1)}
-                            >
-                              ↑
-                            </button>
-                            <button
-                              type="button"
-                              className="link-button"
-                              disabled={
-                                subIndex === category.subcategories.length - 1 ||
-                                movingSubKey !== ''
-                              }
-                              onClick={() => void moveSubcategory(subIndex, 1)}
-                            >
-                              ↓
-                            </button>
-                            <button
-                              type="button"
-                              className="link-button"
-                              onClick={() =>
-                                setEditingSub({
-                                  subId: sub.id,
-                                  name: sub.name,
-                                  coverUrl: sub.coverImageUrl ?? '',
-                                })
-                              }
-                            >
-                              Изменить
-                            </button>
-                            <button
-                              type="button"
-                              className="link-button"
-                              disabled={sub.productCount > 0}
-                              title={getSubDeleteTitle(sub)}
-                              onClick={() => void onDeleteSubcategory(sub)}
-                            >
-                              Удалить
-                            </button>
-                          </>
-                        )}
-                      </td>
-                    ) : null}
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+                    </TableCell>
+                  ) : null}
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </Table>
 
         {!isReadOnlyCategory ? (
           <div className="form-actions">
-            <input
-              className="field-input"
+            <Input
               value={newSubName}
               onChange={(e) => setNewSubName(e.target.value)}
               placeholder="Новая подкатегория"
             />
-            <button
+            <Button
               type="button"
-              className="secondary-button"
-              disabled={creatingSub || !newSubName.trim()}
+              variant="secondary"
+              loading={creatingSub}
+              disabled={!newSubName.trim()}
               onClick={() => void onCreateSubcategory()}
             >
-              {creatingSub ? 'Создание…' : 'Добавить подкатегорию'}
-            </button>
+              Добавить подкатегорию
+            </Button>
           </div>
         ) : null}
-      </div>
+      </Card>
     </section>
   )
 }

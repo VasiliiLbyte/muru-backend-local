@@ -1,11 +1,12 @@
+import { useConfirm } from '../../components/ui'
+import { deleteLookbook, listLookbooks } from '../../lib/content-api'
+import { ContentListPage } from '../../components/content/ContentListPage'
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { ContentListPage } from '../../components/content/ContentListPage'
-import { deleteLookbook, listLookbooks } from '../../lib/content-api'
-
 export const LookbooksListPage = () => {
   const navigate = useNavigate()
+  const confirm = useConfirm()
   const [items, setItems] = useState<
     { id: string; slug: string; title: string; isVisible: boolean; updatedAt: string }[]
   >([])
@@ -30,7 +31,13 @@ export const LookbooksListPage = () => {
   }, [load])
 
   const onDelete = async (id: string) => {
-    if (!window.confirm('Удалить лукбук?')) return
+    const ok = await confirm({
+      title: 'Удалить лукбук?',
+      message: 'Запись будет удалена без возможности восстановления.',
+      confirmLabel: 'Удалить',
+      variant: 'danger',
+    })
+    if (!ok) return
     try {
       await deleteLookbook(id)
       await load()

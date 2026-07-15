@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { ContentIndexRedirect, ContentLayout } from './components/content/ContentLayout'
 import { CatalogIndexRedirect, CatalogLayout } from './components/catalog/CatalogLayout'
 import { ProtectedLayout } from './components/ProtectedLayout'
+import { ConfirmProvider, ToastProvider } from './components/ui'
 import { AuthProvider } from './context/AuthContext'
 import { BannerEditPage } from './pages/content/BannerEditPage'
 import { BannersListPage } from './pages/content/BannersListPage'
@@ -39,7 +40,9 @@ const ContentCollectionsRedirect = () => {
 function App() {
   return (
     <AuthProvider>
-      <Routes>
+      <ToastProvider>
+        <ConfirmProvider>
+          <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/" element={<ProtectedLayout />}>
           <Route index element={<DashboardPage />} />
@@ -76,7 +79,9 @@ function App() {
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+          </Routes>
+        </ConfirmProvider>
+      </ToastProvider>
     </AuthProvider>
   )
 }
