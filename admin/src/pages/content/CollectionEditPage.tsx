@@ -99,7 +99,7 @@ export const CollectionEditPage = () => {
       await setCollectionProducts(saved.id, normalizedProducts)
 
       if (isNew) {
-        navigate(`/content/collections/${saved.id}`, { replace: true })
+        navigate(`/catalog/sections/collections/${saved.id}`, { replace: true })
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось сохранить')
@@ -113,7 +113,7 @@ export const CollectionEditPage = () => {
     if (!window.confirm('Удалить коллекцию?')) return
     try {
       await deleteCollection(id)
-      navigate('/content/collections')
+      navigate('/catalog/sections/collections')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось удалить')
     }
@@ -125,7 +125,7 @@ export const CollectionEditPage = () => {
     <section className="content-form">
       <div className="content-form-header">
         <h3>{isNew ? 'Новая коллекция' : 'Редактирование коллекции'}</h3>
-        <Link className="link-button" to="/content/collections">
+        <Link className="link-button" to="/catalog/sections/collections">
           ← К списку
         </Link>
       </div>

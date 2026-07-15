@@ -4,8 +4,8 @@ import { CatalogMetaProvider, useCatalogMetaContext } from '../../context/Catalo
 import { CatalogReadOnlyBanner } from './CatalogReadOnlyBanner'
 
 const tabs = [
+  { to: '/catalog/sections', label: 'Разделы' },
   { to: '/catalog/products', label: 'Товары' },
-  { to: '/catalog/categories', label: 'Категории' },
   { to: '/catalog/characteristics', label: 'Характеристики' },
   { to: '/catalog/import-export', label: 'Импорт / Экспорт' },
 ] as const
@@ -16,7 +16,7 @@ const CatalogLayoutInner = () => {
   return (
     <div className="content-module">
       <header className="content-header">
-        <h2 className="content-title">Каталог</h2>
+        <h2 className="content-title">Каталог и разделы</h2>
         <nav className="content-tabs" aria-label="Разделы каталога">
           {tabs.map((tab) => (
             <NavLink
@@ -45,4 +45,4 @@ export const CatalogLayout = () => (
   </CatalogMetaProvider>
 )
 
-export const CatalogIndexRedirect = () => <Navigate to="products" replace />
+export const CatalogIndexRedirect = () => <Navigate to="sections" replace />

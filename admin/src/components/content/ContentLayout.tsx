@@ -2,8 +2,6 @@ import { NavLink, Outlet, Navigate } from 'react-router-dom'
 
 const tabs = [
   { to: '/content/pages', label: 'Страницы' },
-  { to: '/content/collections', label: 'Коллекции' },
-  { to: '/content/lookbooks', label: 'Лукбуки' },
   { to: '/content/banners', label: 'Баннеры' },
 ] as const
 

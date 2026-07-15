@@ -129,7 +129,7 @@ export const LookbookEditPage = () => {
       await setLookbookImages(saved.id, normalizeGallery(gallery))
 
       if (isNew) {
-        navigate(`/content/lookbooks/${saved.id}`, { replace: true })
+        navigate(`/catalog/sections/inspiration/${saved.id}`, { replace: true })
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось сохранить')
@@ -143,7 +143,7 @@ export const LookbookEditPage = () => {
     if (!window.confirm('Удалить лукбук?')) return
     try {
       await deleteLookbook(id)
-      navigate('/content/lookbooks')
+      navigate('/catalog/sections/inspiration')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось удалить')
     }
@@ -155,7 +155,7 @@ export const LookbookEditPage = () => {
     <section className="content-form">
       <div className="content-form-header">
         <h3>{isNew ? 'Новый лукбук' : 'Редактирование лукбука'}</h3>
-        <Link className="link-button" to="/content/lookbooks">
+        <Link className="link-button" to="/catalog/sections/inspiration">
           ← К списку
         </Link>
       </div>

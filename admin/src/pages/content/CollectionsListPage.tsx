@@ -45,8 +45,8 @@ export const CollectionsListPage = () => {
       items={items}
       loading={loading}
       error={error}
-      onCreate={() => navigate('/content/collections/new')}
-      onEdit={(id) => navigate(`/content/collections/${id}`)}
+      onCreate={() => navigate('/catalog/sections/collections/new')}
+      onEdit={(id) => navigate(`/catalog/sections/collections/${id}`)}
       onDelete={onDelete}
     />
   )

@@ -41,12 +41,12 @@ export const LookbooksListPage = () => {
 
   return (
     <ContentListPage
-      title="Лукбуки"
+      title="Вдохновение"
       items={items}
       loading={loading}
       error={error}
-      onCreate={() => navigate('/content/lookbooks/new')}
-      onEdit={(id) => navigate(`/content/lookbooks/${id}`)}
+      onCreate={() => navigate('/catalog/sections/inspiration/new')}
+      onEdit={(id) => navigate(`/catalog/sections/inspiration/${id}`)}
       onDelete={onDelete}
     />
   )
