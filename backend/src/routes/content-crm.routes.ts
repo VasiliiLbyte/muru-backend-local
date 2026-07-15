@@ -4,10 +4,12 @@ import {
   createBannerHandler,
   createCollectionHandler,
   createLookbookHandler,
+  createLookbookHotspotHandler,
   createPageHandler,
   deleteBannerHandler,
   deleteCollectionHandler,
   deleteLookbookHandler,
+  deleteLookbookHotspotHandler,
   deletePageHandler,
   getBannerHandler,
   getCollectionHandler,
@@ -15,6 +17,7 @@ import {
   getPageHandler,
   listBannersHandler,
   listCollectionsHandler,
+  listLookbookHotspotsHandler,
   listLookbooksHandler,
   listPagesHandler,
   setCollectionProductsHandler,
@@ -22,6 +25,7 @@ import {
   updateBannerHandler,
   updateCollectionHandler,
   updateLookbookHandler,
+  updateLookbookHotspotHandler,
   updatePageHandler,
 } from '../controllers/content-crm.controller'
 import {
@@ -52,6 +56,10 @@ contentCrmRouter.put('/collections/:id/products', setCollectionProductsHandler)
 contentCrmRouter.get('/lookbooks', listLookbooksHandler)
 contentCrmRouter.post('/lookbooks', createLookbookHandler)
 contentCrmRouter.get('/lookbooks/:id', getLookbookHandler)
+contentCrmRouter.get('/lookbooks/:id/hotspots', listLookbookHotspotsHandler)
+contentCrmRouter.post('/lookbooks/:id/hotspots', createLookbookHotspotHandler)
+contentCrmRouter.patch('/lookbooks/:id/hotspots/:hotspotId', updateLookbookHotspotHandler)
+contentCrmRouter.delete('/lookbooks/:id/hotspots/:hotspotId', deleteLookbookHotspotHandler)
 contentCrmRouter.put('/lookbooks/:id', updateLookbookHandler)
 contentCrmRouter.delete('/lookbooks/:id', deleteLookbookHandler)
 contentCrmRouter.put('/lookbooks/:id/images', setLookbookImagesHandler)

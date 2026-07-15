@@ -11,6 +11,7 @@ import {
   mapPageRowToPublic,
   parseImageJson,
 } from './content.mapper'
+import { listPublicHotspotsForLookbook } from './content-hotspots.service'
 import { sanitizeContentHtml } from './content-sanitize.service'
 import type {
   CollectionDto,
@@ -435,7 +436,12 @@ export const getPublicLookbookBySlug = async (slug: string): Promise<LookbookDto
   const row = result.rows[0]
   if (!row) throw new HttpError(404, 'Lookbook not found', 'NOT_FOUND')
   const images = await fetchLookbookImages(pool, row.id)
-  return mapLookbookRowToPublic(row, images)
+  const dto = mapLookbookRowToPublic(row, images)
+  const hotspots = await listPublicHotspotsForLookbook(row.id)
+  if (hotspots.length > 0) {
+    dto.hotspots = hotspots
+  }
+  return dto
 }
 
 export type UpsertLookbookInput = {

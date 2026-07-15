@@ -4,12 +4,15 @@ import {
   bannerWriteSchema,
   collectionProductsSchema,
   collectionWriteSchema,
+  hotspotPatchSchema,
+  hotspotWriteSchema,
   lookbookImagesSchema,
   lookbookWriteSchema,
   pageWriteSchema,
   parsePositiveIntParam,
   parseRouteParam,
 } from '../schemas/content.schemas'
+import * as hotspotService from '../services/content-hotspots.service'
 import * as contentService from '../services/content.service'
 import { fail, ok, zodErrorMessage } from '../utils/api-response'
 
@@ -17,6 +20,15 @@ const parseId = (req: Request, res: Response): number | null => {
   const id = parsePositiveIntParam(req.params.id)
   if (!id) {
     fail(res, 400, 'Invalid id', 'VALIDATION')
+    return null
+  }
+  return id
+}
+
+const parseHotspotId = (req: Request, res: Response): number | null => {
+  const id = parsePositiveIntParam(req.params.hotspotId)
+  if (!id) {
+    fail(res, 400, 'Invalid hotspot id', 'VALIDATION')
     return null
   }
   return id
@@ -220,6 +232,75 @@ export const setLookbookImagesHandler = async (req: Request, res: Response, next
       return fail(res, 400, zodErrorMessage(parsed.error.issues), 'VALIDATION', parsed.error.issues)
     }
     return ok(res, await contentService.setLookbookImages(id, parsed.data))
+  } catch (error) {
+    return next(error)
+  }
+}
+
+export const listLookbookHotspotsHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const id = parseId(req, res)
+    if (id === null) return undefined
+    return ok(res, await hotspotService.listCrmLookbookHotspots(id))
+  } catch (error) {
+    return next(error)
+  }
+}
+
+export const createLookbookHotspotHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const id = parseId(req, res)
+    if (id === null) return undefined
+    const parsed = hotspotWriteSchema.safeParse(req.body)
+    if (!parsed.success) {
+      return fail(res, 422, zodErrorMessage(parsed.error.issues), 'VALIDATION', parsed.error.issues)
+    }
+    return ok(res, await hotspotService.createLookbookHotspot(id, parsed.data), 201)
+  } catch (error) {
+    return next(error)
+  }
+}
+
+export const updateLookbookHotspotHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const id = parseId(req, res)
+    if (id === null) return undefined
+    const hotspotId = parseHotspotId(req, res)
+    if (hotspotId === null) return undefined
+    const parsed = hotspotPatchSchema.safeParse(req.body)
+    if (!parsed.success) {
+      return fail(res, 422, zodErrorMessage(parsed.error.issues), 'VALIDATION', parsed.error.issues)
+    }
+    return ok(res, await hotspotService.updateLookbookHotspot(id, hotspotId, parsed.data))
+  } catch (error) {
+    return next(error)
+  }
+}
+
+export const deleteLookbookHotspotHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const id = parseId(req, res)
+    if (id === null) return undefined
+    const hotspotId = parseHotspotId(req, res)
+    if (hotspotId === null) return undefined
+    await hotspotService.deleteLookbookHotspot(id, hotspotId)
+    return ok(res, { ok: true })
   } catch (error) {
     return next(error)
   }

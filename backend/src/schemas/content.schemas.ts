@@ -53,6 +53,22 @@ export const lookbookImagesSchema = z.array(
   }),
 )
 
+export const hotspotWriteSchema = z.object({
+  productId: z.number().int().positive(),
+  xPercent: z.number().min(0).max(100),
+  yPercent: z.number().min(0).max(100),
+  sortOrder: z.number().int().optional(),
+})
+
+export const hotspotPatchSchema = hotspotWriteSchema
+  .partial()
+  .refine((value) => Object.keys(value).length > 0, {
+    message: 'At least one field required',
+  })
+
+export type HotspotWriteInput = z.infer<typeof hotspotWriteSchema>
+export type HotspotPatchInput = z.infer<typeof hotspotPatchSchema>
+
 export const bannerWriteSchema = z.object({
   title: z.string().min(1),
   subtitle: z.string().nullable().optional(),

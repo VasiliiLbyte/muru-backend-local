@@ -31,6 +31,34 @@ export type CollectionDto = {
   external_id?: string
 }
 
+export type LookbookHotspotProductDto = {
+  sku: string
+  name: string
+  price: number
+  salePrice?: number
+  image?: string
+  slug: string
+}
+
+export type LookbookHotspotDto = {
+  id: string
+  xPercent: number
+  yPercent: number
+  sortOrder: number
+  product: LookbookHotspotProductDto
+}
+
+export type CrmLookbookHotspotDto = {
+  id: string
+  lookbookId: string
+  productId: number
+  xPercent: number
+  yPercent: number
+  sortOrder: number
+  createdAt: string
+  updatedAt: string
+}
+
 export type LookbookDto = {
   id: string
   slug: string
@@ -40,6 +68,7 @@ export type LookbookDto = {
   images: ContentImage[]
   seo: ContentSeo
   external_id?: string
+  hotspots?: LookbookHotspotDto[]
 }
 
 export type PublicBannerDto = {
