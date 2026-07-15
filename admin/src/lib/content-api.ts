@@ -6,7 +6,10 @@ import type {
   CrmBannerDto,
   CrmCollectionDto,
   CrmLookbookDto,
+  CrmLookbookHotspot,
   CrmPageDto,
+  LookbookHotspotPatchInput,
+  LookbookHotspotWriteInput,
   LookbookImageInput,
   LookbookWriteInput,
   PageWriteInput,
@@ -80,6 +83,33 @@ export const setLookbookImages = (id: string, images: LookbookImageInput[]) =>
   apiFetch<CrmLookbookDto>(`${CRM_BASE}/lookbooks/${id}/images`, {
     method: 'PUT',
     body: JSON.stringify(images),
+  })
+
+export const listLookbookHotspots = (lookbookId: string) =>
+  apiFetch<CrmLookbookHotspot[]>(`${CRM_BASE}/lookbooks/${lookbookId}/hotspots`)
+
+export const createLookbookHotspot = (lookbookId: string, body: LookbookHotspotWriteInput) =>
+  apiFetch<CrmLookbookHotspot>(`${CRM_BASE}/lookbooks/${lookbookId}/hotspots`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+
+export const updateLookbookHotspot = (
+  lookbookId: string,
+  hotspotId: string,
+  body: LookbookHotspotPatchInput,
+) =>
+  apiFetch<CrmLookbookHotspot>(
+    `${CRM_BASE}/lookbooks/${lookbookId}/hotspots/${hotspotId}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    },
+  )
+
+export const deleteLookbookHotspot = (lookbookId: string, hotspotId: string) =>
+  apiFetch<{ ok: boolean }>(`${CRM_BASE}/lookbooks/${lookbookId}/hotspots/${hotspotId}`, {
+    method: 'DELETE',
   })
 
 // Banners

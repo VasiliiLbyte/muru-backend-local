@@ -108,3 +108,29 @@ export type BannerWriteInput = {
 export type CollectionProductInput = { sku: string; sortOrder: number }
 
 export type LookbookImageInput = { image: ContentImage; sortOrder: number }
+
+export type CrmLookbookHotspot = {
+  id: string
+  lookbookId: string
+  productId: number
+  xPercent: number
+  yPercent: number
+  sortOrder: number
+  createdAt: string
+  updatedAt: string
+}
+
+export type LookbookHotspotWriteInput = {
+  productId: number
+  xPercent: number
+  yPercent: number
+  sortOrder?: number
+}
+
+export type LookbookHotspotPatchInput = Partial<LookbookHotspotWriteInput>
+
+export type HotspotRowView = {
+  hotspot: CrmLookbookHotspot
+  sku?: string
+  name?: string
+}

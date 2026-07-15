@@ -310,6 +310,65 @@ body {
   word-break: break-all;
 }
 
+.hotspot-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hotspot-editor-cover {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.hotspot-editor-cover-img {
+  display: block;
+  max-width: 100%;
+  max-height: 480px;
+  object-fit: contain;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  cursor: crosshair;
+}
+
+.hotspot-marker {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: rgba(17, 24, 39, 0.85);
+  color: #fff;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: grab;
+  transform: translate(-50%, -50%);
+  touch-action: none;
+}
+
+.hotspot-marker:active {
+  cursor: grabbing;
+}
+
+.hotspot-editor-table {
+  margin-top: 8px;
+}
+
+.hotspot-coord-input {
+  width: 5rem;
+}
+
+.hotspot-picker {
+  margin-top: 8px;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f9fafb;
+}
+
 .sku-list,
 .sku-row,
 .gallery-row {

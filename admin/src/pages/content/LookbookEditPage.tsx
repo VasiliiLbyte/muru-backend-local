@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { ImageUploadField } from '../../components/content/ImageUploadField'
+import { HotspotEditor } from '../../components/inspiration/HotspotEditor'
 import { RichTextEditor } from '../../components/content/RichTextEditor'
 import { SeoFields } from '../../components/content/SeoFields'
 import {
@@ -198,6 +199,15 @@ export const LookbookEditPage = () => {
         />
 
         <ImageUploadField label="Обложка" value={coverImage} onChange={setCoverImage} />
+
+        {!isNew && id && coverImage ? (
+          <fieldset className="form-section">
+            <legend className="form-section-title">Точки на баннере</legend>
+            <HotspotEditor lookbookId={id} coverImage={coverImage} />
+          </fieldset>
+        ) : !isNew && !coverImage ? (
+          <p className="muted-text">Загрузите обложку для расстановки точек</p>
+        ) : null}
 
         <RichTextEditor label="Описание" value={description} onChange={setDescription} />
 
