@@ -1,10 +1,21 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 
 import { ImageUploadField } from '../../components/content/ImageUploadField'
 import { HotspotEditor } from '../../components/inspiration/HotspotEditor'
 import { RichTextEditor } from '../../components/content/RichTextEditor'
 import { SeoFields } from '../../components/content/SeoFields'
+import {
+  Button,
+  Card,
+  Checkbox,
+  Field,
+  Input,
+  PageHeader,
+  SkeletonForm,
+  useConfirm,
+  useToast,
+} from '../../components/ui'
 import { createLookbook, deleteLookbook, getLookbook, updateLookbook } from '../../lib/content-api'
 import type { ContentImage } from '../../types/content'
 import { slugifyTitle } from '../../utils/slug'
@@ -12,6 +23,8 @@ import { slugifyTitle } from '../../utils/slug'
 export const LookbookEditPage = () => {
   const { id } = useParams()
   const navigate = useNavigate()
+  const confirm = useConfirm()
+  const toast = useToast()
   const isNew = !id || id === 'new'
 
   const [slug, setSlug] = useState('')
@@ -81,12 +94,14 @@ export const LookbookEditPage = () => {
 
     try {
       const saved = isNew ? await createLookbook(payload) : await updateLookbook(id!, payload)
-
+      toast.success('Сохранено')
       if (isNew) {
         navigate(`/catalog/sections/inspiration/${saved.id}`, { replace: true })
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось сохранить')
+      const message = err instanceof Error ? err.message : 'Не удалось сохранить'
+      setError(message)
+      toast.error(message)
     } finally {
       setSaving(false)
     }
@@ -94,104 +109,111 @@ export const LookbookEditPage = () => {
 
   const onDelete = async () => {
     if (!id || isNew) return
-    if (!window.confirm('Удалить лукбук?')) return
+    const ok = await confirm({
+      title: 'Удалить лукбук?',
+      message: 'Запись будет удалена без возможности восстановления.',
+      confirmLabel: 'Удалить',
+      variant: 'danger',
+    })
+    if (!ok) return
     try {
       await deleteLookbook(id)
+      toast.success('Лукбук удалён')
       navigate('/catalog/sections/inspiration')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось удалить')
+      const message = err instanceof Error ? err.message : 'Не удалось удалить'
+      setError(message)
+      toast.error(message)
     }
   }
 
-  if (loading) return <p className="muted-text">Загрузка...</p>
+  if (loading) {
+    return (
+      <section className="page-stack">
+        <SkeletonForm />
+      </section>
+    )
+  }
 
   return (
-    <section className="content-form">
-      <div className="content-form-header">
-        <h3>{isNew ? 'Новый лукбук' : 'Редактирование лукбука'}</h3>
-        <Link className="link-button" to="/catalog/sections/inspiration">
-          ← К списку
-        </Link>
-      </div>
+    <section className="page-stack">
+      <PageHeader
+        title={isNew ? 'Новый лукбук' : 'Редактирование лукбука'}
+        backTo="/catalog/sections/inspiration"
+        backLabel="К списку"
+        actions={
+          !isNew ? (
+            <Button type="button" variant="danger" onClick={() => void onDelete()}>
+              Удалить
+            </Button>
+          ) : undefined
+        }
+      />
 
-      <form className="form-grid" onSubmit={onSubmit}>
-        <label className="field-label" htmlFor="title">
-          Название
-        </label>
-        <input
-          id="title"
-          className="field-input"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          required
-        />
+      <form className="form-stack" onSubmit={onSubmit}>
+        <Card title="Основное">
+          <Field label="Название" htmlFor="title">
+            <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} required />
+          </Field>
 
-        <label className="field-label" htmlFor="slug">
-          Slug
-        </label>
-        <input
-          id="slug"
-          className="field-input"
-          value={slug}
-          onChange={(e) => {
-            setSlugTouched(true)
-            setSlug(e.target.value)
-          }}
-          required
-        />
+          <Field label="Slug" htmlFor="slug">
+            <Input
+              id="slug"
+              value={slug}
+              onChange={(e) => {
+                setSlugTouched(true)
+                setSlug(e.target.value)
+              }}
+              required
+            />
+          </Field>
 
-        <label className="field-label" htmlFor="sortOrder">
-          Порядок сортировки
-        </label>
-        <input
-          id="sortOrder"
-          className="field-input"
-          type="number"
-          value={sortOrder}
-          onChange={(e) => setSortOrder(Number(e.target.value) || 0)}
-        />
+          <Field label="Порядок сортировки" htmlFor="sortOrder">
+            <Input
+              id="sortOrder"
+              type="number"
+              value={sortOrder}
+              onChange={(e) => setSortOrder(Number(e.target.value) || 0)}
+            />
+          </Field>
 
-        <ImageUploadField label="Обложка" value={coverImage} onChange={setCoverImage} />
-        <ImageUploadField label="Баннер" value={bannerImage} onChange={setBannerImage} />
+          <ImageUploadField label="Обложка" value={coverImage} onChange={setCoverImage} />
+          <ImageUploadField label="Баннер" value={bannerImage} onChange={setBannerImage} />
+
+          <Checkbox
+            label="Виден на сайте"
+            checked={isVisible}
+            onChange={(e) => setIsVisible(e.target.checked)}
+          />
+        </Card>
 
         {!isNew && id && bannerImage ? (
-          <fieldset className="form-section">
-            <legend className="form-section-title">Точки на баннере</legend>
+          <Card title="Точки на баннере">
             <HotspotEditor lookbookId={id} bannerImage={bannerImage} />
-          </fieldset>
+          </Card>
         ) : !isNew && !bannerImage ? (
           <p className="muted-text">Загрузите баннер для расстановки точек</p>
         ) : null}
 
-        <RichTextEditor label="Описание" value={description} onChange={setDescription} />
+        <Card title="Описание">
+          <RichTextEditor label="Описание" value={description} onChange={setDescription} />
+        </Card>
 
-        <SeoFields
-          seoTitle={seoTitle}
-          seoDescription={seoDescription}
-          onSeoTitleChange={setSeoTitle}
-          onSeoDescriptionChange={setSeoDescription}
-        />
-
-        <label className="checkbox-row">
-          <input
-            type="checkbox"
-            checked={isVisible}
-            onChange={(e) => setIsVisible(e.target.checked)}
+        <Card title="SEO">
+          <SeoFields
+            seoTitle={seoTitle}
+            seoDescription={seoDescription}
+            onSeoTitleChange={setSeoTitle}
+            onSeoDescriptionChange={setSeoDescription}
           />
-          Виден на сайте
-        </label>
+        </Card>
 
         {error ? <p className="error-text">{error}</p> : null}
 
         <div className="form-actions">
-          <button className="primary-button" type="submit" disabled={saving}>
-            {saving ? 'Сохранение...' : 'Сохранить'}
-          </button>
-          {!isNew ? (
-            <button type="button" className="secondary-button" onClick={onDelete}>
-              Удалить
-            </button>
-          ) : null}
+          <Button type="submit" loading={saving}>
+            Сохранить
+          </Button>
         </div>
       </form>
     </section>

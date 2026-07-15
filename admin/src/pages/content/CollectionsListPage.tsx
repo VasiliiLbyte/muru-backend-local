@@ -2,12 +2,13 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { ContentListPage } from '../../components/content/ContentListPage'
-import { useConfirm } from '../../components/ui'
+import { useConfirm, useToast } from '../../components/ui'
 import { deleteCollection, listCollections } from '../../lib/content-api'
 
 export const CollectionsListPage = () => {
   const navigate = useNavigate()
   const confirm = useConfirm()
+  const toast = useToast()
   const [items, setItems] = useState<
     { id: string; slug: string; title: string; isVisible: boolean; updatedAt: string }[]
   >([])
@@ -42,6 +43,7 @@ export const CollectionsListPage = () => {
     try {
       await deleteCollection(id)
       await load()
+      toast.success('Коллекция удалена')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось удалить')
     }

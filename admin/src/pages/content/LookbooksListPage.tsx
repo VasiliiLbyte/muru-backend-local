@@ -1,4 +1,4 @@
-import { useConfirm } from '../../components/ui'
+import { useConfirm, useToast } from '../../components/ui'
 import { deleteLookbook, listLookbooks } from '../../lib/content-api'
 import { ContentListPage } from '../../components/content/ContentListPage'
 import { useCallback, useEffect, useState } from 'react'
@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom'
 export const LookbooksListPage = () => {
   const navigate = useNavigate()
   const confirm = useConfirm()
+  const toast = useToast()
   const [items, setItems] = useState<
     { id: string; slug: string; title: string; isVisible: boolean; updatedAt: string }[]
   >([])
@@ -41,6 +42,7 @@ export const LookbooksListPage = () => {
     try {
       await deleteLookbook(id)
       await load()
+      toast.success('Лукбук удалён')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось удалить')
     }

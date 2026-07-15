@@ -1095,3 +1095,251 @@
   flex-direction: column;
   gap: 20px;
 }
+
+/* Prompt dialog */
+.muru-prompt-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(44, 44, 44, 0.45);
+}
+
+.muru-prompt-dialog {
+  width: 100%;
+  max-width: 420px;
+  padding: 24px;
+  border-radius: var(--r-md);
+  background: var(--muru-surface);
+  border: 1px solid var(--muru-border);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.muru-prompt-dialog__title {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.muru-prompt-dialog__message {
+  margin: 0;
+  color: var(--muru-muted);
+  line-height: 1.5;
+}
+
+.muru-prompt-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* Hidden image uploader (RichTextEditor toolbar) */
+.muru-image-uploader--hidden {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* TipTap editor */
+.tiptap-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tiptap-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tiptap-toolbar__btn {
+  min-width: auto;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+}
+
+.tiptap-content {
+  border: 1px solid var(--muru-border-input);
+  border-radius: var(--r-sm);
+  background: var(--muru-ivory);
+  min-height: 220px;
+  padding: 12px;
+}
+
+.tiptap-content:focus-within {
+  border-color: var(--muru-olive);
+  box-shadow: 0 0 0 2px var(--muru-olive-soft);
+}
+
+.tiptap-content .ProseMirror {
+  outline: none;
+  min-height: 180px;
+}
+
+.tiptap-content h2 {
+  margin: 0.8em 0 0.4em;
+  font-size: 1.25rem;
+}
+
+.tiptap-content p {
+  margin: 0.5em 0;
+}
+
+.tiptap-content ul,
+.tiptap-content ol {
+  padding-left: 1.4rem;
+}
+
+/* Hotspot editor */
+.hotspot-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hotspot-editor-cover {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.hotspot-editor-cover-img {
+  display: block;
+  max-width: 100%;
+  max-height: 480px;
+  object-fit: contain;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--muru-border);
+  cursor: crosshair;
+}
+
+.hotspot-marker {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  border: 2px solid var(--muru-surface);
+  border-radius: 50%;
+  background: var(--muru-accent);
+  color: var(--muru-surface);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: grab;
+  transform: translate(-50%, -50%);
+  touch-action: none;
+}
+
+.hotspot-marker:active {
+  cursor: grabbing;
+}
+
+.hotspot-coord-input {
+  width: 5rem;
+}
+
+/* Dashboard */
+.dashboard-greeting {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.dashboard-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid var(--muru-border);
+  border-radius: var(--r-md);
+  background: var(--muru-surface);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color var(--motion-fast), box-shadow var(--motion-fast);
+}
+
+.dashboard-card:hover {
+  border-color: var(--muru-olive);
+  box-shadow: var(--shadow-md);
+}
+
+.dashboard-card__icon {
+  color: var(--muru-olive);
+}
+
+.dashboard-card__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.dashboard-card__hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muru-muted);
+}
+
+/* SKU list editor */
+.sku-list-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sku-list-editor__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sku-list-editor__input {
+  flex: 1;
+  min-width: 120px;
+}
+
+.sku-list-editor__actions {
+  display: flex;
+  gap: 4px;
+}
+
+/* Orders status tabs */
+.orders-status-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.orders-status-tab--active {
+  background: var(--muru-olive-soft);
+  color: var(--muru-olive);
+}
+
+.order-detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.form-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}

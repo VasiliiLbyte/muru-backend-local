@@ -1,3 +1,5 @@
+import { Field, Input, Textarea } from '../ui'
+
 type SeoFieldsProps = {
   seoTitle: string
   seoDescription: string
@@ -11,26 +13,17 @@ export const SeoFields = ({
   onSeoTitleChange,
   onSeoDescriptionChange,
 }: SeoFieldsProps) => (
-  <fieldset className="form-section">
-    <legend className="form-section-title">SEO</legend>
-    <label className="field-label" htmlFor="seoTitle">
-      SEO title
-    </label>
-    <input
-      id="seoTitle"
-      className="field-input"
-      value={seoTitle}
-      onChange={(e) => onSeoTitleChange(e.target.value)}
-    />
-    <label className="field-label" htmlFor="seoDescription">
-      SEO description
-    </label>
-    <textarea
-      id="seoDescription"
-      className="field-input field-textarea"
-      rows={3}
-      value={seoDescription}
-      onChange={(e) => onSeoDescriptionChange(e.target.value)}
-    />
-  </fieldset>
+  <>
+    <Field label="SEO title" htmlFor="seoTitle">
+      <Input id="seoTitle" value={seoTitle} onChange={(e) => onSeoTitleChange(e.target.value)} />
+    </Field>
+    <Field label="SEO description" htmlFor="seoDescription">
+      <Textarea
+        id="seoDescription"
+        rows={3}
+        value={seoDescription}
+        onChange={(e) => onSeoDescriptionChange(e.target.value)}
+      />
+    </Field>
+  </>
 )

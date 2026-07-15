@@ -2,10 +2,13 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { ContentListPage } from '../../components/content/ContentListPage'
+import { useConfirm, useToast } from '../../components/ui'
 import { deleteBanner, listBanners } from '../../lib/content-api'
 
 export const BannersListPage = () => {
   const navigate = useNavigate()
+  const confirm = useConfirm()
+  const toast = useToast()
   const [items, setItems] = useState<
     { id: string; title: string; isActive: boolean; updatedAt: string }[]
   >([])
@@ -30,12 +33,20 @@ export const BannersListPage = () => {
   }, [load])
 
   const onDelete = async (id: string) => {
-    if (!window.confirm('Удалить баннер?')) return
+    const ok = await confirm({
+      title: 'Удалить баннер?',
+      message: 'Запись будет удалена без возможности восстановления.',
+      confirmLabel: 'Удалить',
+      variant: 'danger',
+    })
+    if (!ok) return
     try {
       await deleteBanner(id)
       await load()
+      toast.success('Баннер удалён')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось удалить')
+      toast.error(err instanceof Error ? err.message : 'Не удалось удалить')
     }
   }
 

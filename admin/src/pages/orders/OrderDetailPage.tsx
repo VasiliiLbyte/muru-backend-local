@@ -1,6 +1,25 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
+import {
+  Badge,
+  Button,
+  Card,
+  Field,
+  Input,
+  PageHeader,
+  Select,
+  SkeletonForm,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  Textarea,
+  useConfirm,
+  useToast,
+} from '../../components/ui'
 import { CRM_EDITABLE_STATUSES, ORDER_STATUS_CANCELLED } from '../../constants/order-statuses'
 import { ApiError } from '../../lib/api'
 import { cancelOrder, getOrder, patchOrder } from '../../lib/orders-api'
@@ -28,6 +47,8 @@ const hasCdekData = (order: CrmOrderDetail) =>
 export const OrderDetailPage = () => {
   const { id } = useParams()
   const orderId = Number(id)
+  const confirm = useConfirm()
+  const toast = useToast()
 
   const [order, setOrder] = useState<CrmOrderDetail | null>(null)
   const [status, setStatus] = useState('')
@@ -83,8 +104,11 @@ export const OrderDetailPage = () => {
       })
       setOrder(updated)
       applyOrderToForm(updated)
+      toast.success('Сохранено')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось сохранить')
+      const message = err instanceof Error ? err.message : 'Не удалось сохранить'
+      setError(message)
+      toast.error(message)
     } finally {
       setSaving(false)
     }
@@ -92,13 +116,13 @@ export const OrderDetailPage = () => {
 
   const onCancel = async () => {
     if (!order || order.status === ORDER_STATUS_CANCELLED) return
-    if (
-      !window.confirm(
-        'Заказ будет отменён, остатки товаров вернутся на склад. Продолжить?',
-      )
-    ) {
-      return
-    }
+    const ok = await confirm({
+      title: 'Отменить заказ?',
+      message: 'Заказ будет отменён, остатки товаров вернутся на склад.',
+      confirmLabel: 'Отменить заказ',
+      variant: 'danger',
+    })
+    if (!ok) return
 
     setCancelling(true)
     setError('')
@@ -106,11 +130,16 @@ export const OrderDetailPage = () => {
       const updated = await cancelOrder(order.id)
       setOrder(updated)
       applyOrderToForm(updated)
+      toast.success('Заказ отменён')
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
-        setError('Заказ уже отменён')
+        const message = 'Заказ уже отменён'
+        setError(message)
+        toast.error(message)
       } else {
-        setError(err instanceof Error ? err.message : 'Не удалось отменить заказ')
+        const message = err instanceof Error ? err.message : 'Не удалось отменить заказ'
+        setError(message)
+        toast.error(message)
       }
     } finally {
       setCancelling(false)
@@ -118,87 +147,80 @@ export const OrderDetailPage = () => {
   }
 
   if (loading) {
-    return <p className="muted-text">Загрузка...</p>
+    return (
+      <section className="page-stack">
+        <SkeletonForm />
+      </section>
+    )
   }
 
   if (!order) {
     return (
-      <section className="orders-module">
+      <section className="page-stack">
         <p className="error-text">{error || 'Заказ не найден'}</p>
-        <Link className="link-button" to="/orders">
-          ← К списку
+        <Link className="muru-page-header__back" to="/orders">
+          К списку
         </Link>
       </section>
     )
   }
 
   return (
-    <section className="orders-module">
-      <div className="content-form-header">
-        <h2 className="content-title">Заказ #{order.id}</h2>
-        <Link className="link-button" to="/orders">
-          ← К списку
-        </Link>
-      </div>
+    <section className="page-stack">
+      <PageHeader title={`Заказ #${order.id}`} backTo="/orders" backLabel="К списку" />
 
       {error ? <p className="error-text">{error}</p> : null}
 
-      <div className="form-section">
-        <div className="order-detail-header">
-          <span className={`badge badge-channel-${order.channel}`}>
-            {getChannelLabel(order.channel)}
-          </span>
-          <span className="order-detail-status">{order.status}</span>
+      <Card title="Обзор">
+        <div className="order-detail-meta">
+          <Badge variant="neutral">{getChannelLabel(order.channel)}</Badge>
+          <span>{order.status}</span>
           <span className="muted-text">Создан: {formatOrderDate(order.createdAt)}</span>
           <span className="muted-text">Обновлён: {formatOrderDate(order.updatedAt)}</span>
         </div>
-      </div>
+      </Card>
 
-      <div className="form-section">
-        <h3 className="form-section-title">Состав</h3>
-        <div className="table-wrap">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th />
-                <th>Товар</th>
-                <th>SKU</th>
-                <th>Кол-во</th>
-                <th>Цена</th>
-                <th>Сумма</th>
-              </tr>
-            </thead>
-            <tbody>
-              {order.items.map((item) => (
-                <tr key={`${item.sku}-${item.color ?? ''}-${item.size ?? ''}`}>
-                  <td>
-                    {item.imageUrl ? (
-                      <img className="order-thumb" src={item.imageUrl} alt={item.name} />
-                    ) : (
-                      '—'
-                    )}
-                  </td>
-                  <td>
-                    {item.name}
-                    {item.color || item.size ? (
-                      <div className="muted-text">
-                        {[item.color, item.size].filter(Boolean).join(' / ')}
-                      </div>
-                    ) : null}
-                  </td>
-                  <td>{item.sku}</td>
-                  <td>{item.quantity}</td>
-                  <td>{formatMoney(item.price)}</td>
-                  <td>{formatMoney(item.price * item.quantity)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <Card title="Состав">
+        <Table>
+          <TableHeader sticky>
+            <TableRow hover={false}>
+              <TableHead />
+              <TableHead>Товар</TableHead>
+              <TableHead>SKU</TableHead>
+              <TableHead numeric>Кол-во</TableHead>
+              <TableHead numeric>Цена</TableHead>
+              <TableHead numeric>Сумма</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {order.items.map((item) => (
+              <TableRow key={`${item.sku}-${item.color ?? ''}-${item.size ?? ''}`}>
+                <TableCell>
+                  {item.imageUrl ? (
+                    <img className="order-thumb" src={item.imageUrl} alt={item.name} />
+                  ) : (
+                    '—'
+                  )}
+                </TableCell>
+                <TableCell>
+                  {item.name}
+                  {item.color || item.size ? (
+                    <div className="muted-text">
+                      {[item.color, item.size].filter(Boolean).join(' / ')}
+                    </div>
+                  ) : null}
+                </TableCell>
+                <TableCell>{item.sku}</TableCell>
+                <TableCell numeric>{item.quantity}</TableCell>
+                <TableCell numeric>{formatMoney(item.price)}</TableCell>
+                <TableCell numeric>{formatMoney(item.price * item.quantity)}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Card>
 
-      <div className="form-section">
-        <h3 className="form-section-title">Суммы</h3>
+      <Card title="Суммы">
         <p>Подытог: {formatMoney(order.subtotal)}</p>
         <p>
           Доставка: {formatMoney(order.deliveryPrice)}
@@ -212,27 +234,24 @@ export const OrderDetailPage = () => {
         <p>
           <strong>Итого: {formatMoney(order.total)}</strong>
         </p>
-      </div>
+      </Card>
 
-      <div className="form-section">
-        <h3 className="form-section-title">Контакты</h3>
+      <Card title="Контакты">
         <p>{order.customerName ?? '—'}</p>
         <p>{order.customerPhone ?? '—'}</p>
         {order.channel === 'telegram' && order.telegramUserId != null ? (
           <p className="muted-text">Telegram ID: {order.telegramUserId}</p>
         ) : null}
-      </div>
+      </Card>
 
-      <div className="form-section">
-        <h3 className="form-section-title">Адрес и доставка</h3>
+      <Card title="Адрес и доставка">
         <p>Способ: {order.deliveryMode === 'pickup' ? 'Самовывоз' : 'Доставка'}</p>
         <p>Адрес: {order.address || '—'}</p>
         <p>Ориентировочная дата: {order.deliveryEta ? formatOrderDate(order.deliveryEta) : '—'}</p>
-      </div>
+      </Card>
 
       {hasCdekData(order) ? (
-        <div className="form-section">
-          <h3 className="form-section-title">CDEK</h3>
+        <Card title="CDEK">
           {order.cdekCityName ? <p>Город: {order.cdekCityName}</p> : null}
           {order.cdekPvzAddress ? <p>ПВЗ: {order.cdekPvzAddress}</p> : null}
           {order.cdekTrackNumber ? <p>Трек: {order.cdekTrackNumber}</p> : null}
@@ -241,90 +260,78 @@ export const OrderDetailPage = () => {
           {order.cdekCreateError ? (
             <p className="error-text">Ошибка создания: {order.cdekCreateError}</p>
           ) : null}
-        </div>
+        </Card>
       ) : null}
 
-      <div className="form-section">
-        <h3 className="form-section-title">Оплата</h3>
+      <Card title="Оплата">
         <p>
           Статус:{' '}
-          <span className={`badge ${isOrderPaid(order) ? 'badge-paid' : 'badge-unpaid'}`}>
+          <Badge variant={isOrderPaid(order) ? 'success' : 'warning'}>
             {getPaymentLabel(order)}
-          </span>
+          </Badge>
         </p>
         <p>Payment ID: {order.paymentId ?? '—'}</p>
         <p>paymentStatus: {order.paymentStatus ?? '—'}</p>
         <p>Оплачен: {order.paidAt ? formatOrderDate(order.paidAt) : '—'}</p>
-      </div>
+      </Card>
 
-      <div className="form-section">
-        <h3 className="form-section-title">Комментарий клиента</h3>
+      <Card title="Комментарий клиента">
         <p>{order.comment || '—'}</p>
-      </div>
+      </Card>
 
-      <div className="form-section">
-        <h3 className="form-section-title">Согласие</h3>
+      <Card title="Согласие">
         <p className="muted-text">
           {order.consentAccepted ? 'Принято' : 'Не принято'}
           {order.consentVersion ? ` · v${order.consentVersion}` : ''}
           {order.consentAcceptedAt ? ` · ${formatOrderDate(order.consentAcceptedAt)}` : ''}
         </p>
-      </div>
+      </Card>
 
-      <form className="form-section" onSubmit={onSave}>
-        <h3 className="form-section-title">Действия менеджера</h3>
+      <Card title="Действия менеджера">
+        <form className="form-stack" onSubmit={onSave}>
+          <Field label="Статус" htmlFor="order-status">
+            <Select id="order-status" value={status} onChange={(e) => setStatus(e.target.value)}>
+              {CRM_EDITABLE_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </Select>
+          </Field>
 
-        <label className="field-label" htmlFor="order-status">
-          Статус
-        </label>
-        <select
-          id="order-status"
-          className="field-input"
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-        >
-          {CRM_EDITABLE_STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
+          <Field label="Комментарий менеджера" htmlFor="order-admin-comment">
+            <Textarea
+              id="order-admin-comment"
+              value={adminComment}
+              onChange={(e) => setAdminComment(e.target.value)}
+            />
+          </Field>
 
-        <label className="field-label" htmlFor="order-admin-comment">
-          Комментарий менеджера
-        </label>
-        <textarea
-          id="order-admin-comment"
-          className="field-input field-textarea"
-          value={adminComment}
-          onChange={(e) => setAdminComment(e.target.value)}
-        />
+          <Field label="Ориентировочная дата доставки" htmlFor="order-delivery-eta">
+            <Input
+              id="order-delivery-eta"
+              type="date"
+              value={deliveryEta}
+              onChange={(e) => setDeliveryEta(e.target.value)}
+            />
+          </Field>
 
-        <label className="field-label" htmlFor="order-delivery-eta">
-          Ориентировочная дата доставки
-        </label>
-        <input
-          id="order-delivery-eta"
-          className="field-input"
-          type="date"
-          value={deliveryEta}
-          onChange={(e) => setDeliveryEta(e.target.value)}
-        />
-
-        <div className="form-actions">
-          <button type="submit" className="primary-button" disabled={saving}>
-            {saving ? 'Сохранение…' : 'Сохранить'}
-          </button>
-          <button
-            type="button"
-            className="danger-button"
-            disabled={cancelling || order.status === ORDER_STATUS_CANCELLED}
-            onClick={() => void onCancel()}
-          >
-            {cancelling ? 'Отмена…' : 'Отменить заказ'}
-          </button>
-        </div>
-      </form>
+          <div className="form-actions">
+            <Button type="submit" loading={saving}>
+              Сохранить
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              loading={cancelling}
+              disabled={order.status === ORDER_STATUS_CANCELLED}
+              onClick={() => void onCancel()}
+            >
+              Отменить заказ
+            </Button>
+          </div>
+        </form>
+      </Card>
     </section>
   )
 }

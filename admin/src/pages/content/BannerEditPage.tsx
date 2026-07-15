@@ -1,7 +1,18 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 
 import { ImageUploadField } from '../../components/content/ImageUploadField'
+import {
+  Button,
+  Card,
+  Checkbox,
+  Field,
+  Input,
+  PageHeader,
+  SkeletonForm,
+  useConfirm,
+  useToast,
+} from '../../components/ui'
 import { createBanner, deleteBanner, getBanner, updateBanner } from '../../lib/content-api'
 import type { ContentImage } from '../../types/content'
 import { datetimeLocalToIso, isoToDatetimeLocal } from '../../utils/datetime'
@@ -9,6 +20,8 @@ import { datetimeLocalToIso, isoToDatetimeLocal } from '../../utils/datetime'
 export const BannerEditPage = () => {
   const { id } = useParams()
   const navigate = useNavigate()
+  const confirm = useConfirm()
+  const toast = useToast()
   const isNew = !id || id === 'new'
 
   const [title, setTitle] = useState('')
@@ -68,12 +81,16 @@ export const BannerEditPage = () => {
     try {
       if (isNew) {
         const created = await createBanner(payload)
+        toast.success('Сохранено')
         navigate(`/content/banners/${created.id}`, { replace: true })
       } else if (id) {
         await updateBanner(id, payload)
+        toast.success('Сохранено')
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось сохранить')
+      const message = err instanceof Error ? err.message : 'Не удалось сохранить'
+      setError(message)
+      toast.error(message)
     } finally {
       setSaving(false)
     }
@@ -81,114 +98,108 @@ export const BannerEditPage = () => {
 
   const onDelete = async () => {
     if (!id || isNew) return
-    if (!window.confirm('Удалить баннер?')) return
+    const ok = await confirm({
+      title: 'Удалить баннер?',
+      message: 'Запись будет удалена без возможности восстановления.',
+      confirmLabel: 'Удалить',
+      variant: 'danger',
+    })
+    if (!ok) return
     try {
       await deleteBanner(id)
+      toast.success('Баннер удалён')
       navigate('/content/banners')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось удалить')
+      const message = err instanceof Error ? err.message : 'Не удалось удалить'
+      setError(message)
+      toast.error(message)
     }
   }
 
-  if (loading) return <p className="muted-text">Загрузка...</p>
+  if (loading) {
+    return (
+      <section className="page-stack">
+        <SkeletonForm />
+      </section>
+    )
+  }
 
   return (
-    <section className="content-form">
-      <div className="content-form-header">
-        <h3>{isNew ? 'Новый баннер' : 'Редактирование баннера'}</h3>
-        <Link className="link-button" to="/content/banners">
-          ← К списку
-        </Link>
-      </div>
+    <section className="page-stack">
+      <PageHeader
+        title={isNew ? 'Новый баннер' : 'Редактирование баннера'}
+        backTo="/content/banners"
+        backLabel="К списку"
+        actions={
+          !isNew ? (
+            <Button type="button" variant="danger" onClick={() => void onDelete()}>
+              Удалить
+            </Button>
+          ) : undefined
+        }
+      />
 
-      <form className="form-grid" onSubmit={onSubmit}>
-        <label className="field-label" htmlFor="title">
-          Заголовок
-        </label>
-        <input
-          id="title"
-          className="field-input"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          required
-        />
+      <form className="form-stack" onSubmit={onSubmit}>
+        <Card title="Основное">
+          <Field label="Заголовок" htmlFor="title">
+            <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} required />
+          </Field>
 
-        <label className="field-label" htmlFor="subtitle">
-          Подзаголовок
-        </label>
-        <input
-          id="subtitle"
-          className="field-input"
-          value={subtitle}
-          onChange={(e) => setSubtitle(e.target.value)}
-        />
+          <Field label="Подзаголовок" htmlFor="subtitle">
+            <Input id="subtitle" value={subtitle} onChange={(e) => setSubtitle(e.target.value)} />
+          </Field>
 
-        <label className="field-label" htmlFor="href">
-          Ссылка
-        </label>
-        <input
-          id="href"
-          className="field-input"
-          value={href}
-          onChange={(e) => setHref(e.target.value)}
-          placeholder="/catalog/..."
-        />
+          <Field label="Ссылка" htmlFor="href">
+            <Input
+              id="href"
+              value={href}
+              onChange={(e) => setHref(e.target.value)}
+              placeholder="/catalog/..."
+            />
+          </Field>
 
-        <label className="field-label" htmlFor="sortOrder">
-          Порядок сортировки
-        </label>
-        <input
-          id="sortOrder"
-          className="field-input"
-          type="number"
-          value={sortOrder}
-          onChange={(e) => setSortOrder(Number(e.target.value) || 0)}
-        />
+          <Field label="Порядок сортировки" htmlFor="sortOrder">
+            <Input
+              id="sortOrder"
+              type="number"
+              value={sortOrder}
+              onChange={(e) => setSortOrder(Number(e.target.value) || 0)}
+            />
+          </Field>
 
-        <ImageUploadField label="Изображение" value={image} onChange={setImage} />
+          <ImageUploadField label="Изображение" value={image} onChange={setImage} />
 
-        <label className="field-label" htmlFor="startsAt">
-          Начало показа
-        </label>
-        <input
-          id="startsAt"
-          className="field-input"
-          type="datetime-local"
-          value={startsAt}
-          onChange={(e) => setStartsAt(e.target.value)}
-        />
+          <Field label="Начало показа" htmlFor="startsAt">
+            <Input
+              id="startsAt"
+              type="datetime-local"
+              value={startsAt}
+              onChange={(e) => setStartsAt(e.target.value)}
+            />
+          </Field>
 
-        <label className="field-label" htmlFor="endsAt">
-          Конец показа
-        </label>
-        <input
-          id="endsAt"
-          className="field-input"
-          type="datetime-local"
-          value={endsAt}
-          onChange={(e) => setEndsAt(e.target.value)}
-        />
+          <Field label="Конец показа" htmlFor="endsAt">
+            <Input
+              id="endsAt"
+              type="datetime-local"
+              value={endsAt}
+              onChange={(e) => setEndsAt(e.target.value)}
+            />
+          </Field>
 
-        <label className="checkbox-row">
-          <input
-            type="checkbox"
+          <Checkbox
+            label="Активен"
             checked={isActive}
             onChange={(e) => setIsActive(e.target.checked)}
           />
-          Активен
-        </label>
+        </Card>
 
         {error ? <p className="error-text">{error}</p> : null}
 
         <div className="form-actions">
-          <button className="primary-button" type="submit" disabled={saving}>
-            {saving ? 'Сохранение...' : 'Сохранить'}
-          </button>
-          {!isNew ? (
-            <button type="button" className="secondary-button" onClick={onDelete}>
-              Удалить
-            </button>
-          ) : null}
+          <Button type="submit" loading={saving}>
+            Сохранить
+          </Button>
         </div>
       </form>
     </section>

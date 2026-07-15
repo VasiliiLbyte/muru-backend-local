@@ -3,7 +3,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { ContentIndexRedirect, ContentLayout } from './components/content/ContentLayout'
 import { CatalogIndexRedirect, CatalogLayout } from './components/catalog/CatalogLayout'
 import { ProtectedLayout } from './components/ProtectedLayout'
-import { ConfirmProvider, ToastProvider } from './components/ui'
+import { ConfirmProvider, PromptProvider, ToastProvider } from './components/ui'
 import { AuthProvider } from './context/AuthContext'
 import { BannerEditPage } from './pages/content/BannerEditPage'
 import { BannersListPage } from './pages/content/BannersListPage'
@@ -42,6 +42,7 @@ function App() {
     <AuthProvider>
       <ToastProvider>
         <ConfirmProvider>
+          <PromptProvider>
           <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/" element={<ProtectedLayout />}>
@@ -80,6 +81,7 @@ function App() {
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </PromptProvider>
         </ConfirmProvider>
       </ToastProvider>
     </AuthProvider>

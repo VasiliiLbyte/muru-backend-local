@@ -1,14 +1,27 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 
 import { RichTextEditor } from '../../components/content/RichTextEditor'
 import { SeoFields } from '../../components/content/SeoFields'
+import {
+  Button,
+  Card,
+  Checkbox,
+  Field,
+  Input,
+  PageHeader,
+  SkeletonForm,
+  useConfirm,
+  useToast,
+} from '../../components/ui'
 import { createPage, deletePage, getPage, updatePage } from '../../lib/content-api'
 import { slugifyTitle } from '../../utils/slug'
 
 export const PageEditPage = () => {
   const { id } = useParams()
   const navigate = useNavigate()
+  const confirm = useConfirm()
+  const toast = useToast()
   const isNew = !id || id === 'new'
 
   const [slug, setSlug] = useState('')
@@ -70,12 +83,16 @@ export const PageEditPage = () => {
     try {
       if (isNew) {
         const created = await createPage(payload)
+        toast.success('Сохранено')
         navigate(`/content/pages/${created.id}`, { replace: true })
       } else if (id) {
         await updatePage(id, payload)
+        toast.success('Сохранено')
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось сохранить')
+      const message = err instanceof Error ? err.message : 'Не удалось сохранить'
+      setError(message)
+      toast.error(message)
     } finally {
       setSaving(false)
     }
@@ -83,80 +100,94 @@ export const PageEditPage = () => {
 
   const onDelete = async () => {
     if (!id || isNew) return
-    if (!window.confirm('Удалить страницу?')) return
+    const ok = await confirm({
+      title: 'Удалить страницу?',
+      message: 'Запись будет удалена без возможности восстановления.',
+      confirmLabel: 'Удалить',
+      variant: 'danger',
+    })
+    if (!ok) return
     try {
       await deletePage(id)
+      toast.success('Страница удалена')
       navigate('/content/pages')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось удалить')
+      const message = err instanceof Error ? err.message : 'Не удалось удалить'
+      setError(message)
+      toast.error(message)
     }
   }
 
-  if (loading) return <p className="muted-text">Загрузка...</p>
+  if (loading) {
+    return (
+      <section className="page-stack">
+        <SkeletonForm />
+      </section>
+    )
+  }
 
   return (
-    <section className="content-form">
-      <div className="content-form-header">
-        <h3>{isNew ? 'Новая страница' : 'Редактирование страницы'}</h3>
-        <Link className="link-button" to="/content/pages">
-          ← К списку
-        </Link>
-      </div>
+    <section className="page-stack">
+      <PageHeader
+        title={isNew ? 'Новая страница' : 'Редактирование страницы'}
+        backTo="/content/pages"
+        backLabel="К списку"
+        actions={
+          !isNew ? (
+            <Button type="button" variant="danger" onClick={() => void onDelete()}>
+              Удалить
+            </Button>
+          ) : undefined
+        }
+      />
 
-      <form className="form-grid" onSubmit={onSubmit}>
-        <label className="field-label" htmlFor="title">
-          Название
-        </label>
-        <input
-          id="title"
-          className="field-input"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          required
-        />
+      <form className="form-stack" onSubmit={onSubmit}>
+        <Card title="Основное">
+          <Field label="Название" htmlFor="title">
+            <Input
+              id="title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              required
+            />
+          </Field>
 
-        <label className="field-label" htmlFor="slug">
-          Slug
-        </label>
-        <input
-          id="slug"
-          className="field-input"
-          value={slug}
-          onChange={(e) => {
-            setSlugTouched(true)
-            setSlug(e.target.value)
-          }}
-          required
-        />
+          <Field label="Slug" htmlFor="slug">
+            <Input
+              id="slug"
+              value={slug}
+              onChange={(e) => {
+                setSlugTouched(true)
+                setSlug(e.target.value)
+              }}
+              required
+            />
+          </Field>
 
-        <RichTextEditor label="Текст (HTML)" value={bodyHtml} onChange={setBodyHtml} />
+          <RichTextEditor label="Текст (HTML)" value={bodyHtml} onChange={setBodyHtml} />
 
-        <SeoFields
-          seoTitle={seoTitle}
-          seoDescription={seoDescription}
-          onSeoTitleChange={setSeoTitle}
-          onSeoDescriptionChange={setSeoDescription}
-        />
-
-        <label className="checkbox-row">
-          <input
-            type="checkbox"
+          <Checkbox
+            label="Видна на сайте"
             checked={isVisible}
             onChange={(e) => setIsVisible(e.target.checked)}
           />
-          Видна на сайте
-        </label>
+        </Card>
+
+        <Card title="SEO">
+          <SeoFields
+            seoTitle={seoTitle}
+            seoDescription={seoDescription}
+            onSeoTitleChange={setSeoTitle}
+            onSeoDescriptionChange={setSeoDescription}
+          />
+        </Card>
+
         {error ? <p className="error-text">{error}</p> : null}
 
         <div className="form-actions">
-          <button className="primary-button" type="submit" disabled={saving}>
-            {saving ? 'Сохранение...' : 'Сохранить'}
-          </button>
-          {!isNew ? (
-            <button type="button" className="secondary-button" onClick={onDelete}>
-              Удалить
-            </button>
-          ) : null}
+          <Button type="submit" loading={saving}>
+            Сохранить
+          </Button>
         </div>
       </form>
     </section>

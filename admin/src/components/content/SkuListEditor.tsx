@@ -1,3 +1,6 @@
+import { ArrowDown, ArrowUp, Package, Trash2 } from 'lucide-react'
+
+import { Button, EmptyState, Field, IconButton, Input } from '../ui'
 import type { CollectionProductInput } from '../../types/content'
 
 type SkuListEditorProps = {
@@ -33,39 +36,45 @@ export const SkuListEditor = ({ value, onChange }: SkuListEditorProps) => {
   }
 
   return (
-    <fieldset className="form-section">
-      <legend className="form-section-title">Товары (SKU)</legend>
-      <div className="sku-list">
-        {value.length === 0 ? <p className="muted-text">SKU не добавлены</p> : null}
-        {value.map((item, index) => (
-          <div className="sku-row" key={`${index}-${item.sku}`}>
-            <input
-              className="field-input"
-              placeholder="MU0001"
-              value={item.sku}
-              onChange={(e) => updateItem(index, e.target.value)}
-            />
-            <div className="sku-row-actions">
-              <button type="button" className="secondary-button" onClick={() => moveRow(index, -1)}>
-                ↑
-              </button>
-              <button type="button" className="secondary-button" onClick={() => moveRow(index, 1)}>
-                ↓
-              </button>
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={() => removeRow(index)}
+    <div className="sku-list-editor">
+      {value.length === 0 ? (
+        <EmptyState icon={Package} title="SKU не добавлены" />
+      ) : (
+        value.map((item, index) => (
+          <div className="sku-list-editor__row" key={`${index}-${item.sku}`}>
+            <Field label={`SKU ${index + 1}`} htmlFor={`sku-${index}`} className="sku-list-editor__input">
+              <Input
+                id={`sku-${index}`}
+                placeholder="MU0001"
+                value={item.sku}
+                onChange={(e) => updateItem(index, e.target.value)}
+              />
+            </Field>
+            <div className="sku-list-editor__actions">
+              <IconButton
+                aria-label="Переместить вверх"
+                disabled={index === 0}
+                onClick={() => moveRow(index, -1)}
               >
-                Удалить
-              </button>
+                <ArrowUp size={16} />
+              </IconButton>
+              <IconButton
+                aria-label="Переместить вниз"
+                disabled={index === value.length - 1}
+                onClick={() => moveRow(index, 1)}
+              >
+                <ArrowDown size={16} />
+              </IconButton>
+              <IconButton variant="danger" aria-label="Удалить" onClick={() => removeRow(index)}>
+                <Trash2 size={16} />
+              </IconButton>
             </div>
           </div>
-        ))}
-      </div>
-      <button type="button" className="secondary-button" onClick={addRow}>
+        ))
+      )}
+      <Button type="button" variant="secondary" onClick={addRow}>
         Добавить SKU
-      </button>
-    </fieldset>
+      </Button>
+    </div>
   )
 }

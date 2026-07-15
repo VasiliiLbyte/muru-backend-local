@@ -1,6 +1,24 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { ShoppingBag } from 'lucide-react'
 
+import {
+  Badge,
+  Button,
+  EmptyState,
+  Field,
+  Input,
+  PageHeader,
+  Select,
+  SkeletonTable,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../../components/ui'
+import { cn } from '../../lib/cn'
 import { ORDER_STATUSES } from '../../constants/order-statuses'
 import { listOrders } from '../../lib/orders-api'
 import type { CrmOrderListItem, CrmOrdersListResult, OrderChannel } from '../../types/orders'
@@ -78,40 +96,36 @@ export const OrdersListPage = () => {
   }
 
   return (
-    <section className="orders-module">
-      <header className="content-header">
-        <h2 className="content-title">Заказы</h2>
-      </header>
+    <section className="page-stack">
+      <PageHeader title="Заказы" />
 
-      <div className="orders-filters">
-        <nav className="orders-status-tabs" aria-label="Фильтр по статусу">
-          <button
+      <div className="orders-status-tabs" aria-label="Фильтр по статусу">
+        <Button
+          type="button"
+          variant="ghost"
+          className={cn(status === undefined && 'orders-status-tab--active')}
+          onClick={() => setStatus(undefined)}
+        >
+          Все{data ? ` (${data.total})` : ''}
+        </Button>
+        {statusTabs.map((tabStatus) => (
+          <Button
+            key={tabStatus}
             type="button"
-            className={`content-tab${status === undefined ? ' content-tab-active' : ''}`}
-            onClick={() => setStatus(undefined)}
+            variant="ghost"
+            className={cn(status === tabStatus && 'orders-status-tab--active')}
+            onClick={() => setStatus(tabStatus)}
           >
-            Все{data ? ` (${data.total})` : ''}
-          </button>
-          {statusTabs.map((tabStatus) => (
-            <button
-              key={tabStatus}
-              type="button"
-              className={`content-tab${status === tabStatus ? ' content-tab-active' : ''}`}
-              onClick={() => setStatus(tabStatus)}
-            >
-              {tabStatus}
-              {data?.statusCounts[tabStatus] != null ? ` (${data.statusCounts[tabStatus]})` : ''}
-            </button>
-          ))}
-        </nav>
+            {tabStatus}
+            {data?.statusCounts[tabStatus] != null ? ` (${data.statusCounts[tabStatus]})` : ''}
+          </Button>
+        ))}
+      </div>
 
-        <div className="orders-filter-row">
-          <label className="field-label" htmlFor="orders-channel">
-            Канал
-          </label>
-          <select
+      <div className="filters-panel">
+        <Field label="Канал" htmlFor="orders-channel">
+          <Select
             id="orders-channel"
-            className="field-input orders-filter-input"
             value={channel ?? ''}
             onChange={(e) => {
               const value = e.target.value
@@ -121,128 +135,106 @@ export const OrdersListPage = () => {
             <option value="">Все</option>
             <option value="telegram">Telegram</option>
             <option value="web">Сайт</option>
-          </select>
+          </Select>
+        </Field>
 
-          <label className="field-label" htmlFor="orders-search">
-            Поиск
-          </label>
-          <input
+        <Field label="Поиск" htmlFor="orders-search">
+          <Input
             id="orders-search"
-            className="field-input orders-filter-input orders-search-input"
             type="search"
             placeholder="№, телефон, имя, адрес…"
             value={qInput}
             onChange={(e) => setQInput(e.target.value)}
           />
+        </Field>
 
-          <label className="field-label" htmlFor="orders-date-from">
-            С
-          </label>
-          <input
+        <Field label="С" htmlFor="orders-date-from">
+          <Input
             id="orders-date-from"
-            className="field-input orders-filter-input"
             type="date"
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
           />
+        </Field>
 
-          <label className="field-label" htmlFor="orders-date-to">
-            По
-          </label>
-          <input
+        <Field label="По" htmlFor="orders-date-to">
+          <Input
             id="orders-date-to"
-            className="field-input orders-filter-input"
             type="date"
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
           />
-        </div>
+        </Field>
       </div>
 
       {error ? <p className="error-text">{error}</p> : null}
 
       {loading ? (
-        <p className="muted-text">Загрузка...</p>
+        <SkeletonTable rows={8} cols={8} />
+      ) : !data || data.items.length === 0 ? (
+        <EmptyState icon={ShoppingBag} title="Заказов нет" />
       ) : (
-        <>
-          <div className="table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>№</th>
-                  <th>Дата</th>
-                  <th>Канал</th>
-                  <th>Клиент</th>
-                  <th>Состав</th>
-                  <th>Сумма</th>
-                  <th>Оплата</th>
-                  <th>Статус</th>
-                </tr>
-              </thead>
-              <tbody>
-                {!data || data.items.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="muted-text">
-                      Заказов нет
-                    </td>
-                  </tr>
-                ) : (
-                  data.items.map((order) => (
-                    <tr key={order.id}>
-                      <td>
-                        <Link className="link-button" to={`/orders/${order.id}`}>
-                          #{order.id}
-                        </Link>
-                      </td>
-                      <td>{formatOrderDate(order.createdAt)}</td>
-                      <td>
-                        <span
-                          className={`badge badge-channel-${order.channel}`}
-                        >
-                          {getChannelLabel(order.channel)}
-                        </span>
-                      </td>
-                      <td>{renderCustomer(order)}</td>
-                      <td>{order.itemsCount} шт.</td>
-                      <td>{formatMoney(order.total)}</td>
-                      <td>
-                        <span
-                          className={`badge ${isOrderPaid(order) ? 'badge-paid' : 'badge-unpaid'}`}
-                        >
-                          {getPaymentLabel(order)}
-                        </span>
-                      </td>
-                      <td>{order.status}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="orders-pagination">
-            <button
-              type="button"
-              className="secondary-button"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-            >
-              Назад
-            </button>
-            <span className="muted-text">
-              Стр. {data?.page ?? page} из {totalPages}
-            </span>
-            <button
-              type="button"
-              className="secondary-button"
-              disabled={!data || page >= totalPages}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              Вперёд
-            </button>
-          </div>
-        </>
+        <Table>
+          <TableHeader sticky>
+            <TableRow hover={false}>
+              <TableHead>№</TableHead>
+              <TableHead>Дата</TableHead>
+              <TableHead>Канал</TableHead>
+              <TableHead>Клиент</TableHead>
+              <TableHead numeric>Состав</TableHead>
+              <TableHead numeric>Сумма</TableHead>
+              <TableHead>Оплата</TableHead>
+              <TableHead>Статус</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {data.items.map((order) => (
+              <TableRow key={order.id}>
+                <TableCell>
+                  <Link className="muru-page-header__back" to={`/orders/${order.id}`}>
+                    #{order.id}
+                  </Link>
+                </TableCell>
+                <TableCell>{formatOrderDate(order.createdAt)}</TableCell>
+                <TableCell>
+                  <Badge variant="neutral">{getChannelLabel(order.channel)}</Badge>
+                </TableCell>
+                <TableCell>{renderCustomer(order)}</TableCell>
+                <TableCell numeric>{order.itemsCount} шт.</TableCell>
+                <TableCell numeric>{formatMoney(order.total)}</TableCell>
+                <TableCell>
+                  <Badge variant={isOrderPaid(order) ? 'success' : 'warning'}>
+                    {getPaymentLabel(order)}
+                  </Badge>
+                </TableCell>
+                <TableCell>{order.status}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       )}
+
+      <div className="orders-pagination">
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={page <= 1}
+          onClick={() => setPage((p) => Math.max(1, p - 1))}
+        >
+          Назад
+        </Button>
+        <span className="muted-text">
+          Стр. {data?.page ?? page} из {totalPages}
+        </span>
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={!data || page >= totalPages}
+          onClick={() => setPage((p) => p + 1)}
+        >
+          Вперёд
+        </Button>
+      </div>
     </section>
   )
 }

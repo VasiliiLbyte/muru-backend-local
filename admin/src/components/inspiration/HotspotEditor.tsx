@@ -1,5 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Trash2 } from 'lucide-react'
 
+import {
+  Button,
+  Card,
+  Field,
+  IconButton,
+  Input,
+  SkeletonTable,
+  Table,
+  TableActions,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  useConfirm,
+  useToast,
+} from '../ui'
 import { getProduct, listProducts } from '../../lib/catalog-api'
 import { categoryCoverPreviewSrc } from '../../lib/category-cover'
 import {
@@ -31,6 +49,8 @@ const clampPercent = (value: number) => Math.min(100, Math.max(0, value))
 const roundPercent = (value: number) => Math.round(value * 100) / 100
 
 export const HotspotEditor = ({ lookbookId, bannerImage, readOnly = false }: HotspotEditorProps) => {
+  const confirm = useConfirm()
+  const toast = useToast()
   const bannerRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{
     hotspotId: string
@@ -142,8 +162,11 @@ export const HotspotEditor = ({ lookbookId, bannerImage, readOnly = false }: Hot
       setPickerOpen(false)
       setPendingCoords(null)
       await loadHotspots()
+      toast.success('Точка добавлена')
     } catch (err) {
-      setPickerError(err instanceof Error ? err.message : 'Не удалось создать точку')
+      const message = err instanceof Error ? err.message : 'Не удалось создать точку'
+      setPickerError(message)
+      toast.error(message)
     } finally {
       setCreating(false)
     }
@@ -151,14 +174,23 @@ export const HotspotEditor = ({ lookbookId, bannerImage, readOnly = false }: Hot
 
   const onDelete = async (hotspotId: string) => {
     if (readOnly) return
-    if (!window.confirm('Удалить точку?')) return
+    const ok = await confirm({
+      title: 'Удалить точку?',
+      message: 'Точка будет удалена с баннера.',
+      confirmLabel: 'Удалить',
+      variant: 'danger',
+    })
+    if (!ok) return
     setSavingId(hotspotId)
     setError('')
     try {
       await deleteLookbookHotspot(lookbookId, hotspotId)
       await loadHotspots()
+      toast.success('Точка удалена')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось удалить точку')
+      const message = err instanceof Error ? err.message : 'Не удалось удалить точку'
+      setError(message)
+      toast.error(message)
     } finally {
       setSavingId(null)
     }
@@ -179,8 +211,11 @@ export const HotspotEditor = ({ lookbookId, bannerImage, readOnly = false }: Hot
     try {
       await updateLookbookHotspot(lookbookId, hotspot.id, { xPercent, yPercent })
       await loadHotspots()
+      toast.success('Координаты сохранены')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось сохранить координаты')
+      const message = err instanceof Error ? err.message : 'Не удалось сохранить координаты'
+      setError(message)
+      toast.error(message)
     } finally {
       setSavingId(null)
     }
@@ -248,8 +283,11 @@ export const HotspotEditor = ({ lookbookId, bannerImage, readOnly = false }: Hot
         yPercent: drag.latestY,
       })
       await loadHotspots()
+      toast.success('Координаты сохранены')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось сохранить координаты')
+      const message = err instanceof Error ? err.message : 'Не удалось сохранить координаты'
+      setError(message)
+      toast.error(message)
       await loadHotspots()
     } finally {
       setSavingId(null)
@@ -265,7 +303,6 @@ export const HotspotEditor = ({ lookbookId, bannerImage, readOnly = false }: Hot
   return (
     <div className="hotspot-editor">
       {error ? <p className="error-text">{error}</p> : null}
-      {loading ? <p className="muted-text">Загрузка точек...</p> : null}
 
       <p className="muted-text">
         {readOnly
@@ -280,158 +317,169 @@ export const HotspotEditor = ({ lookbookId, bannerImage, readOnly = false }: Hot
           className="hotspot-editor-cover-img"
           onClick={onBannerClick}
         />
-        {hotspots.map((hotspot) => (
-          <button
-            key={hotspot.id}
-            type="button"
-            className="hotspot-marker"
-            data-hotspot-id={hotspot.id}
-            style={{
-              left: `${hotspot.xPercent}%`,
-              top: `${hotspot.yPercent}%`,
-            }}
-            title={productLabels.get(hotspot.productId)?.sku ?? `Товар #${hotspot.productId}`}
-            disabled={readOnly || savingId === hotspot.id}
-            onPointerDown={(event) => onMarkerPointerDown(event, hotspot)}
-            onPointerMove={onMarkerPointerMove}
-            onPointerUp={(event) => void onMarkerPointerUp(event)}
-          >
-            +
-          </button>
-        ))}
+        {!loading
+          ? hotspots.map((hotspot) => (
+              <button
+                key={hotspot.id}
+                type="button"
+                className="hotspot-marker"
+                data-hotspot-id={hotspot.id}
+                style={{
+                  left: `${hotspot.xPercent}%`,
+                  top: `${hotspot.yPercent}%`,
+                }}
+                title={productLabels.get(hotspot.productId)?.sku ?? `Товар #${hotspot.productId}`}
+                disabled={readOnly || savingId === hotspot.id}
+                onPointerDown={(event) => onMarkerPointerDown(event, hotspot)}
+                onPointerMove={onMarkerPointerMove}
+                onPointerUp={(event) => void onMarkerPointerUp(event)}
+              >
+                +
+              </button>
+            ))
+          : null}
       </div>
 
-      {rows.length > 0 ? (
-        <div className="table-wrap hotspot-editor-table">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>SKU</th>
-                <th>Название</th>
-                <th>X %</th>
-                <th>Y %</th>
-                {!readOnly ? <th /> : null}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map(({ hotspot, sku, name }) => (
-                <tr key={hotspot.id}>
-                  <td>{sku ?? `#${hotspot.productId}`}</td>
-                  <td>{name ?? '—'}</td>
-                  <td>
-                    <input
-                      className="field-input hotspot-coord-input"
-                      type="number"
-                      min={0}
-                      max={100}
-                      step={0.01}
-                      value={draftCoords[hotspot.id]?.x ?? String(hotspot.xPercent)}
-                      disabled={readOnly || savingId === hotspot.id}
-                      onChange={(e) =>
-                        setDraftCoords((prev) => ({
-                          ...prev,
-                          [hotspot.id]: {
-                            x: e.target.value,
-                            y: prev[hotspot.id]?.y ?? String(hotspot.yPercent),
-                          },
-                        }))
-                      }
-                      onBlur={() => void persistCoords(hotspot)}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      className="field-input hotspot-coord-input"
-                      type="number"
-                      min={0}
-                      max={100}
-                      step={0.01}
-                      value={draftCoords[hotspot.id]?.y ?? String(hotspot.yPercent)}
-                      disabled={readOnly || savingId === hotspot.id}
-                      onChange={(e) =>
-                        setDraftCoords((prev) => ({
-                          ...prev,
-                          [hotspot.id]: {
-                            x: prev[hotspot.id]?.x ?? String(hotspot.xPercent),
-                            y: e.target.value,
-                          },
-                        }))
-                      }
-                      onBlur={() => void persistCoords(hotspot)}
-                    />
-                  </td>
-                  {!readOnly ? (
-                    <td>
-                      <button
-                        type="button"
-                        className="link-button link-button-danger"
+      {loading ? (
+        <SkeletonTable rows={3} cols={5} />
+      ) : rows.length > 0 ? (
+        <Table>
+          <TableHeader sticky>
+            <TableRow hover={false}>
+              <TableHead>SKU</TableHead>
+              <TableHead>Название</TableHead>
+              <TableHead numeric>X %</TableHead>
+              <TableHead numeric>Y %</TableHead>
+              {!readOnly ? <TableHead /> : null}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map(({ hotspot, sku, name }) => (
+              <TableRow key={hotspot.id}>
+                <TableCell>{sku ?? `#${hotspot.productId}`}</TableCell>
+                <TableCell>{name ?? '—'}</TableCell>
+                <TableCell numeric>
+                  <Input
+                    className="hotspot-coord-input"
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={0.01}
+                    value={draftCoords[hotspot.id]?.x ?? String(hotspot.xPercent)}
+                    disabled={readOnly || savingId === hotspot.id}
+                    onChange={(e) =>
+                      setDraftCoords((prev) => ({
+                        ...prev,
+                        [hotspot.id]: {
+                          x: e.target.value,
+                          y: prev[hotspot.id]?.y ?? String(hotspot.yPercent),
+                        },
+                      }))
+                    }
+                    onBlur={() => void persistCoords(hotspot)}
+                  />
+                </TableCell>
+                <TableCell numeric>
+                  <Input
+                    className="hotspot-coord-input"
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={0.01}
+                    value={draftCoords[hotspot.id]?.y ?? String(hotspot.yPercent)}
+                    disabled={readOnly || savingId === hotspot.id}
+                    onChange={(e) =>
+                      setDraftCoords((prev) => ({
+                        ...prev,
+                        [hotspot.id]: {
+                          x: prev[hotspot.id]?.x ?? String(hotspot.xPercent),
+                          y: e.target.value,
+                        },
+                      }))
+                    }
+                    onBlur={() => void persistCoords(hotspot)}
+                  />
+                </TableCell>
+                {!readOnly ? (
+                  <TableCell>
+                    <TableActions>
+                      <IconButton
+                        variant="danger"
+                        aria-label="Удалить точку"
                         disabled={savingId === hotspot.id}
                         onClick={() => void onDelete(hotspot.id)}
                       >
-                        Удалить
-                      </button>
-                    </td>
-                  ) : null}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                        <Trash2 size={16} />
+                      </IconButton>
+                    </TableActions>
+                  </TableCell>
+                ) : null}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       ) : null}
 
       {pickerOpen ? (
-        <div className="form-section hotspot-picker">
-          <h4 className="form-section-title">
-            Привязать товар
-            {pendingCoords
-              ? ` (${pendingCoords.xPercent}%, ${pendingCoords.yPercent}%)`
-              : ''}
-          </h4>
+        <Card
+          title={`Привязать товар${
+            pendingCoords ? ` (${pendingCoords.xPercent}%, ${pendingCoords.yPercent}%)` : ''
+          }`}
+        >
           {pickerError ? <p className="error-text">{pickerError}</p> : null}
           <div className="form-actions">
-            <input
-              className="field-input"
-              value={pickerQuery}
-              onChange={(e) => setPickerQuery(e.target.value)}
-              placeholder="SKU или название"
-            />
-            <button
+            <Field label="Поиск" htmlFor="hotspot-picker-q">
+              <Input
+                id="hotspot-picker-q"
+                value={pickerQuery}
+                onChange={(e) => setPickerQuery(e.target.value)}
+                placeholder="SKU или название"
+              />
+            </Field>
+            <Button
               type="button"
-              className="secondary-button"
-              disabled={pickerLoading || !pickerQuery.trim()}
+              variant="secondary"
+              loading={pickerLoading}
+              disabled={!pickerQuery.trim()}
               onClick={() => void onSearchProducts()}
             >
-              {pickerLoading ? 'Поиск…' : 'Найти'}
-            </button>
-            <button
+              Найти
+            </Button>
+            <Button
               type="button"
-              className="secondary-button"
+              variant="ghost"
               onClick={() => {
                 setPickerOpen(false)
                 setPendingCoords(null)
               }}
             >
               Отмена
-            </button>
+            </Button>
           </div>
           {pickerResults.length > 0 ? (
-            <ul className="catalog-section-links">
-              {pickerResults.map((product) => (
-                <li key={product.id}>
-                  {product.sku} — {product.name}
-                  <button
-                    type="button"
-                    className="link-button"
-                    disabled={creating}
-                    onClick={() => void onPickProduct(product)}
-                  >
-                    {creating ? 'Добавление…' : 'Выбрать'}
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <Table>
+              <TableBody>
+                {pickerResults.map((product) => (
+                  <TableRow key={product.id}>
+                    <TableCell>
+                      {product.sku} — {product.name}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        loading={creating}
+                        onClick={() => void onPickProduct(product)}
+                      >
+                        Выбрать
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           ) : null}
-        </div>
+        </Card>
       ) : null}
     </div>
   )
