@@ -1,4 +1,5 @@
 import type { HTMLAttributes, ReactNode, TdHTMLAttributes, ThHTMLAttributes } from 'react'
+import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react'
 
 import { cn } from '../../lib/cn'
 
@@ -48,16 +49,66 @@ export const TableRow = ({ className, children, hover = true, ...props }: TableR
 type TableHeadProps = ThHTMLAttributes<HTMLTableCellElement> & {
   children?: ReactNode
   numeric?: boolean
+  sortable?: boolean
+  sortKey?: string
+  activeSort?: string
+  sortDir?: 'asc' | 'desc'
+  onSort?: (key: string) => void
 }
 
-export const TableHead = ({ className, children, numeric, ...props }: TableHeadProps) => (
-  <th
-    className={cn('muru-table__head', numeric && 'muru-table__head--numeric', className)}
-    {...props}
-  >
-    {children ?? <span className="sr-only">Действия</span>}
-  </th>
-)
+export const TableHead = ({
+  className,
+  children,
+  numeric,
+  sortable,
+  sortKey,
+  activeSort,
+  sortDir,
+  onSort,
+  ...props
+}: TableHeadProps) => {
+  const isActive = sortable && sortKey && activeSort === sortKey
+  const ariaSort = isActive ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'
+
+  const SortIcon = isActive
+    ? sortDir === 'asc'
+      ? ArrowUp
+      : ArrowDown
+    : ArrowUpDown
+
+  if (sortable && sortKey && onSort) {
+    return (
+      <th
+        className={cn(
+          'muru-table__head',
+          'muru-table__head--sortable',
+          numeric && 'muru-table__head--numeric',
+          className,
+        )}
+        {...props}
+      >
+        <button
+          type="button"
+          className="muru-table__sort-btn"
+          aria-sort={ariaSort}
+          onClick={() => onSort(sortKey)}
+        >
+          <span>{children}</span>
+          <SortIcon className="muru-table__sort-icon" size={14} aria-hidden />
+        </button>
+      </th>
+    )
+  }
+
+  return (
+    <th
+      className={cn('muru-table__head', numeric && 'muru-table__head--numeric', className)}
+      {...props}
+    >
+      {children ?? <span className="sr-only">Действия</span>}
+    </th>
+  )
+}
 
 type TableCellProps = TdHTMLAttributes<HTMLTableCellElement> & {
   children: ReactNode

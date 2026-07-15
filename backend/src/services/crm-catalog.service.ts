@@ -77,6 +77,9 @@ export type CrmCatalogProductDetail = {
   updatedAt: string
 }
 
+export type CrmCatalogSortBy = 'sku' | 'price' | 'inStock' | 'updatedAt'
+export type CrmCatalogSortDir = 'asc' | 'desc'
+
 export type CrmCatalogListFilters = {
   q?: string
   category?: string
@@ -86,6 +89,8 @@ export type CrmCatalogListFilters = {
   giftGuide?: 'true' | 'false' | 'all'
   page?: unknown
   pageSize?: unknown
+  sortBy?: CrmCatalogSortBy
+  sortDir?: CrmCatalogSortDir
 }
 
 export type CrmCatalogListResult = {
@@ -297,6 +302,27 @@ const buildListFilters = (filters: CrmCatalogListFilters): FilterBuildResult => 
   return { where, params }
 }
 
+const SORT_COLUMN: Record<CrmCatalogSortBy, string> = {
+  sku: 'p.sku',
+  price: 'p.price',
+  inStock: 'p.in_stock',
+  updatedAt: 'p.updated_at',
+}
+
+const buildListOrderBy = (filters: CrmCatalogListFilters): string => {
+  const isValidSortBy =
+    Boolean(filters.sortBy) &&
+    Object.prototype.hasOwnProperty.call(SORT_COLUMN, filters.sortBy as CrmCatalogSortBy)
+  const sortBy = isValidSortBy ? (filters.sortBy as CrmCatalogSortBy) : 'updatedAt'
+  const defaultDir = sortBy === 'updatedAt' ? 'desc' : 'asc'
+  const sortDir =
+    isValidSortBy && (filters.sortDir === 'asc' || filters.sortDir === 'desc')
+      ? filters.sortDir
+      : defaultDir
+  const column = SORT_COLUMN[sortBy]
+  return `ORDER BY ${column} ${sortDir.toUpperCase()}, p.sku ASC`
+}
+
 export const getCrmCatalogMeta = (): CrmCatalogMeta => listMeta()
 
 export const listCrmCatalogProducts = async (
@@ -323,7 +349,7 @@ export const listCrmCatalogProducts = async (
     `SELECT ${PRODUCT_SELECT}
      ${FROM_PRODUCT}
      ${whereClause}
-     ORDER BY p.updated_at DESC
+     ${buildListOrderBy(filters)}
      LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
     listParams,
   )

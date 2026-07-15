@@ -23,7 +23,7 @@ import {
 } from '../../components/ui'
 import { useCatalogMetaContext } from '../../context/CatalogMetaContext'
 import { archiveProduct, listCategories, listProducts } from '../../lib/catalog-api'
-import type { CrmCatalogListResult, CrmCategoryItem } from '../../types/catalog'
+import type { CrmCatalogListResult, CrmCatalogSortBy, CrmCatalogSortDir, CrmCategoryItem } from '../../types/catalog'
 import { formatMoney } from '../../utils/order-labels'
 
 const PAGE_SIZE = 20
@@ -84,6 +84,8 @@ export const ProductsListPage = () => {
   const [error, setError] = useState('')
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [bulkArchiving, setBulkArchiving] = useState(false)
+  const [sortBy, setSortBy] = useState<CrmCatalogSortBy>('updatedAt')
+  const [sortDir, setSortDir] = useState<CrmCatalogSortDir>('desc')
 
   useEffect(() => {
     const timer = setTimeout(() => setQ(qInput.trim()), 300)
@@ -113,6 +115,8 @@ export const ProductsListPage = () => {
         giftGuide,
         page,
         pageSize: PAGE_SIZE,
+        sortBy: sortBy === 'updatedAt' ? undefined : sortBy,
+        sortDir: sortBy === 'updatedAt' ? undefined : sortDir,
       })
       setData(result)
       setSelectedIds(new Set())
@@ -121,7 +125,7 @@ export const ProductsListPage = () => {
     } finally {
       setLoading(false)
     }
-  }, [q, category, subcategory, inStock, archived, giftGuide, page])
+  }, [q, category, subcategory, inStock, archived, giftGuide, page, sortBy, sortDir])
 
   useEffect(() => {
     void load()
@@ -143,6 +147,17 @@ export const ProductsListPage = () => {
     if (subcategory && !nextOptions.some((opt) => opt.slug === subcategory)) {
       setSubcategory('')
     }
+  }
+
+  const onSort = (key: string) => {
+    if (key !== 'sku' && key !== 'price' && key !== 'inStock') return
+    if (sortBy === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortBy(key)
+      setSortDir('asc')
+    }
+    setPage(1)
   }
 
   const pageIds = useMemo(() => (data?.items ?? []).map((item) => item.id), [data?.items])
@@ -328,12 +343,18 @@ export const ProductsListPage = () => {
           <TableHeader sticky>
             <TableRow hover={false}>
               {!readOnly ? <TableHead /> : null}
-              <TableHead>SKU</TableHead>
+              <TableHead sortable sortKey="sku" activeSort={sortBy} sortDir={sortDir} onSort={onSort}>
+                SKU
+              </TableHead>
               <TableHead>Название</TableHead>
               <TableHead>Категория</TableHead>
               <TableHead>Подкатегория</TableHead>
-              <TableHead numeric>Цена</TableHead>
-              <TableHead numeric>Остаток</TableHead>
+              <TableHead numeric sortable sortKey="price" activeSort={sortBy} sortDir={sortDir} onSort={onSort}>
+                Цена
+              </TableHead>
+              <TableHead numeric sortable sortKey="inStock" activeSort={sortBy} sortDir={sortDir} onSort={onSort}>
+                Остаток
+              </TableHead>
               <TableHead>Статус</TableHead>
             </TableRow>
           </TableHeader>

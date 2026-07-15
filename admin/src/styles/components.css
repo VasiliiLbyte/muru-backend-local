@@ -616,6 +616,46 @@
   white-space: nowrap;
 }
 
+.muru-table__head--sortable {
+  padding: 0;
+}
+
+.muru-table__sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muru-muted);
+  cursor: pointer;
+  text-align: inherit;
+}
+
+.muru-table__sort-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.muru-table__head--numeric .muru-table__sort-btn {
+  justify-content: flex-end;
+}
+
+.muru-table__sort-icon {
+  flex-shrink: 0;
+  opacity: 0.45;
+}
+
+.muru-table__sort-btn[aria-sort='ascending'] .muru-table__sort-icon,
+.muru-table__sort-btn[aria-sort='descending'] .muru-table__sort-icon {
+  opacity: 1;
+  color: var(--muru-olive);
+}
+
 /* Skeleton */
 @keyframes muru-shimmer {
   0% {

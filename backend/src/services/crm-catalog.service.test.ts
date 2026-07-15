@@ -98,6 +98,30 @@ describe('crm-catalog.service', () => {
     expect(countParams[0]).toBe('%MU%')
   })
 
+  it('list applies sortBy=sku&sortDir=asc in ORDER BY', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ total: '0' }] })
+      .mockResolvedValueOnce({ rows: [] })
+
+    await listCrmCatalogProducts({ sortBy: 'sku', sortDir: 'asc' })
+
+    const listSql = String(mockQuery.mock.calls[1][0])
+    expect(listSql).toContain('ORDER BY p.sku ASC')
+    expect(listSql).toContain('p.sku ASC')
+  })
+
+  it('list falls back to updated_at desc for invalid sortBy', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ total: '0' }] })
+      .mockResolvedValueOnce({ rows: [] })
+
+    await listCrmCatalogProducts({ sortBy: 'evil' as never, sortDir: 'asc' })
+
+    const listSql = String(mockQuery.mock.calls[1][0])
+    expect(listSql).toContain('ORDER BY p.updated_at DESC')
+    expect(listSql).toContain('p.sku ASC')
+  })
+
   it('create throws CatalogLockedError in sheets mode', async () => {
     await expect(
       createCrmCatalogProduct({ sku: 'MU9999', name: 'Test', price: 100 }),

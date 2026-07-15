@@ -40,6 +40,7 @@ import {
   updateCrmCatalogProduct,
   updateCrmCatalogProductStock,
 } from '../services/crm-catalog.service'
+import type { CrmCatalogSortBy, CrmCatalogSortDir } from '../services/crm-catalog.service'
 import { fail, HttpError, ok, zodErrorMessage } from '../utils/api-response'
 
 const parseProductId = (req: Request, res: Response): number | null => {
@@ -72,6 +73,18 @@ const parseArchived = (value: unknown): 'true' | 'false' | 'all' | undefined => 
 
 const parseGiftGuide = (value: unknown): 'true' | 'false' | 'all' | undefined => {
   if (value === 'true' || value === 'false' || value === 'all') return value
+  return undefined
+}
+
+const parseSortBy = (value: unknown): CrmCatalogSortBy | undefined => {
+  if (value === 'sku' || value === 'price' || value === 'inStock' || value === 'updatedAt') {
+    return value
+  }
+  return undefined
+}
+
+const parseSortDir = (value: unknown): CrmCatalogSortDir | undefined => {
+  if (value === 'asc' || value === 'desc') return value
   return undefined
 }
 
@@ -123,6 +136,8 @@ export const listCrmCatalogProductsHandler = async (
       giftGuide: parseGiftGuide(req.query.giftGuide),
       page: req.query.page,
       pageSize: req.query.pageSize,
+      sortBy: parseSortBy(req.query.sortBy),
+      sortDir: parseSortDir(req.query.sortDir),
     })
     return ok(res, data)
   } catch (error) {

@@ -51,6 +51,9 @@ export type CrmCatalogProductDetail = {
   updatedAt: string
 }
 
+export type CrmCatalogSortBy = 'sku' | 'price' | 'inStock' | 'updatedAt'
+export type CrmCatalogSortDir = 'asc' | 'desc'
+
 export type CrmCatalogListParams = {
   q?: string
   category?: string
@@ -60,6 +63,8 @@ export type CrmCatalogListParams = {
   giftGuide?: 'true' | 'false' | 'all'
   page?: number
   pageSize?: number
+  sortBy?: 'sku' | 'price' | 'inStock'
+  sortDir?: CrmCatalogSortDir
 }
 
 export type CrmCatalogListResult = {
