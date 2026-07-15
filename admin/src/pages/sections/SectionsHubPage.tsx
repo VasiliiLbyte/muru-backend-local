@@ -94,7 +94,7 @@ export const SectionsHubPage = () => {
 
       {!readOnly ? (
         <Card title="Создать категорию">
-          <form className="form-stack" onSubmit={onCreate}>
+          <form className="form-stack sections-create-category-form" onSubmit={onCreate}>
             <Field label="Название" htmlFor="new-category-name">
               <Input
                 id="new-category-name"
@@ -116,7 +116,7 @@ export const SectionsHubPage = () => {
       ) : items.length === 0 ? (
         <EmptyState icon={FolderTree} title="Категории не найдены" />
       ) : (
-        <Table>
+        <Table className="sections-categories-table">
           <TableHeader sticky>
             <TableRow hover={false}>
               <TableHead>Категория</TableHead>
@@ -133,19 +133,21 @@ export const SectionsHubPage = () => {
               return (
                 <TableRow key={item.id}>
                   <TableCell>
-                    <Link className="muru-page-header__back" to={`/catalog/sections/categories/${item.id}`}>
-                      {item.name}
-                    </Link>
-                    {isSale ? (
-                      <Badge variant="neutral" className="inline-badge">
-                        виртуальная
-                      </Badge>
-                    ) : null}
-                    {!isSale && item.isUnused ? (
-                      <Badge variant="warning" className="inline-badge">
-                        не используется
-                      </Badge>
-                    ) : null}
+                    <div className="sections-categories-table__category">
+                      <Link className="muru-page-header__back" to={`/catalog/sections/categories/${item.id}`}>
+                        {item.name}
+                      </Link>
+                      {isSale ? (
+                        <Badge variant="neutral" className="inline-badge">
+                          виртуальная
+                        </Badge>
+                      ) : null}
+                      {!isSale && item.isUnused ? (
+                        <Badge variant="warning" className="inline-badge">
+                          не используется
+                        </Badge>
+                      ) : null}
+                    </div>
                   </TableCell>
                   <TableCell>{item.slug}</TableCell>
                   <TableCell numeric>

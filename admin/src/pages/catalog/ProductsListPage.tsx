@@ -32,6 +32,38 @@ type ArchivedFilter = 'false' | 'true' | 'all'
 type StockFilter = 'all' | 'in' | 'out'
 type GiftGuideFilter = 'all' | 'true' | 'false'
 
+type SubcategoryOption = {
+  slug: string
+  label: string
+}
+
+const buildSubcategoryOptions = (
+  categorySlug: string,
+  cats: CrmCategoryItem[],
+): SubcategoryOption[] => {
+  const selectedCategory = cats.find((cat) => cat.slug === categorySlug)
+  if (selectedCategory) {
+    return selectedCategory.subcategories.map((sub) => ({
+      slug: sub.slug,
+      label: sub.name,
+    }))
+  }
+
+  const seen = new Set<string>()
+  const options: SubcategoryOption[] = []
+  for (const cat of cats) {
+    for (const sub of cat.subcategories) {
+      if (seen.has(sub.slug)) continue
+      seen.add(sub.slug)
+      options.push({
+        slug: sub.slug,
+        label: `${sub.name} (${cat.name})`,
+      })
+    }
+  }
+  return options
+}
+
 export const ProductsListPage = () => {
   const { readOnly } = useCatalogMetaContext()
   const navigate = useNavigate()
@@ -99,6 +131,19 @@ export const ProductsListPage = () => {
     if (!data) return 1
     return Math.max(1, Math.ceil(data.total / data.pageSize))
   }, [data])
+
+  const subcategoryOptions = useMemo(
+    () => buildSubcategoryOptions(category, categories),
+    [categories, category],
+  )
+
+  const onCategoryChange = (nextCategory: string) => {
+    setCategory(nextCategory)
+    const nextOptions = buildSubcategoryOptions(nextCategory, categories)
+    if (subcategory && !nextOptions.some((opt) => opt.slug === subcategory)) {
+      setSubcategory('')
+    }
+  }
 
   const pageIds = useMemo(() => (data?.items ?? []).map((item) => item.id), [data?.items])
 
@@ -170,74 +215,86 @@ export const ProductsListPage = () => {
         }
       />
 
-      <div className="filters-panel">
-        <Field label="Поиск" htmlFor="catalog-q">
-          <Input
-            id="catalog-q"
-            value={qInput}
-            onChange={(e) => setQInput(e.target.value)}
-            placeholder="SKU или название"
-          />
-        </Field>
+      <div className="filters-panel filters-panel--products">
+        <div className="filters-panel__search">
+          <Field label="Поиск" htmlFor="catalog-q">
+            <Input
+              id="catalog-q"
+              value={qInput}
+              onChange={(e) => setQInput(e.target.value)}
+              placeholder="SKU или название"
+            />
+          </Field>
+        </div>
 
-        <Field label="Категория" htmlFor="catalog-category">
-          <Select
-            id="catalog-category"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-          >
-            <option value="">Все</option>
-            {categories.map((cat) => (
-              <option key={cat.id} value={cat.slug}>
-                {cat.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
+        <div className="filters-panel__row">
+          <Field label="Категория" htmlFor="catalog-category">
+            <Select
+              id="catalog-category"
+              value={category}
+              onChange={(e) => onCategoryChange(e.target.value)}
+            >
+              <option value="">Все</option>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.slug}>
+                  {cat.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
 
-        <Field label="Подкатегория" htmlFor="catalog-subcategory">
-          <Input
-            id="catalog-subcategory"
-            value={subcategory}
-            onChange={(e) => setSubcategory(e.target.value)}
-          />
-        </Field>
+          <Field label="Подкатегория" htmlFor="catalog-subcategory">
+            <Select
+              id="catalog-subcategory"
+              value={subcategory}
+              onChange={(e) => setSubcategory(e.target.value)}
+              disabled={subcategoryOptions.length === 0}
+            >
+              <option value="">Все</option>
+              {subcategoryOptions.map((opt) => (
+                <option key={opt.slug} value={opt.slug}>
+                  {opt.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
 
-        <Field label="Остаток" htmlFor="catalog-stock">
-          <Select
-            id="catalog-stock"
-            value={inStock}
-            onChange={(e) => setInStock(e.target.value as StockFilter)}
-          >
-            <option value="all">Все</option>
-            <option value="in">В наличии</option>
-            <option value="out">Нет в наличии</option>
-          </Select>
-        </Field>
+          <Field label="Остаток" htmlFor="catalog-stock">
+            <Select
+              id="catalog-stock"
+              value={inStock}
+              onChange={(e) => setInStock(e.target.value as StockFilter)}
+            >
+              <option value="all">Все</option>
+              <option value="in">В наличии</option>
+              <option value="out">Нет в наличии</option>
+            </Select>
+          </Field>
 
-        <Field label="Архив" htmlFor="catalog-archived">
-          <Select
-            id="catalog-archived"
-            value={archived}
-            onChange={(e) => setArchived(e.target.value as ArchivedFilter)}
-          >
-            <option value="false">Активные</option>
-            <option value="true">Только архив</option>
-            <option value="all">Все</option>
-          </Select>
-        </Field>
+          <Field label="Архив" htmlFor="catalog-archived">
+            <Select
+              id="catalog-archived"
+              value={archived}
+              onChange={(e) => setArchived(e.target.value as ArchivedFilter)}
+            >
+              <option value="false">Активные</option>
+              <option value="true">Только архив</option>
+              <option value="all">Все</option>
+            </Select>
+          </Field>
 
-        <Field label="Гид по подаркам" htmlFor="catalog-gift-guide">
-          <Select
-            id="catalog-gift-guide"
-            value={giftGuide}
-            onChange={(e) => setGiftGuide(e.target.value as GiftGuideFilter)}
-          >
-            <option value="all">Все</option>
-            <option value="true">Да</option>
-            <option value="false">Нет</option>
-          </Select>
-        </Field>
+          <Field label="Гид по подаркам" htmlFor="catalog-gift-guide">
+            <Select
+              id="catalog-gift-guide"
+              value={giftGuide}
+              onChange={(e) => setGiftGuide(e.target.value as GiftGuideFilter)}
+            >
+              <option value="all">Все</option>
+              <option value="true">Да</option>
+              <option value="false">Нет</option>
+            </Select>
+          </Field>
+        </div>
       </div>
 
       {!readOnly ? (

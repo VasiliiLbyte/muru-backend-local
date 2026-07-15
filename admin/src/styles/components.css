@@ -115,11 +115,17 @@
   height: 40px;
   border: 1px solid var(--muru-border-input);
   border-radius: var(--r-sm);
-  padding: 0 12px;
+  padding: 0 36px 0 12px;
   font-family: var(--font-body);
   font-size: 0.95rem;
   color: var(--muru-text);
-  background: var(--muru-surface);
+  background-color: var(--muru-surface);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+  appearance: none;
+  -webkit-appearance: none;
   transition:
     border-color var(--motion-fast),
     box-shadow var(--motion-fast);
@@ -589,8 +595,10 @@
   border-bottom: 1px solid var(--muru-border-subtle);
 }
 
+.muru-table__head--numeric,
 .muru-table__cell--numeric {
   text-align: right;
+  white-space: nowrap;
 }
 
 .muru-table__row:nth-child(even) .muru-table__cell {
@@ -985,6 +993,20 @@
   gap: 12px;
 }
 
+.catalog-subcategory-picker .muru-checkbox {
+  align-items: flex-start;
+  width: 100%;
+}
+
+.catalog-subcategory-picker .muru-checkbox__box {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.catalog-subcategory-picker .muru-checkbox__label {
+  line-height: 1.4;
+}
+
 .catalog-subcategory-order {
   list-style: none;
   margin: 0;
@@ -1075,6 +1097,42 @@
 
 .filters-panel .muru-field {
   min-width: 140px;
+}
+
+.filters-panel--products {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 16px;
+}
+
+.filters-panel--products .filters-panel__search {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.filters-panel--products .filters-panel__search .muru-field {
+  width: 100%;
+  max-width: 480px;
+  min-width: 0;
+}
+
+.filters-panel--products .filters-panel__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.filters-panel--products .filters-panel__row .muru-field {
+  flex: 1 1 140px;
+  min-width: 140px;
+}
+
+@media (min-width: 768px) {
+  .filters-panel--products .filters-panel__row {
+    flex-wrap: nowrap;
+  }
 }
 
 .form-stack {
@@ -1378,4 +1436,31 @@
   gap: 10px;
   flex-wrap: wrap;
   margin-top: 8px;
+}
+
+/* Sections hub — categories table */
+.sections-categories-table .muru-table__cell {
+  min-height: 56px;
+  vertical-align: middle;
+}
+
+.sections-categories-table__category {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.sections-categories-table .order-thumb {
+  flex-shrink: 0;
+}
+
+.sections-categories-table .muru-table__row:nth-child(even) .muru-table__cell {
+  background: rgba(245, 240, 224, 0.55);
+}
+
+.sections-create-category-form {
+  max-width: 420px;
+  margin: 0 auto;
+  align-items: stretch;
 }
