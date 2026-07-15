@@ -24,6 +24,45 @@ describe('crm-catalog-categories.service', () => {
     mockEnv.catalogSource = 'crm'
   })
 
+  it('listCrmCategories uses virtual count for Sale category', async () => {
+    mockQuery
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: 7,
+            name: 'Распродажа',
+            slug: 'распродажа',
+            cover_image_url: null,
+            cover_drive_filename: null,
+            direct_product_count: 0,
+            cross_placement_count: 0,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            category_id: 7,
+            id: 70,
+            name: 'Legacy Sub',
+            slug: 'legacy-sub',
+            cover_image_url: null,
+            sort_order: 0,
+            product_count: 5,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [{ cnt: 21 }] })
+
+    const items = await listCrmCategories()
+
+    expect(String(mockQuery.mock.calls[2][0])).toContain('discount_percent > 0')
+    expect(items).toHaveLength(1)
+    expect(items[0].subcategories).toEqual([])
+    expect(items[0].directProductCount).toBe(21)
+    expect(items[0].productCount).toBe(21)
+  })
+
   it('listCrmCategories merges categories, subcategories, and isUnused', async () => {
     mockQuery
       .mockResolvedValueOnce({
@@ -79,6 +118,7 @@ describe('crm-catalog-categories.service', () => {
           },
         ],
       })
+      .mockResolvedValueOnce({ rows: [{ cnt: 0 }] })
 
     const items = await listCrmCategories()
 
@@ -238,6 +278,7 @@ describe('crm-catalog-categories.service', () => {
         ],
       })
       .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ cnt: 0 }] })
 
     const updated = await updateCrmCategory(7, {
       coverImageUrl: 'https://example.com/cover.webp',

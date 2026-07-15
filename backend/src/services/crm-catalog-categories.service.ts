@@ -6,6 +6,7 @@ import type {
 import { SALE_CATEGORY_NAME } from '../constants/catalog-top-level'
 import { pool } from '../utils/db'
 
+import { SALE_VIRTUAL_PRODUCT_COUNT_SQL } from './catalog-sale.helpers'
 import { assertCatalogCrmWritable } from './catalog-source.guard'
 import {
   conflictError,
@@ -93,7 +94,7 @@ const mapCategoryRow = (
 }
 
 export const listCrmCategories = async (): Promise<CrmCategoryItem[]> => {
-  const [categoriesResult, subcategoriesResult] = await Promise.all([
+  const [categoriesResult, subcategoriesResult, saleCountResult] = await Promise.all([
     pool.query<CategoryRow>(
       `SELECT c.id, c.name, c.slug, c.cover_image_url, c.cover_drive_filename,
               ${MEMBERSHIP_COUNT_SQL},
@@ -115,7 +116,10 @@ export const listCrmCategories = async (): Promise<CrmCategoryItem[]> => {
        GROUP BY s.id
        ORDER BY s.category_id, s.sort_order, s.name`,
     ),
+    pool.query<{ cnt: number }>(SALE_VIRTUAL_PRODUCT_COUNT_SQL),
   ])
+
+  const virtualSaleCount = saleCountResult.rows[0]?.cnt ?? 0
 
   const subcategoriesByCategory = new Map<number, CrmCategorySubcategoryItem[]>()
   for (const row of subcategoriesResult.rows) {
@@ -131,9 +135,19 @@ export const listCrmCategories = async (): Promise<CrmCategoryItem[]> => {
     subcategoriesByCategory.set(row.category_id, list)
   }
 
-  return categoriesResult.rows.map((row) =>
-    mapCategoryRow(row, subcategoriesByCategory.get(row.id) ?? []),
-  )
+  return categoriesResult.rows.map((row) => {
+    if (row.name === SALE_CATEGORY_NAME) {
+      const crossPlacementCount = row.cross_placement_count
+      return {
+        ...mapCategoryRow(row, []),
+        subcategories: [],
+        productCount: virtualSaleCount,
+        directProductCount: virtualSaleCount,
+        isUnused: virtualSaleCount === 0 && crossPlacementCount === 0,
+      }
+    }
+    return mapCategoryRow(row, subcategoriesByCategory.get(row.id) ?? [])
+  })
 }
 
 export const createCrmCategory = async (input: CreateCrmCategoryInput): Promise<CrmCategoryItem> => {

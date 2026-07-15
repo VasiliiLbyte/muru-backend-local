@@ -4,6 +4,8 @@ import type {
 } from '../schemas/crm-catalog.schemas'
 import { pool } from '../utils/db'
 
+import { SALE_CATEGORY_NAME } from '../constants/catalog-top-level'
+
 import { assertCatalogCrmWritable } from './catalog-source.guard'
 import { conflictError, isUniqueViolation, slugify } from './crm-catalog.helpers'
 
@@ -61,6 +63,14 @@ export const createCrmSubcategory = async (
   input: CreateCrmSubcategoryInput,
 ): Promise<CrmSubcategoryItem> => {
   assertCatalogCrmWritable()
+
+  const cat = await pool.query<{ name: string }>(
+    'SELECT name FROM categories WHERE id = $1',
+    [categoryId],
+  )
+  if (cat.rows[0]?.name === SALE_CATEGORY_NAME) {
+    throw conflictError('Sale category is virtual and cannot have subcategories')
+  }
 
   const name = input.name.trim()
   const slug = slugify(name)

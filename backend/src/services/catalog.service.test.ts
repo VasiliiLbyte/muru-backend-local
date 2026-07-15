@@ -366,6 +366,41 @@ describe('getCatalogTree', () => {
     expect(tree.some((node) => node.slug === 'распродажа')).toBe(false)
   })
 
+  it('keeps Sale node children empty when withSubcategories is true', async () => {
+    queryMock
+      .mockResolvedValueOnce({
+        rows: [{ name: 'Кухня и столовая' }, { name: 'Распродажа' }],
+      })
+      .mockResolvedValueOnce({ rows: [{ slug: 'кухня-и-столовая' }] })
+      .mockResolvedValueOnce({ rows: [{ ok: true }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            category_slug: 'распродажа',
+            name: 'Legacy Sale Sub',
+            slug: 'legacy-sale-sub',
+            cover_image_url: null,
+          },
+          {
+            category_slug: 'кухня-и-столовая',
+            name: 'Посуда',
+            slug: 'посуда',
+            cover_image_url: null,
+          },
+        ],
+      })
+
+    const tree = await getCatalogTree(true)
+
+    const sale = tree.find((node) => node.slug === 'распродажа')
+    expect(sale?.children).toEqual([])
+    const kitchen = tree.find((node) => node.slug === 'кухня-и-столовая')
+    expect(kitchen?.children).toEqual([
+      { name: 'Посуда', slug: 'посуда', children: [] },
+    ])
+  })
+
   it('attaches real subcategory children when withSubcategories is true', async () => {
     queryMock
       .mockResolvedValueOnce({ rows: [{ name: 'Кухня и столовая' }] })

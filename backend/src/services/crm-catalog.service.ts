@@ -14,6 +14,10 @@ import { pool } from '../utils/db'
 import { env } from '../utils/env'
 
 import { normalizeAdminOrdersPage, normalizeAdminOrdersPageSize } from './admin-orders.helpers'
+import {
+  isSaleCategoryFilter,
+  SALE_VIRTUAL_PRODUCT_WHERE,
+} from './catalog-sale.helpers'
 import { assertCatalogCrmWritable } from './catalog-source.guard'
 import {
   getSubcategoryDenormById,
@@ -253,11 +257,35 @@ const buildListFilters = (filters: CrmCatalogListFilters): FilterBuildResult => 
   const where: string[] = []
   const params: unknown[] = []
 
-  const archived = filters.archived ?? 'false'
-  if (archived === 'true') {
-    where.push('p.is_archived = TRUE')
-  } else if (archived === 'false') {
-    where.push('p.is_archived = FALSE')
+  const category = filters.category?.trim()
+  const isSaleFilter = Boolean(category && isSaleCategoryFilter(category, category))
+
+  if (isSaleFilter) {
+    where.push(SALE_VIRTUAL_PRODUCT_WHERE)
+  } else {
+    const archived = filters.archived ?? 'false'
+    if (archived === 'true') {
+      where.push('p.is_archived = TRUE')
+    } else if (archived === 'false') {
+      where.push('p.is_archived = FALSE')
+    }
+
+    if (category) {
+      params.push(category)
+      const idx = params.length
+      where.push(`(c.slug = $${idx} OR c.name ILIKE $${idx})`)
+    }
+
+    const subcategory = filters.subcategory?.trim()
+    if (subcategory) {
+      params.push(subcategory)
+      const idx = params.length
+      params.push(`%${subcategory}%`)
+      const likeIdx = params.length
+      where.push(
+        `(p.web_subcategory_slug = $${idx} OR p.web_subcategory_name ILIKE $${likeIdx} OR p.subcategory_slug = $${idx} OR p.subcategory ILIKE $${likeIdx})`,
+      )
+    }
   }
 
   const giftGuide = filters.giftGuide ?? 'all'
@@ -279,24 +307,6 @@ const buildListFilters = (filters: CrmCatalogListFilters): FilterBuildResult => 
     params.push(`%${q}%`)
     const idx = params.length
     where.push(`(p.sku ILIKE $${idx} OR p.name ILIKE $${idx})`)
-  }
-
-  const category = filters.category?.trim()
-  if (category) {
-    params.push(category)
-    const idx = params.length
-    where.push(`(c.slug = $${idx} OR c.name ILIKE $${idx})`)
-  }
-
-  const subcategory = filters.subcategory?.trim()
-  if (subcategory) {
-    params.push(subcategory)
-    const idx = params.length
-    params.push(`%${subcategory}%`)
-    const likeIdx = params.length
-    where.push(
-      `(p.web_subcategory_slug = $${idx} OR p.web_subcategory_name ILIKE $${likeIdx} OR p.subcategory_slug = $${idx} OR p.subcategory ILIKE $${likeIdx})`,
-    )
   }
 
   return { where, params }

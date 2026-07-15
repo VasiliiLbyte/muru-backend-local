@@ -4,6 +4,10 @@ import {
   productInCategoryByNameSql,
   productInCategoryBySlugSql,
 } from './catalog-membership.helpers'
+import {
+  isSaleCategoryFilter,
+  SALE_CATEGORY_SLUG,
+} from './catalog-sale.helpers'
 import { buildProductTextSearchCondition } from './catalog-product-search'
 import { pool } from '../utils/db'
 import type {
@@ -29,10 +33,6 @@ const slugify = (value: string) =>
     .trim()
     .replace(/\s+/g, '-')
     .replace(/[^a-z0-9а-яё-]/gi, '')
-
-const isSaleCategoryFilter = (category?: string, categorySlug?: string): boolean =>
-  categorySlug === slugify(SALE_CATEGORY_NAME) ||
-  category?.trim().toLowerCase() === SALE_CATEGORY_NAME.toLowerCase()
 
 type ProductRow = {
   sku: string
@@ -145,6 +145,10 @@ const attachProductSubcategories = async (nodes: CatalogNode[]): Promise<void> =
   }
 
   for (const node of nodes) {
+    if (node.slug === SALE_CATEGORY_SLUG) {
+      node.children = []
+      continue
+    }
     const rows = byCategorySlug.get(node.slug) ?? []
     node.children = rows.map((row) => ({
       name: row.name,
@@ -175,11 +179,10 @@ export const getCatalogTree = async (withSubcategories = false): Promise<Catalog
          AND p.discount_percent > 0
      ) AS ok`,
   )
-  const saleSlug = slugify(SALE_CATEGORY_NAME)
   const hasDiscounted = saleExistsResult.rows[0]?.ok === true
 
   const filtered = fullTree.filter((node) =>
-    node.slug === saleSlug ? hasDiscounted : slugsWithProducts.has(node.slug),
+    node.slug === SALE_CATEGORY_SLUG ? hasDiscounted : slugsWithProducts.has(node.slug),
   )
 
   const covers = await pool.query<{ slug: string; cover_image_url: string }>(

@@ -284,7 +284,8 @@ export const CategoryDetailPage = () => {
             </p>
             <p>
               <span className="muted-text">Товаров: </span>
-              {category.directProductCount}
+              {isSale ? category.productCount : category.directProductCount}
+              {isSale ? <span className="muted-text"> (по скидке)</span> : null}
             </p>
             {coverPreview ? (
               <img src={coverPreview} alt="" className="order-thumb" />
@@ -330,6 +331,7 @@ export const CategoryDetailPage = () => {
         )}
       </Card>
 
+      {!isSale ? (
       <Card title="Подкатегории">
         <Table>
           <TableHeader sticky>
@@ -470,6 +472,7 @@ export const CategoryDetailPage = () => {
           </div>
         ) : null}
       </Card>
+      ) : null}
     </section>
   )
 }

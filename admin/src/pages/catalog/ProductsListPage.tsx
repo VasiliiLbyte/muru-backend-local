@@ -23,6 +23,7 @@ import {
 } from '../../components/ui'
 import { useCatalogMetaContext } from '../../context/CatalogMetaContext'
 import { archiveProduct, listCategories, listProducts } from '../../lib/catalog-api'
+import { isSaleCategorySlug } from '../../lib/sale-category'
 import type { CrmCatalogListResult, CrmCatalogSortBy, CrmCatalogSortDir, CrmCategoryItem } from '../../types/catalog'
 import { formatMoney } from '../../utils/order-labels'
 
@@ -140,9 +141,14 @@ export const ProductsListPage = () => {
     () => buildSubcategoryOptions(category, categories),
     [categories, category],
   )
+  const isSaleFilter = isSaleCategorySlug(category)
 
   const onCategoryChange = (nextCategory: string) => {
     setCategory(nextCategory)
+    if (isSaleCategorySlug(nextCategory)) {
+      setSubcategory('')
+      return
+    }
     const nextOptions = buildSubcategoryOptions(nextCategory, categories)
     if (subcategory && !nextOptions.some((opt) => opt.slug === subcategory)) {
       setSubcategory('')
@@ -263,7 +269,7 @@ export const ProductsListPage = () => {
               id="catalog-subcategory"
               value={subcategory}
               onChange={(e) => setSubcategory(e.target.value)}
-              disabled={subcategoryOptions.length === 0}
+              disabled={isSaleFilter || subcategoryOptions.length === 0}
             >
               <option value="">Все</option>
               {subcategoryOptions.map((opt) => (

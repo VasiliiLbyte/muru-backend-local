@@ -83,6 +83,19 @@ describe('crm-catalog.service', () => {
     mockEnv.catalogSource = 'sheets'
   })
 
+  it('list filters Sale category by virtual discount membership', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ total: '0' }] })
+      .mockResolvedValueOnce({ rows: [] })
+
+    await listCrmCatalogProducts({ category: 'распродажа' })
+
+    const listSql = String(mockQuery.mock.calls[1][0])
+    expect(listSql).toContain('p.discount_percent > 0')
+    expect(listSql).toContain('p.is_archived = FALSE')
+    expect(listSql).not.toContain('c.slug')
+  })
+
   it('list applies archived=false and inStock filters', async () => {
     mockQuery
       .mockResolvedValueOnce({ rows: [{ total: '0' }] })

@@ -58,8 +58,20 @@ describe('crm-catalog-subcategories.service', () => {
     ])
   })
 
+  it('createCrmSubcategory returns 409 under virtual Sale category', async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [{ name: 'Распродажа' }] })
+
+    await expect(createCrmSubcategory(7, { name: 'Bags' })).rejects.toMatchObject({
+      message: 'Sale category is virtual and cannot have subcategories',
+      statusCode: 409,
+    })
+    expect(mockQuery).toHaveBeenCalledTimes(1)
+  })
+
   it('createCrmSubcategory returns 409 on slug conflict', async () => {
-    mockQuery.mockRejectedValueOnce(Object.assign(new Error('duplicate'), { code: '23505' }))
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ name: 'Used' }] })
+      .mockRejectedValueOnce(Object.assign(new Error('duplicate'), { code: '23505' }))
 
     await expect(createCrmSubcategory(5, { name: 'Bags' })).rejects.toMatchObject({
       message: 'Subcategory with this slug already exists in category',
