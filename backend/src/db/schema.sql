@@ -209,6 +209,7 @@ CREATE TABLE IF NOT EXISTS content_lookbooks (
   title TEXT NOT NULL,
   description TEXT,
   cover_image JSONB,
+  banner_image JSONB,
   is_visible BOOLEAN NOT NULL DEFAULT true,
   sort_order INTEGER NOT NULL DEFAULT 0,
   seo_title TEXT NOT NULL DEFAULT '',

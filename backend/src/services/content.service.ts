@@ -383,7 +383,7 @@ export const setCollectionProducts = async (
 
 export const listCrmLookbooks = async (): Promise<CrmLookbookDto[]> => {
   const result = await pool.query(
-    `SELECT id, slug, title, description, cover_image, seo_title, seo_description,
+    `SELECT id, slug, title, description, cover_image, banner_image, seo_title, seo_description,
             is_visible, sort_order, created_at, updated_at
      FROM content_lookbooks
      ORDER BY sort_order ASC, slug ASC`,
@@ -399,7 +399,7 @@ export const listCrmLookbooks = async (): Promise<CrmLookbookDto[]> => {
 export const getCrmLookbookById = async (id: number): Promise<CrmLookbookDto> => {
   const lookbookId = assertPositiveIntId(id)
   const result = await pool.query(
-    `SELECT id, slug, title, description, cover_image, seo_title, seo_description,
+    `SELECT id, slug, title, description, cover_image, banner_image, seo_title, seo_description,
             is_visible, sort_order, created_at, updated_at
      FROM content_lookbooks WHERE id = $1`,
     [lookbookId],
@@ -428,7 +428,7 @@ export const listPublicLookbooks = async (): Promise<LookbookDto[]> => {
 
 export const getPublicLookbookBySlug = async (slug: string): Promise<LookbookDto> => {
   const result = await pool.query(
-    `SELECT id, slug, title, description, cover_image, seo_title, seo_description,
+    `SELECT id, slug, title, description, cover_image, banner_image, seo_title, seo_description,
             is_visible, sort_order, created_at, updated_at
      FROM content_lookbooks WHERE slug = $1 AND is_visible = true`,
     [slug],
@@ -436,7 +436,7 @@ export const getPublicLookbookBySlug = async (slug: string): Promise<LookbookDto
   const row = result.rows[0]
   if (!row) throw new HttpError(404, 'Lookbook not found', 'NOT_FOUND')
   const images = await fetchLookbookImages(pool, row.id)
-  const dto = mapLookbookRowToPublic(row, images)
+  const dto = mapLookbookRowToPublic(row, images, { includeBanner: true })
   const hotspots = await listPublicHotspotsForLookbook(row.id)
   if (hotspots.length > 0) {
     dto.hotspots = hotspots
@@ -449,6 +449,7 @@ export type UpsertLookbookInput = {
   title: string
   description?: string | null
   coverImage?: ContentImage | null
+  bannerImage?: ContentImage | null
   seoTitle?: string
   seoDescription?: string
   isVisible?: boolean
@@ -460,15 +461,16 @@ export const createLookbook = async (input: UpsertLookbookInput): Promise<CrmLoo
   try {
     const result = await pool.query(
       `INSERT INTO content_lookbooks
-         (slug, title, description, cover_image, seo_title, seo_description, is_visible, sort_order)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING id, slug, title, description, cover_image, seo_title, seo_description,
+         (slug, title, description, cover_image, banner_image, seo_title, seo_description, is_visible, sort_order)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING id, slug, title, description, cover_image, banner_image, seo_title, seo_description,
                  is_visible, sort_order, created_at, updated_at`,
       [
         input.slug,
         input.title,
         description,
         input.coverImage ? JSON.stringify(input.coverImage) : null,
+        input.bannerImage ? JSON.stringify(input.bannerImage) : null,
         input.seoTitle ?? '',
         input.seoDescription ?? '',
         input.isVisible ?? true,
@@ -490,10 +492,10 @@ export const updateLookbook = async (
   try {
     const result = await pool.query(
       `UPDATE content_lookbooks
-       SET slug = $2, title = $3, description = $4, cover_image = $5,
-           seo_title = $6, seo_description = $7, is_visible = $8, sort_order = $9, updated_at = NOW()
+       SET slug = $2, title = $3, description = $4, cover_image = $5, banner_image = $6,
+           seo_title = $7, seo_description = $8, is_visible = $9, sort_order = $10, updated_at = NOW()
        WHERE id = $1
-       RETURNING id, slug, title, description, cover_image, seo_title, seo_description,
+       RETURNING id, slug, title, description, cover_image, banner_image, seo_title, seo_description,
                  is_visible, sort_order, created_at, updated_at`,
       [
         lookbookId,
@@ -501,6 +503,7 @@ export const updateLookbook = async (
         input.title,
         description,
         input.coverImage ? JSON.stringify(input.coverImage) : null,
+        input.bannerImage ? JSON.stringify(input.bannerImage) : null,
         input.seoTitle ?? '',
         input.seoDescription ?? '',
         input.isVisible ?? true,

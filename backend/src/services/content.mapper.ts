@@ -130,6 +130,7 @@ type LookbookRow = {
   title: string
   description: string | null
   cover_image: unknown
+  banner_image?: unknown
   seo_title: string
   seo_description: string
   is_visible: boolean
@@ -147,6 +148,7 @@ export const mapLookbookRowToCrm = (
   title: row.title,
   description: row.description,
   coverImage: parseImageJson(row.cover_image) ?? null,
+  bannerImage: parseImageJson(row.banner_image) ?? null,
   images,
   seoTitle: row.seo_title,
   seoDescription: row.seo_description,
@@ -159,6 +161,7 @@ export const mapLookbookRowToCrm = (
 export const mapLookbookRowToPublic = (
   row: LookbookRow,
   images: ContentImage[],
+  options?: { includeBanner?: boolean },
 ): LookbookDto => {
   const dto: LookbookDto = {
     id: String(row.id),
@@ -171,6 +174,10 @@ export const mapLookbookRowToPublic = (
   if (row.description) dto.description = row.description
   const cover = parseImageJson(row.cover_image)
   if (cover) dto.cover = cover
+  if (options?.includeBanner) {
+    const banner = parseImageJson(row.banner_image)
+    if (banner) dto.banner = banner
+  }
 
   return dto
 }

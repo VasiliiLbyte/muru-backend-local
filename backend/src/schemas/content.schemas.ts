@@ -40,6 +40,7 @@ export const lookbookWriteSchema = z.object({
   title: z.string().min(1),
   description: z.string().nullable().optional(),
   coverImage: imageJsonSchema.nullable().optional(),
+  bannerImage: imageJsonSchema.nullable().optional(),
   seoTitle: z.string().optional(),
   seoDescription: z.string().optional(),
   isVisible: z.boolean().optional(),

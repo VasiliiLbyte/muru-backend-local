@@ -65,6 +65,7 @@ export type LookbookDto = {
   title: string
   description?: string
   cover?: ContentImage
+  banner?: ContentImage
   images: ContentImage[]
   seo: ContentSeo
   external_id?: string
@@ -114,6 +115,7 @@ export type CrmLookbookDto = {
   title: string
   description: string | null
   coverImage: ContentImage | null
+  bannerImage: ContentImage | null
   images: ContentImage[]
   seoTitle: string
   seoDescription: string
