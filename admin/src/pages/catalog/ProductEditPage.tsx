@@ -33,6 +33,7 @@ import type { CrmCatalogProductDetail, CrmCategoryItem, ProductImageSlot } from 
 
 const MANAGED_SPEC_KEYS = [
   'Материал',
+  'Цвет',
   'Бренд',
   'Страна производитель',
   'Страна',
@@ -67,6 +68,7 @@ export const ProductEditPage = () => {
   const [categoryId, setCategoryId] = useState('')
   const [subcategoryIds, setSubcategoryIds] = useState<number[]>([])
   const [material, setMaterial] = useState('')
+  const [colorField, setColorField] = useState('')
   const [country, setCountry] = useState('')
   const [sizeField, setSizeField] = useState('')
   const [brand, setBrand] = useState('')
@@ -126,6 +128,7 @@ export const ProductEditPage = () => {
     setCategoryId(data.categoryId != null ? String(data.categoryId) : '')
     setSubcategoryIds(data.subcategoryIds ?? [])
     setMaterial(specs['Материал'] ?? '')
+    setColorField(specs['Цвет'] ?? data.color ?? '')
     setCountry(specs['Страна производитель'] ?? specs['Страна'] ?? '')
     setSizeField(specs['Размер'] ?? data.size ?? '')
     setBrand(specs['Бренд'] ?? '')
@@ -181,11 +184,13 @@ export const ProductEditPage = () => {
     }
 
     const trimmedMaterial = material.trim()
+    const trimmedColor = colorField.trim()
     const trimmedCountry = country.trim()
     const trimmedSize = sizeField.trim()
     const trimmedBrand = brand.trim()
 
     if (trimmedMaterial) base['Материал'] = trimmedMaterial
+    if (trimmedColor) base['Цвет'] = trimmedColor
     if (trimmedCountry) base['Страна производитель'] = trimmedCountry
     if (trimmedSize) base['Размер'] = trimmedSize
     if (trimmedBrand) base['Бренд'] = trimmedBrand
@@ -196,6 +201,7 @@ export const ProductEditPage = () => {
 
   const buildBody = () => {
     const imageUrls = imageSlots.map((s) => s.url)
+    const trimmedColor = colorField.trim()
     const trimmedSize = sizeField.trim()
     return {
       name: name.trim(),
@@ -206,6 +212,7 @@ export const ProductEditPage = () => {
       categoryId: categoryId ? Number(categoryId) : null,
       subcategoryIds,
       specs: buildSpecs(),
+      color: trimmedColor || null,
       size: trimmedSize || null,
       isGiftGuide,
       imageUrls,
@@ -517,6 +524,15 @@ export const ProductEditPage = () => {
               id="product-material"
               value={material}
               onChange={(e) => setMaterial(e.target.value)}
+              disabled={readOnly}
+            />
+          </Field>
+
+          <Field label="Цвет" htmlFor="product-color">
+            <Input
+              id="product-color"
+              value={colorField}
+              onChange={(e) => setColorField(e.target.value)}
               disabled={readOnly}
             />
           </Field>
