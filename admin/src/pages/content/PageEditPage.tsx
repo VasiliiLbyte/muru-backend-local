@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
+import { ImageUploadField } from '../../components/content/ImageUploadField'
 import { RichTextEditor } from '../../components/content/RichTextEditor'
 import { SeoFields } from '../../components/content/SeoFields'
 import {
@@ -15,6 +16,7 @@ import {
   useToast,
 } from '../../components/ui'
 import { createPage, deletePage, getPage, updatePage } from '../../lib/content-api'
+import type { ContentImage } from '../../types/content'
 import { slugifyTitle } from '../../utils/slug'
 
 export const PageEditPage = () => {
@@ -28,6 +30,7 @@ export const PageEditPage = () => {
   const [slugTouched, setSlugTouched] = useState(false)
   const [title, setTitle] = useState('')
   const [bodyHtml, setBodyHtml] = useState('')
+  const [heroImage, setHeroImage] = useState<ContentImage | null>(null)
   const [seoTitle, setSeoTitle] = useState('')
   const [seoDescription, setSeoDescription] = useState('')
   const [isVisible, setIsVisible] = useState(true)
@@ -47,6 +50,7 @@ export const PageEditPage = () => {
         setSlugTouched(true)
         setTitle(page.title)
         setBodyHtml(page.bodyHtml)
+        setHeroImage(page.heroImage)
         setSeoTitle(page.seoTitle)
         setSeoDescription(page.seoDescription)
         setIsVisible(page.isVisible)
@@ -75,6 +79,7 @@ export const PageEditPage = () => {
       slug,
       title,
       bodyHtml,
+      heroImage,
       seoTitle,
       seoDescription,
       isVisible,
@@ -163,6 +168,12 @@ export const PageEditPage = () => {
               required
             />
           </Field>
+
+          <ImageUploadField
+            label="Изображение / баннер"
+            value={heroImage}
+            onChange={setHeroImage}
+          />
 
           <RichTextEditor label="Текст (HTML)" value={bodyHtml} onChange={setBodyHtml} />
 

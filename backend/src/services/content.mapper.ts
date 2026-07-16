@@ -43,6 +43,7 @@ type PageRow = {
   slug: string
   title: string
   body_html: string
+  hero_image: unknown
   seo_title: string
   seo_description: string
   is_visible: boolean
@@ -55,6 +56,7 @@ export const mapPageRowToCrm = (row: PageRow): CrmPageDto => ({
   slug: row.slug,
   title: row.title,
   bodyHtml: row.body_html,
+  heroImage: parseImageJson(row.hero_image) ?? null,
   seoTitle: row.seo_title,
   seoDescription: row.seo_description,
   isVisible: row.is_visible,
@@ -66,6 +68,7 @@ export const mapPageRowToPublic = (row: PageRow): StaticPageDto => ({
   slug: row.slug,
   title: row.title,
   body: row.body_html,
+  heroImage: parseImageJson(row.hero_image) ?? null,
   seo: mapSeo(row.seo_title, row.seo_description),
   updatedAt: toIsoString(row.updated_at),
 })

@@ -11,6 +11,7 @@ export const pageWriteSchema = z.object({
   slug: z.string().min(1),
   title: z.string().min(1),
   bodyHtml: z.string(),
+  heroImage: imageJsonSchema.nullable().optional(),
   seoTitle: z.string().optional(),
   seoDescription: z.string().optional(),
   isVisible: z.boolean().optional(),

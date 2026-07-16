@@ -27,6 +27,7 @@ import {
   listPublicBanners,
   setCollectionProducts,
   updateLookbook,
+  updatePage,
 } from './content.service'
 
 describe('content.service', () => {
@@ -43,6 +44,7 @@ describe('content.service', () => {
           slug: 'about',
           title: 'About',
           body_html: '<p>Safe</p>',
+          hero_image: null,
           seo_title: '',
           seo_description: '',
           is_visible: true,
@@ -60,8 +62,70 @@ describe('content.service', () => {
 
     const insertCall = mockPoolQuery.mock.calls[0]
     expect(insertCall?.[0]).toContain('INSERT INTO content_pages')
+    expect(insertCall?.[0]).toContain('hero_image')
     expect(insertCall?.[1]?.[2]).not.toContain('<script')
     expect(insertCall?.[1]?.[2]).toContain('<p>Safe</p>')
+    expect(insertCall?.[1]?.[3]).toBeNull()
+  })
+
+  it('createPage persists heroImage JSON', async () => {
+    const hero = { url: '/uploads/shop.jpg', alt: 'Магазин' }
+    mockPoolQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          id: 2,
+          slug: 'contacts',
+          title: 'Контакты',
+          body_html: '<p>x</p>',
+          hero_image: hero,
+          seo_title: '',
+          seo_description: '',
+          is_visible: true,
+          created_at: '2026-01-01T00:00:00.000Z',
+          updated_at: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    })
+
+    const page = await createPage({
+      slug: 'contacts',
+      title: 'Контакты',
+      bodyHtml: '<p>x</p>',
+      heroImage: hero,
+    })
+
+    expect(mockPoolQuery.mock.calls[0]?.[1]?.[3]).toBe(JSON.stringify(hero))
+    expect(page.heroImage).toEqual(hero)
+  })
+
+  it('updatePage clears heroImage when null', async () => {
+    mockPoolQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          id: 2,
+          slug: 'contacts',
+          title: 'Контакты',
+          body_html: '<p>x</p>',
+          hero_image: null,
+          seo_title: '',
+          seo_description: '',
+          is_visible: true,
+          created_at: '2026-01-01T00:00:00.000Z',
+          updated_at: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    })
+
+    const page = await updatePage(2, {
+      slug: 'contacts',
+      title: 'Контакты',
+      bodyHtml: '<p>x</p>',
+      heroImage: null,
+    })
+
+    expect(String(mockPoolQuery.mock.calls[0]?.[0])).toContain('hero_image = $5')
+    expect(mockPoolQuery.mock.calls[0]?.[1]?.[4]).toBeNull()
+    expect(page.heroImage).toBeNull()
   })
 
   it('createPage throws 409 on duplicate slug', async () => {

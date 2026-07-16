@@ -28,6 +28,7 @@ describe('content.mapper', () => {
       slug: 'company',
       title: 'О нас',
       body_html: '<p>Text</p>',
+      hero_image: null,
       seo_title: 'О нас — MURU',
       seo_description: 'Описание',
       is_visible: true,
@@ -39,9 +40,27 @@ describe('content.mapper', () => {
       slug: 'company',
       title: 'О нас',
       body: '<p>Text</p>',
+      heroImage: null,
       seo: { title: 'О нас — MURU', description: 'Описание' },
       updatedAt: '2026-07-08T10:00:00.000Z',
     })
+  })
+
+  it('mapPageRowToPublic includes heroImage when present', () => {
+    const dto = mapPageRowToPublic({
+      id: 4,
+      slug: 'contacts',
+      title: 'Контакты',
+      body_html: '<p>Shop</p>',
+      hero_image: { url: '/uploads/shop.jpg', alt: 'Магазин' },
+      seo_title: '',
+      seo_description: '',
+      is_visible: true,
+      created_at: '2026-01-01T00:00:00.000Z',
+      updated_at: '2026-07-08T10:00:00.000Z',
+    })
+
+    expect(dto.heroImage).toEqual({ url: '/uploads/shop.jpg', alt: 'Магазин' })
   })
 
   it('mapCollectionRowToPublic includes productSlugs and camelCase fields', () => {

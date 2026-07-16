@@ -10,6 +10,7 @@ export type CrmPageDto = {
   slug: string
   title: string
   bodyHtml: string
+  heroImage: ContentImage | null
   seoTitle: string
   seoDescription: string
   isVisible: boolean
@@ -67,6 +68,7 @@ export type PageWriteInput = {
   slug: string
   title: string
   bodyHtml: string
+  heroImage?: ContentImage | null
   seoTitle?: string
   seoDescription?: string
   isVisible?: boolean

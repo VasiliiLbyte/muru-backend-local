@@ -92,7 +92,7 @@ export const assertSkusExist = async (skus: string[]): Promise<void> => {
 
 export const listCrmPages = async (): Promise<CrmPageDto[]> => {
   const result = await pool.query(
-    `SELECT id, slug, title, body_html, seo_title, seo_description, is_visible, created_at, updated_at
+    `SELECT id, slug, title, body_html, hero_image, seo_title, seo_description, is_visible, created_at, updated_at
      FROM content_pages
      ORDER BY slug ASC`,
   )
@@ -102,7 +102,7 @@ export const listCrmPages = async (): Promise<CrmPageDto[]> => {
 export const getCrmPageById = async (id: number): Promise<CrmPageDto> => {
   const pageId = assertPositiveIntId(id)
   const result = await pool.query(
-    `SELECT id, slug, title, body_html, seo_title, seo_description, is_visible, created_at, updated_at
+    `SELECT id, slug, title, body_html, hero_image, seo_title, seo_description, is_visible, created_at, updated_at
      FROM content_pages WHERE id = $1`,
     [pageId],
   )
@@ -113,7 +113,7 @@ export const getCrmPageById = async (id: number): Promise<CrmPageDto> => {
 
 export const getPublicPageBySlug = async (slug: string): Promise<StaticPageDto> => {
   const result = await pool.query(
-    `SELECT id, slug, title, body_html, seo_title, seo_description, is_visible, created_at, updated_at
+    `SELECT id, slug, title, body_html, hero_image, seo_title, seo_description, is_visible, created_at, updated_at
      FROM content_pages WHERE slug = $1 AND is_visible = true`,
     [slug],
   )
@@ -126,6 +126,7 @@ export type UpsertPageInput = {
   slug: string
   title: string
   bodyHtml: string
+  heroImage?: ContentImage | null
   seoTitle?: string
   seoDescription?: string
   isVisible?: boolean
@@ -135,13 +136,14 @@ export const createPage = async (input: UpsertPageInput): Promise<CrmPageDto> =>
   const bodyHtml = sanitizeContentHtml(input.bodyHtml)
   try {
     const result = await pool.query(
-      `INSERT INTO content_pages (slug, title, body_html, seo_title, seo_description, is_visible)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id, slug, title, body_html, seo_title, seo_description, is_visible, created_at, updated_at`,
+      `INSERT INTO content_pages (slug, title, body_html, hero_image, seo_title, seo_description, is_visible)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id, slug, title, body_html, hero_image, seo_title, seo_description, is_visible, created_at, updated_at`,
       [
         input.slug,
         input.title,
         bodyHtml,
+        input.heroImage ? JSON.stringify(input.heroImage) : null,
         input.seoTitle ?? '',
         input.seoDescription ?? '',
         input.isVisible ?? true,
@@ -159,15 +161,16 @@ export const updatePage = async (id: number, input: UpsertPageInput): Promise<Cr
   try {
     const result = await pool.query(
       `UPDATE content_pages
-       SET slug = $2, title = $3, body_html = $4, seo_title = $5, seo_description = $6,
-           is_visible = $7, updated_at = NOW()
+       SET slug = $2, title = $3, body_html = $4, hero_image = $5, seo_title = $6, seo_description = $7,
+           is_visible = $8, updated_at = NOW()
        WHERE id = $1
-       RETURNING id, slug, title, body_html, seo_title, seo_description, is_visible, created_at, updated_at`,
+       RETURNING id, slug, title, body_html, hero_image, seo_title, seo_description, is_visible, created_at, updated_at`,
       [
         pageId,
         input.slug,
         input.title,
         bodyHtml,
+        input.heroImage ? JSON.stringify(input.heroImage) : null,
         input.seoTitle ?? '',
         input.seoDescription ?? '',
         input.isVisible ?? true,

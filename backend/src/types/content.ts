@@ -15,6 +15,7 @@ export type StaticPageDto = {
   slug: string
   title: string
   body: string
+  heroImage: ContentImage | null
   seo: ContentSeo
   updatedAt?: string
 }
@@ -86,6 +87,7 @@ export type CrmPageDto = {
   slug: string
   title: string
   bodyHtml: string
+  heroImage: ContentImage | null
   seoTitle: string
   seoDescription: string
   isVisible: boolean

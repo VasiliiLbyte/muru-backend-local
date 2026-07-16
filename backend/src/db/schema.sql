@@ -170,6 +170,7 @@ CREATE TABLE IF NOT EXISTS content_pages (
   slug TEXT NOT NULL UNIQUE,
   title TEXT NOT NULL,
   body_html TEXT NOT NULL DEFAULT '',
+  hero_image JSONB,
   seo_title TEXT NOT NULL DEFAULT '',
   seo_description TEXT NOT NULL DEFAULT '',
   is_visible BOOLEAN NOT NULL DEFAULT true,
