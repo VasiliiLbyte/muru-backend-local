@@ -121,11 +121,18 @@ const downloadOriginal = async (fileId: string): Promise<Buffer> =>
     return buffer
   })
 
+const QUALITY_BY_WIDTH: Record<ImageWidth, { webp: number; avif: number; jpeg: number }> = {
+  320: { webp: 82, avif: 65, jpeg: 82 },
+  600: { webp: 88, avif: 72, jpeg: 88 },
+  1200: { webp: 92, avif: 72, jpeg: 90 },
+}
+
 const encodeVariant = async (
   source: Buffer,
   width: ImageWidth,
   format: ImageFormat,
 ): Promise<Buffer> => {
+  const quality = QUALITY_BY_WIDTH[width]
   let pipeline = sharp(source).resize({
     width,
     fit: 'inside',
@@ -134,13 +141,13 @@ const encodeVariant = async (
 
   switch (format) {
     case 'webp':
-      pipeline = pipeline.webp({ quality: 82 })
+      pipeline = pipeline.webp({ quality: quality.webp })
       break
     case 'avif':
-      pipeline = pipeline.avif({ quality: 65 })
+      pipeline = pipeline.avif({ quality: quality.avif })
       break
     case 'jpeg':
-      pipeline = pipeline.jpeg({ quality: 85, mozjpeg: true })
+      pipeline = pipeline.jpeg({ quality: quality.jpeg, mozjpeg: true })
       break
     default:
       break

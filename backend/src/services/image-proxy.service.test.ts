@@ -4,6 +4,41 @@ const mockFilesGet = vi.fn()
 const mockCreateMuruDriveClient = vi.fn(() => ({
   files: { get: mockFilesGet },
 }))
+const mockSharpWebp = vi.fn()
+const mockSharpAvif = vi.fn()
+const mockSharpJpeg = vi.fn()
+const mockSharpResize = vi.fn()
+const mockSharpBlur = vi.fn()
+const mockSharpToBuffer = vi.fn(async () => Buffer.from('encoded-image'))
+
+vi.mock('sharp', () => ({
+  default: vi.fn(() => {
+    const pipeline = {
+      resize: vi.fn((...args: unknown[]) => {
+        mockSharpResize(...args)
+        return pipeline
+      }),
+      blur: vi.fn((...args: unknown[]) => {
+        mockSharpBlur(...args)
+        return pipeline
+      }),
+      webp: vi.fn((options: unknown) => {
+        mockSharpWebp(options)
+        return pipeline
+      }),
+      avif: vi.fn((options: unknown) => {
+        mockSharpAvif(options)
+        return pipeline
+      }),
+      jpeg: vi.fn((options: unknown) => {
+        mockSharpJpeg(options)
+        return pipeline
+      }),
+      toBuffer: vi.fn(() => mockSharpToBuffer()),
+    }
+    return pipeline
+  }),
+}))
 
 const fileState = new Map<string, { original?: Buffer; marker?: boolean; placeholder?: string }>()
 
@@ -77,6 +112,7 @@ describe('image-proxy.service CRM bypass', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     fileState.clear()
+    mockSharpToBuffer.mockResolvedValue(Buffer.from('encoded-image'))
   })
 
   it('serveImage for crm_ id without cache does not call Drive', async () => {
@@ -96,5 +132,19 @@ describe('image-proxy.service CRM bypass', () => {
     const result = await serveImage(fileId, 1200, 'webp')
     expect(result.mimeType).toBe('image/webp')
     expect(mockCreateMuruDriveClient).not.toHaveBeenCalled()
+  })
+
+  it('encodes 1200 webp variant with q92', async () => {
+    const fileId = 'crm_quality1200abcdef123456789012'
+    const png = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+      'base64',
+    )
+    await saveCrmCachedOriginal(fileId, png)
+
+    await serveImage(fileId, 1200, 'webp')
+
+    expect(mockSharpWebp).toHaveBeenCalledWith({ quality: 30 })
+    expect(mockSharpWebp).toHaveBeenCalledWith({ quality: 92 })
   })
 })
