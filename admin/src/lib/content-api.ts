@@ -12,7 +12,7 @@ import type {
   LookbookHotspotWriteInput,
   LookbookImageInput,
   LookbookWriteInput,
-  PageWriteInput,
+  FixedPageWriteInput,
 } from '../types/content'
 import { ApiError, apiFetch, type ApiResponse } from './api'
 
@@ -20,18 +20,14 @@ const CRM_BASE = '/api/crm/content'
 
 // Pages
 
-export const listPages = () => apiFetch<CrmPageDto[]>(`${CRM_BASE}/pages`)
+export const getPageBySlug = (slug: 'help' | 'contacts') =>
+  apiFetch<CrmPageDto>(`${CRM_BASE}/pages/by-slug/${slug}`)
 
-export const getPage = (id: string) => apiFetch<CrmPageDto>(`${CRM_BASE}/pages/${id}`)
-
-export const createPage = (input: PageWriteInput) =>
-  apiFetch<CrmPageDto>(`${CRM_BASE}/pages`, { method: 'POST', body: JSON.stringify(input) })
-
-export const updatePage = (id: string, input: PageWriteInput) =>
-  apiFetch<CrmPageDto>(`${CRM_BASE}/pages/${id}`, { method: 'PUT', body: JSON.stringify(input) })
-
-export const deletePage = (id: string) =>
-  apiFetch<{ ok: boolean }>(`${CRM_BASE}/pages/${id}`, { method: 'DELETE' })
+export const upsertPageBySlug = (slug: 'help' | 'contacts', input: FixedPageWriteInput) =>
+  apiFetch<CrmPageDto>(`${CRM_BASE}/pages/by-slug/${slug}`, {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  })
 
 // Collections
 

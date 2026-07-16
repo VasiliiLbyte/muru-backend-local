@@ -10,6 +10,8 @@ const mockListCrmLookbookHotspots = vi.fn()
 const mockCreateLookbookHotspot = vi.fn()
 const mockGetPublicLookbookBySlug = vi.fn()
 const mockListPublicLookbooks = vi.fn()
+const mockGetCrmPageBySlug = vi.fn()
+const mockUpsertFixedPage = vi.fn()
 
 vi.mock('../services/admin-auth.service', () => ({
   verifyAdminJwt: (...args: unknown[]) => mockVerifyAdminJwt(...args),
@@ -38,6 +40,8 @@ vi.mock('../services/content.service', () => ({
   updatePage: vi.fn(),
   deletePage: vi.fn(),
   getCrmPageById: vi.fn(),
+  getCrmPageBySlug: (...args: unknown[]) => mockGetCrmPageBySlug(...args),
+  upsertFixedPage: (...args: unknown[]) => mockUpsertFixedPage(...args),
   listCrmBanners: vi.fn(),
   getCrmBannerById: vi.fn(),
   createBanner: vi.fn(),
@@ -162,5 +166,77 @@ describe('content routes', () => {
     expect(res.status).toBe(200)
     expect(res.body.data.hotspots).toHaveLength(1)
     expect(res.body.data.hotspots[0].product.sku).toBe('MU0001')
+  })
+
+  it('CRM get page by-slug returns page for allowlisted slug', async () => {
+    mockVerifyAdminJwt.mockReturnValue({ adminId: 1, role: 'owner' })
+    mockGetCrmPageBySlug.mockResolvedValue({
+      id: '3',
+      slug: 'help',
+      title: 'Клиентам',
+      bodyHtml: '<p>Help</p>',
+      heroImage: null,
+      seoTitle: '',
+      seoDescription: '',
+      isVisible: true,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    })
+
+    const app = buildApp()
+    const res = await request(app)
+      .get('/api/crm/content/pages/by-slug/help')
+      .set('Cookie', 'admin_token=valid')
+
+    expect(res.status).toBe(200)
+    expect(res.body.data.slug).toBe('help')
+    expect(mockGetCrmPageBySlug).toHaveBeenCalledWith('help')
+  })
+
+  it('CRM upsert page by-slug returns 400 for invalid slug', async () => {
+    mockVerifyAdminJwt.mockReturnValue({ adminId: 1, role: 'owner' })
+    const { HttpError } = await import('../utils/api-response')
+    mockUpsertFixedPage.mockRejectedValue(new HttpError(400, 'Invalid page slug', 'VALIDATION'))
+
+    const app = buildApp()
+    const res = await request(app)
+      .put('/api/crm/content/pages/by-slug/privacy')
+      .set('Cookie', 'admin_token=valid')
+      .send({ bodyHtml: '<p>x</p>' })
+
+    expect(res.status).toBe(400)
+    expect(mockUpsertFixedPage).toHaveBeenCalledWith('privacy', { bodyHtml: '<p>x</p>' })
+  })
+
+  it('CRM upsert page by-slug saves allowlisted page', async () => {
+    mockVerifyAdminJwt.mockReturnValue({ adminId: 1, role: 'owner' })
+    mockUpsertFixedPage.mockResolvedValue({
+      id: '10',
+      slug: 'contacts',
+      title: 'Контакты',
+      bodyHtml: '<p>Body</p>',
+      heroImage: { url: '/uploads/a.jpg' },
+      seoTitle: '',
+      seoDescription: '',
+      isVisible: true,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    })
+
+    const app = buildApp()
+    const res = await request(app)
+      .put('/api/crm/content/pages/by-slug/contacts')
+      .set('Cookie', 'admin_token=valid')
+      .send({
+        bodyHtml: '<p>Body</p>',
+        heroImage: { url: '/uploads/a.jpg' },
+      })
+
+    expect(res.status).toBe(200)
+    expect(res.body.data.slug).toBe('contacts')
+    expect(mockUpsertFixedPage).toHaveBeenCalledWith('contacts', {
+      bodyHtml: '<p>Body</p>',
+      heroImage: { url: '/uploads/a.jpg' },
+    })
   })
 })

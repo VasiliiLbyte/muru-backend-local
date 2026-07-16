@@ -64,6 +64,15 @@ export type CrmBannerDto = {
   updatedAt: string
 }
 
+export type FixedPageWriteInput = {
+  title?: string
+  bodyHtml: string
+  heroImage?: ContentImage | null
+  seoTitle?: string
+  seoDescription?: string
+  isVisible?: boolean
+}
+
 export type PageWriteInput = {
   slug: string
   title: string

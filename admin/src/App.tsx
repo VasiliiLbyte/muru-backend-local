@@ -9,10 +9,9 @@ import { BannerEditPage } from './pages/content/BannerEditPage'
 import { BannersListPage } from './pages/content/BannersListPage'
 import { CollectionEditPage } from './pages/content/CollectionEditPage'
 import { CollectionsListPage } from './pages/content/CollectionsListPage'
+import { FixedPageEditPage } from './pages/content/FixedPageEditPage'
 import { LookbookEditPage } from './pages/content/LookbookEditPage'
 import { LookbooksListPage } from './pages/content/LookbooksListPage'
-import { PageEditPage } from './pages/content/PageEditPage'
-import { PagesListPage } from './pages/content/PagesListPage'
 import { LoginPage } from './pages/LoginPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { OrderDetailPage } from './pages/orders/OrderDetailPage'
@@ -69,9 +68,11 @@ function App() {
           </Route>
           <Route path="content" element={<ContentLayout />}>
             <Route index element={<ContentIndexRedirect />} />
-            <Route path="pages" element={<PagesListPage />} />
-            <Route path="pages/new" element={<PageEditPage />} />
-            <Route path="pages/:id" element={<PageEditPage />} />
+            <Route path="help" element={<FixedPageEditPage section="help" />} />
+            <Route path="contacts" element={<FixedPageEditPage section="contacts" />} />
+            <Route path="pages" element={<Navigate to="/content/help" replace />} />
+            <Route path="pages/new" element={<Navigate to="/content/help" replace />} />
+            <Route path="pages/:id" element={<Navigate to="/content/help" replace />} />
             <Route path="lookbooks/*" element={<ContentLookbooksRedirect />} />
             <Route path="collections/*" element={<ContentCollectionsRedirect />} />
             <Route path="banners" element={<BannersListPage />} />

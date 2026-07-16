@@ -90,9 +90,26 @@ export const assertSkusExist = async (skus: string[]): Promise<void> => {
 
 // --- Pages ---
 
+export const FIXED_PAGE_SLUGS = ['help', 'contacts'] as const
+export type FixedPageSlug = (typeof FIXED_PAGE_SLUGS)[number]
+
+const FIXED_PAGE_DEFAULT_TITLES: Record<FixedPageSlug, string> = {
+  help: 'Клиентам',
+  contacts: 'Контакты',
+}
+
+export const assertFixedPageSlug = (slug: string): FixedPageSlug => {
+  if ((FIXED_PAGE_SLUGS as readonly string[]).includes(slug)) {
+    return slug as FixedPageSlug
+  }
+  throw new HttpError(400, 'Invalid page slug', 'VALIDATION')
+}
+
+const PAGE_SELECT = `id, slug, title, body_html, hero_image, seo_title, seo_description, is_visible, created_at, updated_at`
+
 export const listCrmPages = async (): Promise<CrmPageDto[]> => {
   const result = await pool.query(
-    `SELECT id, slug, title, body_html, hero_image, seo_title, seo_description, is_visible, created_at, updated_at
+    `SELECT ${PAGE_SELECT}
      FROM content_pages
      ORDER BY slug ASC`,
   )
@@ -102,7 +119,7 @@ export const listCrmPages = async (): Promise<CrmPageDto[]> => {
 export const getCrmPageById = async (id: number): Promise<CrmPageDto> => {
   const pageId = assertPositiveIntId(id)
   const result = await pool.query(
-    `SELECT id, slug, title, body_html, hero_image, seo_title, seo_description, is_visible, created_at, updated_at
+    `SELECT ${PAGE_SELECT}
      FROM content_pages WHERE id = $1`,
     [pageId],
   )
@@ -111,9 +128,21 @@ export const getCrmPageById = async (id: number): Promise<CrmPageDto> => {
   return mapPageRowToCrm(row)
 }
 
+export const getCrmPageBySlug = async (slug: string): Promise<CrmPageDto> => {
+  const fixedSlug = assertFixedPageSlug(slug)
+  const result = await pool.query(
+    `SELECT ${PAGE_SELECT}
+     FROM content_pages WHERE slug = $1`,
+    [fixedSlug],
+  )
+  const row = result.rows[0]
+  if (!row) throw new HttpError(404, 'Page not found', 'NOT_FOUND')
+  return mapPageRowToCrm(row)
+}
+
 export const getPublicPageBySlug = async (slug: string): Promise<StaticPageDto> => {
   const result = await pool.query(
-    `SELECT id, slug, title, body_html, hero_image, seo_title, seo_description, is_visible, created_at, updated_at
+    `SELECT ${PAGE_SELECT}
      FROM content_pages WHERE slug = $1 AND is_visible = true`,
     [slug],
   )
@@ -132,13 +161,22 @@ export type UpsertPageInput = {
   isVisible?: boolean
 }
 
+export type UpsertFixedPageInput = {
+  title?: string
+  bodyHtml: string
+  heroImage?: ContentImage | null
+  seoTitle?: string
+  seoDescription?: string
+  isVisible?: boolean
+}
+
 export const createPage = async (input: UpsertPageInput): Promise<CrmPageDto> => {
   const bodyHtml = sanitizeContentHtml(input.bodyHtml)
   try {
     const result = await pool.query(
       `INSERT INTO content_pages (slug, title, body_html, hero_image, seo_title, seo_description, is_visible)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING id, slug, title, body_html, hero_image, seo_title, seo_description, is_visible, created_at, updated_at`,
+       RETURNING ${PAGE_SELECT}`,
       [
         input.slug,
         input.title,
@@ -164,7 +202,7 @@ export const updatePage = async (id: number, input: UpsertPageInput): Promise<Cr
        SET slug = $2, title = $3, body_html = $4, hero_image = $5, seo_title = $6, seo_description = $7,
            is_visible = $8, updated_at = NOW()
        WHERE id = $1
-       RETURNING id, slug, title, body_html, hero_image, seo_title, seo_description, is_visible, created_at, updated_at`,
+       RETURNING ${PAGE_SELECT}`,
       [
         pageId,
         input.slug,
@@ -181,6 +219,61 @@ export const updatePage = async (id: number, input: UpsertPageInput): Promise<Cr
     return mapPageRowToCrm(row)
   } catch (err) {
     if (err instanceof HttpError) throw err
+    return wrapDbError(err)
+  }
+}
+
+export const upsertFixedPage = async (
+  slug: string,
+  input: UpsertFixedPageInput,
+): Promise<CrmPageDto> => {
+  const fixedSlug = assertFixedPageSlug(slug)
+  const bodyHtml = sanitizeContentHtml(input.bodyHtml)
+  const heroImageJson = input.heroImage ? JSON.stringify(input.heroImage) : null
+
+  const existing = await pool.query<{ id: number; title: string }>(
+    `SELECT id, title FROM content_pages WHERE slug = $1`,
+    [fixedSlug],
+  )
+  const row = existing.rows[0]
+
+  try {
+    if (row) {
+      const result = await pool.query(
+        `UPDATE content_pages
+         SET title = $2, body_html = $3, hero_image = $4, seo_title = $5, seo_description = $6,
+             is_visible = $7, updated_at = NOW()
+         WHERE id = $1
+         RETURNING ${PAGE_SELECT}`,
+        [
+          row.id,
+          input.title?.trim() || row.title,
+          bodyHtml,
+          heroImageJson,
+          input.seoTitle ?? '',
+          input.seoDescription ?? '',
+          input.isVisible ?? true,
+        ],
+      )
+      return mapPageRowToCrm(result.rows[0])
+    }
+
+    const result = await pool.query(
+      `INSERT INTO content_pages (slug, title, body_html, hero_image, seo_title, seo_description, is_visible)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING ${PAGE_SELECT}`,
+      [
+        fixedSlug,
+        input.title?.trim() || FIXED_PAGE_DEFAULT_TITLES[fixedSlug],
+        bodyHtml,
+        heroImageJson,
+        input.seoTitle ?? '',
+        input.seoDescription ?? '',
+        input.isVisible ?? true,
+      ],
+    )
+    return mapPageRowToCrm(result.rows[0])
+  } catch (err) {
     return wrapDbError(err)
   }
 }

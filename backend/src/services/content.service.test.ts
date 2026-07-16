@@ -19,15 +19,18 @@ vi.mock('./content-hotspots.service', () => ({
 
 import { HttpError } from '../utils/api-response'
 import {
+  assertFixedPageSlug,
   assertSkusExist,
   createLookbook,
   createPage,
+  getCrmPageBySlug,
   getPublicLookbookBySlug,
   getPublicPageBySlug,
   listPublicBanners,
   setCollectionProducts,
   updateLookbook,
   updatePage,
+  upsertFixedPage,
 } from './content.service'
 
 describe('content.service', () => {
@@ -126,6 +129,107 @@ describe('content.service', () => {
     expect(String(mockPoolQuery.mock.calls[0]?.[0])).toContain('hero_image = $5')
     expect(mockPoolQuery.mock.calls[0]?.[1]?.[4]).toBeNull()
     expect(page.heroImage).toBeNull()
+  })
+
+  it('assertFixedPageSlug rejects unknown slug', () => {
+    try {
+      assertFixedPageSlug('privacy')
+      expect.fail('expected throw')
+    } catch (err) {
+      expect(err).toMatchObject({ status: 400, code: 'VALIDATION' })
+    }
+  })
+
+  it('getCrmPageBySlug returns mapped page for allowlisted slug', async () => {
+    mockPoolQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          id: 3,
+          slug: 'help',
+          title: 'Клиентам',
+          body_html: '<p>Help</p>',
+          hero_image: null,
+          seo_title: '',
+          seo_description: '',
+          is_visible: true,
+          created_at: '2026-01-01T00:00:00.000Z',
+          updated_at: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    })
+
+    const page = await getCrmPageBySlug('help')
+    expect(page.slug).toBe('help')
+    expect(page.title).toBe('Клиентам')
+  })
+
+  it('upsertFixedPage inserts when row is missing', async () => {
+    mockPoolQuery
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: 10,
+            slug: 'contacts',
+            title: 'Контакты',
+            body_html: '<p>Body</p>',
+            hero_image: { url: '/uploads/a.jpg' },
+            seo_title: '',
+            seo_description: '',
+            is_visible: true,
+            created_at: '2026-01-01T00:00:00.000Z',
+            updated_at: '2026-01-01T00:00:00.000Z',
+          },
+        ],
+      })
+
+    const page = await upsertFixedPage('contacts', {
+      bodyHtml: '<p>Body</p>',
+      heroImage: { url: '/uploads/a.jpg' },
+    })
+
+    expect(String(mockPoolQuery.mock.calls[1]?.[0])).toContain('INSERT INTO content_pages')
+    expect(mockPoolQuery.mock.calls[1]?.[1]?.[0]).toBe('contacts')
+    expect(mockPoolQuery.mock.calls[1]?.[1]?.[1]).toBe('Контакты')
+    expect(page.heroImage).toEqual({ url: '/uploads/a.jpg' })
+  })
+
+  it('upsertFixedPage updates existing row without changing slug', async () => {
+    mockPoolQuery
+      .mockResolvedValueOnce({ rows: [{ id: 10, title: 'Контакты' }] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: 10,
+            slug: 'contacts',
+            title: 'Новый заголовок',
+            body_html: '<p>Updated</p>',
+            hero_image: null,
+            seo_title: '',
+            seo_description: '',
+            is_visible: true,
+            created_at: '2026-01-01T00:00:00.000Z',
+            updated_at: '2026-01-01T00:00:00.000Z',
+          },
+        ],
+      })
+
+    const page = await upsertFixedPage('contacts', {
+      title: 'Новый заголовок',
+      bodyHtml: '<p>Updated</p>',
+      heroImage: null,
+    })
+
+    expect(String(mockPoolQuery.mock.calls[1]?.[0])).toContain('UPDATE content_pages')
+    expect(String(mockPoolQuery.mock.calls[1]?.[0])).not.toContain('slug =')
+    expect(page.title).toBe('Новый заголовок')
+  })
+
+  it('upsertFixedPage rejects slug outside allowlist', async () => {
+    await expect(
+      upsertFixedPage('privacy', { bodyHtml: '<p>x</p>' }),
+    ).rejects.toMatchObject({ status: 400, code: 'VALIDATION' })
+    expect(mockPoolQuery).not.toHaveBeenCalled()
   })
 
   it('createPage throws 409 on duplicate slug', async () => {

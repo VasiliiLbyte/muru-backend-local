@@ -14,6 +14,7 @@ import {
   getBannerHandler,
   getCollectionHandler,
   getLookbookHandler,
+  getPageBySlugHandler,
   getPageHandler,
   listBannersHandler,
   listCollectionsHandler,
@@ -27,6 +28,7 @@ import {
   updateLookbookHandler,
   updateLookbookHotspotHandler,
   updatePageHandler,
+  upsertPageBySlugHandler,
 } from '../controllers/content-crm.controller'
 import {
   uploadHandler,
@@ -42,6 +44,8 @@ contentCrmRouter.post('/upload', uploadMiddleware, uploadHandler)
 
 contentCrmRouter.get('/pages', listPagesHandler)
 contentCrmRouter.post('/pages', createPageHandler)
+contentCrmRouter.get('/pages/by-slug/:slug', getPageBySlugHandler)
+contentCrmRouter.put('/pages/by-slug/:slug', upsertPageBySlugHandler)
 contentCrmRouter.get('/pages/:id', getPageHandler)
 contentCrmRouter.put('/pages/:id', updatePageHandler)
 contentCrmRouter.delete('/pages/:id', deletePageHandler)

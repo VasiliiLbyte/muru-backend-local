@@ -3,7 +3,8 @@ import { Navigate, Outlet } from 'react-router-dom'
 import { Tabs, TabsList, TabsTrigger } from '../ui'
 
 const tabs = [
-  { to: '/content/pages', label: 'Страницы' },
+  { to: '/content/help', label: 'Клиентам' },
+  { to: '/content/contacts', label: 'Контакты' },
   { to: '/content/banners', label: 'Баннеры' },
 ] as const
 
@@ -25,4 +26,4 @@ export const ContentLayout = () => (
   </div>
 )
 
-export const ContentIndexRedirect = () => <Navigate to="pages" replace />
+export const ContentIndexRedirect = () => <Navigate to="help" replace />

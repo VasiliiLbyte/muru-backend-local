@@ -17,6 +17,15 @@ export const pageWriteSchema = z.object({
   isVisible: z.boolean().optional(),
 })
 
+export const fixedPageWriteSchema = z.object({
+  title: z.string().min(1).optional(),
+  bodyHtml: z.string(),
+  heroImage: imageJsonSchema.nullable().optional(),
+  seoTitle: z.string().optional(),
+  seoDescription: z.string().optional(),
+  isVisible: z.boolean().optional(),
+})
+
 export const collectionWriteSchema = z.object({
   slug: z.string().min(1),
   title: z.string().min(1),

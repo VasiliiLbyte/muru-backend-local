@@ -9,6 +9,7 @@ import {
   lookbookImagesSchema,
   lookbookWriteSchema,
   pageWriteSchema,
+  fixedPageWriteSchema,
   parsePositiveIntParam,
   parseRouteParam,
 } from '../schemas/content.schemas'
@@ -49,6 +50,34 @@ export const getPageHandler = async (req: Request, res: Response, next: NextFunc
     const id = parseId(req, res)
     if (id === null) return undefined
     return ok(res, await contentService.getCrmPageById(id))
+  } catch (error) {
+    return next(error)
+  }
+}
+
+export const getPageBySlugHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const slug = parseRouteParam(req.params.slug)
+    if (!slug) {
+      return fail(res, 400, 'Invalid slug', 'VALIDATION')
+    }
+    return ok(res, await contentService.getCrmPageBySlug(slug))
+  } catch (error) {
+    return next(error)
+  }
+}
+
+export const upsertPageBySlugHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const slug = parseRouteParam(req.params.slug)
+    if (!slug) {
+      return fail(res, 400, 'Invalid slug', 'VALIDATION')
+    }
+    const parsed = fixedPageWriteSchema.safeParse(req.body)
+    if (!parsed.success) {
+      return fail(res, 400, zodErrorMessage(parsed.error.issues), 'VALIDATION', parsed.error.issues)
+    }
+    return ok(res, await contentService.upsertFixedPage(slug, parsed.data))
   } catch (error) {
     return next(error)
   }
