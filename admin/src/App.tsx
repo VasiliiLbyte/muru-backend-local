@@ -12,6 +12,7 @@ import { CollectionsListPage } from './pages/content/CollectionsListPage'
 import { CompanyPageEditPage } from './pages/content/CompanyPageEditPage'
 import { FixedPageEditPage } from './pages/content/FixedPageEditPage'
 import { VacancyPageEditPage } from './pages/content/VacancyPageEditPage'
+import { PartnersPageEditPage } from './pages/content/PartnersPageEditPage'
 import { LookbookEditPage } from './pages/content/LookbookEditPage'
 import { LookbooksListPage } from './pages/content/LookbooksListPage'
 import { LoginPage } from './pages/LoginPage'
@@ -74,7 +75,7 @@ function App() {
             <Route path="contacts" element={<FixedPageEditPage section="contacts" />} />
             <Route path="company" element={<CompanyPageEditPage />} />
             <Route path="company/vacancy" element={<VacancyPageEditPage />} />
-            <Route path="company/partners" element={<FixedPageEditPage section="partners" />} />
+            <Route path="company/partners" element={<PartnersPageEditPage />} />
             <Route path="pages" element={<Navigate to="/content/help" replace />} />
             <Route path="pages/new" element={<Navigate to="/content/help" replace />} />
             <Route path="pages/:id" element={<Navigate to="/content/help" replace />} />

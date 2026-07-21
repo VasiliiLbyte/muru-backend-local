@@ -22,6 +22,7 @@ import {
   assertFixedPageSlug,
   assertSkusExist,
   createDefaultCompanySections,
+  createDefaultPartnersSections,
   createDefaultVacancySections,
   createLookbook,
   createPage,
@@ -34,11 +35,13 @@ import {
   updatePage,
   upsertCompanyPage,
   upsertFixedPage,
+  upsertPartnersPage,
   upsertVacancyPage,
 } from './content.service'
 
 const defaultSections = createDefaultCompanySections()
 const defaultVacancySections = createDefaultVacancySections()
+const defaultPartnersSections = createDefaultPartnersSections()
 
 describe('content.service', () => {
   beforeEach(() => {
@@ -389,7 +392,11 @@ describe('content.service', () => {
     expect(String(mockPoolQuery.mock.calls[1]?.[0])).toContain('sections = $3')
   })
 
-  it('upsertFixedPage clears sections for partners on insert', async () => {
+  it('upsertPartnersPage inserts when row is missing', async () => {
+    const inputSections = {
+      ...defaultPartnersSections,
+      hero: { ...defaultPartnersSections.hero, text: '<p>Safe</p><script>x</script>' },
+    }
     mockPoolQuery
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({
@@ -398,9 +405,12 @@ describe('content.service', () => {
             id: 22,
             slug: 'partners',
             title: 'Стать партнёром',
-            body_html: '<p>P</p>',
+            body_html: '',
             hero_image: null,
-            sections: null,
+            sections: {
+              ...inputSections,
+              hero: { ...inputSections.hero, text: '<p>Safe</p>' },
+            },
             seo_title: '',
             seo_description: '',
             is_visible: true,
@@ -410,10 +420,41 @@ describe('content.service', () => {
         ],
       })
 
-    await upsertFixedPage('partners', { bodyHtml: '<p>P</p>' })
+    const page = await upsertPartnersPage({ sections: inputSections })
 
-    expect(String(mockPoolQuery.mock.calls[1]?.[0])).toContain('sections')
-    expect(String(mockPoolQuery.mock.calls[1]?.[0])).toContain('NULL')
+    expect(String(mockPoolQuery.mock.calls[1]?.[0])).toContain('INSERT INTO content_pages')
+    const sectionsArg = mockPoolQuery.mock.calls[1]?.[1]?.[2] as string
+    expect(sectionsArg).toContain('<p>Safe</p>')
+    expect(sectionsArg).not.toContain('<script')
+    expect(page.slug).toBe('partners')
+    expect(page.sections?.hero.heading).toBe('Стать партнёром')
+  })
+
+  it('upsertPartnersPage updates existing row', async () => {
+    mockPoolQuery
+      .mockResolvedValueOnce({ rows: [{ id: 22, title: 'Стать партнёром' }] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: 22,
+            slug: 'partners',
+            title: 'Партнерам',
+            body_html: '',
+            hero_image: null,
+            sections: defaultPartnersSections,
+            seo_title: '',
+            seo_description: '',
+            is_visible: true,
+            created_at: '2026-01-01T00:00:00.000Z',
+            updated_at: '2026-01-01T00:00:00.000Z',
+          },
+        ],
+      })
+
+    await upsertPartnersPage({ title: 'Партнерам', sections: defaultPartnersSections })
+
+    expect(String(mockPoolQuery.mock.calls[1]?.[0])).toContain('UPDATE content_pages')
+    expect(String(mockPoolQuery.mock.calls[1]?.[0])).toContain('sections = $3')
   })
 
   it('createPage throws 409 on duplicate slug', async () => {

@@ -15,6 +15,7 @@ import type {
   LookbookHotspotWriteInput,
   LookbookImageInput,
   LookbookWriteInput,
+  PartnersPageWriteInput,
   VacancyPageWriteInput,
 } from '../types/content'
 import { ApiError, apiFetch, type ApiResponse } from './api'
@@ -42,6 +43,12 @@ export const upsertCompanyPage = (input: CompanyPageWriteInput) =>
 
 export const upsertVacancyPage = (input: VacancyPageWriteInput) =>
   apiFetch<CrmPageDto>(`${CRM_BASE}/pages/by-slug/vacancy`, {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  })
+
+export const upsertPartnersPage = (input: PartnersPageWriteInput) =>
+  apiFetch<CrmPageDto>(`${CRM_BASE}/pages/by-slug/partners`, {
     method: 'PUT',
     body: JSON.stringify(input),
   })

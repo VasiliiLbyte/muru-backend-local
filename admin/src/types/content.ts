@@ -72,7 +72,7 @@ export type VacancySections = {
   }
 }
 
-export type PageSections = CompanySections | VacancySections
+export type PageSections = CompanySections | VacancySections | PartnersSections
 
 export const createDefaultVacancySections = (): VacancySections => ({
   hero: { image: null, heading: 'Вакансии', text: '' },
@@ -91,6 +91,18 @@ export const createDefaultVacancySections = (): VacancySections => ({
       },
     ],
   },
+})
+
+export type PartnersSections = {
+  hero: {
+    image: ContentImage | null
+    heading: string
+    text: string
+  }
+}
+
+export const createDefaultPartnersSections = (): PartnersSections => ({
+  hero: { image: null, heading: 'Стать партнёром', text: '' },
 })
 
 export type CrmPageDto = {
@@ -178,6 +190,14 @@ export type VacancyPageWriteInput = {
   seoDescription?: string
   isVisible?: boolean
   sections: VacancySections
+}
+
+export type PartnersPageWriteInput = {
+  title?: string
+  seoTitle?: string
+  seoDescription?: string
+  isVisible?: boolean
+  sections: PartnersSections
 }
 
 export type PageWriteInput = {

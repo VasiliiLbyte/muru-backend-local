@@ -59,7 +59,15 @@ export type VacancySections = {
   }
 }
 
-export type PageSections = CompanySections | VacancySections
+export type PartnersSections = {
+  hero: {
+    image: ContentImage | null
+    heading: string
+    text: string
+  }
+}
+
+export type PageSections = CompanySections | VacancySections | PartnersSections
 
 export type ContentSeo = {
   title: string

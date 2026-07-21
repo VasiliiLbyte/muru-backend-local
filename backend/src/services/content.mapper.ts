@@ -9,6 +9,7 @@ import type {
   CrmPageDto,
   LookbookDto,
   PageSections,
+  PartnersSections,
   PublicBannerDto,
   StaticPageDto,
   VacancyItem,
@@ -185,8 +186,29 @@ export const parseVacancySectionsJson = (value: unknown): VacancySections | null
   }
 }
 
+export const parsePartnersSectionsJson = (value: unknown): PartnersSections | null => {
+  if (!value || typeof value !== 'object') return null
+  const obj = value as Record<string, unknown>
+  if ('mission' in obj || 'hr' in obj) return null
+
+  const hero = obj.hero
+  if (!hero || typeof hero !== 'object') return null
+  const heroObj = hero as Record<string, unknown>
+  if (typeof heroObj.heading !== 'string' || typeof heroObj.text !== 'string') return null
+
+  return {
+    hero: {
+      image: parseNullableImage(heroObj.image),
+      heading: heroObj.heading,
+      text: heroObj.text,
+    },
+  }
+}
+
 export const parseSectionsJson = (value: unknown): PageSections | null =>
-  parseCompanySectionsJson(value) ?? parseVacancySectionsJson(value)
+  parseCompanySectionsJson(value) ??
+  parseVacancySectionsJson(value) ??
+  parsePartnersSectionsJson(value)
 
 export const toIsoString = (value: Date | string | null | undefined): string | undefined => {
   if (value == null) return undefined

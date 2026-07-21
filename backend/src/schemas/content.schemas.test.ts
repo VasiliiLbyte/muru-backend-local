@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { companySectionsSchema, vacancySectionsSchema } from './content.schemas'
+import { companySectionsSchema, partnersSectionsSchema, vacancySectionsSchema } from './content.schemas'
 
 const validSections = {
   hero: { image: null, heading: 'О нас', text: '<p>Текст</p>' },
@@ -144,6 +144,32 @@ describe('vacancySectionsSchema', () => {
           },
         ],
       },
+    })
+    expect(result.success).toBe(false)
+  })
+})
+
+const validPartnersSections = {
+  hero: { image: null, heading: 'Стать партнёром', text: '<p>Текст</p>' },
+}
+
+describe('partnersSectionsSchema', () => {
+  it('accepts valid partners sections shape', () => {
+    const result = partnersSectionsSchema.safeParse(validPartnersSections)
+    expect(result.success).toBe(true)
+  })
+
+  it('rejects extra top-level key (strict)', () => {
+    const result = partnersSectionsSchema.safeParse({
+      ...validPartnersSections,
+      mission: { label: 'x' },
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects missing hero.text', () => {
+    const result = partnersSectionsSchema.safeParse({
+      hero: { image: null, heading: 'Стать партнёром' },
     })
     expect(result.success).toBe(false)
   })

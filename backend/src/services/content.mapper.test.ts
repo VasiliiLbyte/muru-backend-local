@@ -159,6 +159,26 @@ describe('content.mapper', () => {
     expect(parsed && 'vacancies' in parsed ? parsed.vacancies.items[0]?.id : null).toBe('example-1')
   })
 
+  const partnersSections = {
+    hero: { image: null, heading: 'Стать партнёром', text: '<p>Partner</p>' },
+  }
+
+  it('parseSectionsJson parses partners sections', () => {
+    const parsed = parseSectionsJson(partnersSections)
+    expect(parsed && !('hr' in parsed) && !('mission' in parsed) ? parsed.hero.heading : null).toBe(
+      'Стать партнёром',
+    )
+  })
+
+  it('parseSectionsJson rejects partners-like payload with hr', () => {
+    expect(
+      parseSectionsJson({
+        hero: { image: null, heading: 'x', text: '' },
+        hr: { heading: '', contactName: '', phone: '', email: '' },
+      }),
+    ).toBeNull()
+  })
+
   it('parseSectionsJson rejects invalid payload', () => {
     expect(parseSectionsJson(null)).toBeNull()
     expect(parseSectionsJson({ hero: {} })).toBeNull()

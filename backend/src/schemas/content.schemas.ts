@@ -122,6 +122,30 @@ export const vacancyPageWriteSchema = z
 
 export type VacancyPageWriteInput = z.infer<typeof vacancyPageWriteSchema>
 
+export const partnersSectionsSchema = z
+  .object({
+    hero: z
+      .object({
+        image: nullableImageSchema,
+        heading: z.string(),
+        text: z.string(),
+      })
+      .strict(),
+  })
+  .strict()
+
+export const partnersPageWriteSchema = z
+  .object({
+    title: z.string().min(1).optional(),
+    seoTitle: z.string().optional(),
+    seoDescription: z.string().optional(),
+    isVisible: z.boolean().optional(),
+    sections: partnersSectionsSchema,
+  })
+  .strict()
+
+export type PartnersPageWriteInput = z.infer<typeof partnersPageWriteSchema>
+
 export const pageWriteSchema = z.object({
   slug: z.string().min(1),
   title: z.string().min(1),

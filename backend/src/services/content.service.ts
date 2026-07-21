@@ -13,7 +13,11 @@ import {
 } from './content.mapper'
 import { listPublicHotspotsForLookbook } from './content-hotspots.service'
 import { sanitizeContentHtml } from './content-sanitize.service'
-import type { CompanyPageWriteInput, VacancyPageWriteInput } from '../schemas/content.schemas'
+import type {
+  CompanyPageWriteInput,
+  PartnersPageWriteInput,
+  VacancyPageWriteInput,
+} from '../schemas/content.schemas'
 import type {
   CollectionDto,
   CompanySections,
@@ -23,6 +27,7 @@ import type {
   CrmLookbookDto,
   CrmPageDto,
   LookbookDto,
+  PartnersSections,
   PublicBannerDto,
   StaticPageDto,
   VacancySections,
@@ -104,7 +109,7 @@ const FIXED_PAGE_DEFAULT_TITLES: Record<FixedPageSlug, string> = {
   partners: 'Стать партнёром',
 }
 
-const SECTIONS_NULL_SLUGS: FixedPageSlug[] = ['partners']
+const SECTIONS_NULL_SLUGS: FixedPageSlug[] = []
 
 export const createDefaultCompanySections = (): CompanySections => ({
   hero: { image: null, heading: 'О нас', text: '' },
@@ -138,6 +143,10 @@ export const createDefaultVacancySections = (): VacancySections => ({
   },
 })
 
+export const createDefaultPartnersSections = (): PartnersSections => ({
+  hero: { image: null, heading: 'Стать партнёром', text: '' },
+})
+
 export const sanitizeCompanySections = (
   sections: CompanyPageWriteInput['sections'],
 ): CompanyPageWriteInput['sections'] => ({
@@ -166,6 +175,16 @@ export const sanitizeVacancySections = (
       ...item,
       description: sanitizeContentHtml(item.description),
     })),
+  },
+})
+
+export const sanitizePartnersSections = (
+  sections: PartnersPageWriteInput['sections'],
+): PartnersPageWriteInput['sections'] => ({
+  ...sections,
+  hero: {
+    ...sections.hero,
+    text: sanitizeContentHtml(sections.hero.text),
   },
 })
 
@@ -244,6 +263,8 @@ export type UpsertFixedPageInput = {
 export type UpsertCompanyPageInput = CompanyPageWriteInput
 
 export type UpsertVacancyPageInput = VacancyPageWriteInput
+
+export type UpsertPartnersPageInput = PartnersPageWriteInput
 
 export const createPage = async (input: UpsertPageInput): Promise<CrmPageDto> => {
   const bodyHtml = sanitizeContentHtml(input.bodyHtml)
@@ -426,6 +447,56 @@ export const upsertCompanyPage = async (input: UpsertCompanyPageInput): Promise<
 export const upsertVacancyPage = async (input: UpsertVacancyPageInput): Promise<CrmPageDto> => {
   const fixedSlug = assertFixedPageSlug('vacancy')
   const sections = sanitizeVacancySections(input.sections)
+  const sectionsJson = JSON.stringify(sections)
+
+  const existing = await pool.query<{ id: number; title: string }>(
+    `SELECT id, title FROM content_pages WHERE slug = $1`,
+    [fixedSlug],
+  )
+  const row = existing.rows[0]
+
+  try {
+    if (row) {
+      const result = await pool.query(
+        `UPDATE content_pages
+         SET title = $2, body_html = '', hero_image = NULL, sections = $3, seo_title = $4,
+             seo_description = $5, is_visible = $6, updated_at = NOW()
+         WHERE id = $1
+         RETURNING ${PAGE_SELECT}`,
+        [
+          row.id,
+          input.title?.trim() || row.title,
+          sectionsJson,
+          input.seoTitle ?? '',
+          input.seoDescription ?? '',
+          input.isVisible ?? true,
+        ],
+      )
+      return mapPageRowToCrm(result.rows[0])
+    }
+
+    const result = await pool.query(
+      `INSERT INTO content_pages (slug, title, body_html, hero_image, sections, seo_title, seo_description, is_visible)
+       VALUES ($1, $2, '', NULL, $3, $4, $5, $6)
+       RETURNING ${PAGE_SELECT}`,
+      [
+        fixedSlug,
+        input.title?.trim() || FIXED_PAGE_DEFAULT_TITLES[fixedSlug],
+        sectionsJson,
+        input.seoTitle ?? '',
+        input.seoDescription ?? '',
+        input.isVisible ?? true,
+      ],
+    )
+    return mapPageRowToCrm(result.rows[0])
+  } catch (err) {
+    return wrapDbError(err)
+  }
+}
+
+export const upsertPartnersPage = async (input: UpsertPartnersPageInput): Promise<CrmPageDto> => {
+  const fixedSlug = assertFixedPageSlug('partners')
+  const sections = sanitizePartnersSections(input.sections)
   const sectionsJson = JSON.stringify(sections)
 
   const existing = await pool.query<{ id: number; title: string }>(

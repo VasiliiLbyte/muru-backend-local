@@ -14,6 +14,7 @@ const mockGetCrmPageBySlug = vi.fn()
 const mockUpsertFixedPage = vi.fn()
 const mockUpsertCompanyPage = vi.fn()
 const mockUpsertVacancyPage = vi.fn()
+const mockUpsertPartnersPage = vi.fn()
 
 vi.mock('../services/admin-auth.service', () => ({
   verifyAdminJwt: (...args: unknown[]) => mockVerifyAdminJwt(...args),
@@ -46,6 +47,7 @@ vi.mock('../services/content.service', () => ({
   upsertFixedPage: (...args: unknown[]) => mockUpsertFixedPage(...args),
   upsertCompanyPage: (...args: unknown[]) => mockUpsertCompanyPage(...args),
   upsertVacancyPage: (...args: unknown[]) => mockUpsertVacancyPage(...args),
+  upsertPartnersPage: (...args: unknown[]) => mockUpsertPartnersPage(...args),
   listCrmBanners: vi.fn(),
   getCrmBannerById: vi.fn(),
   createBanner: vi.fn(),
@@ -355,6 +357,52 @@ describe('content routes', () => {
     expect(res.status).toBe(200)
     expect(res.body.data.sections.hr.contactName).toBe('Анна')
     expect(mockUpsertVacancyPage).toHaveBeenCalledWith({ sections })
+    expect(mockUpsertFixedPage).not.toHaveBeenCalled()
+  })
+
+  it('CRM upsert partners page requires sections', async () => {
+    mockVerifyAdminJwt.mockReturnValue({ adminId: 1, role: 'owner' })
+
+    const app = buildApp()
+    const res = await request(app)
+      .put('/api/crm/content/pages/by-slug/partners')
+      .set('Cookie', 'admin_token=valid')
+      .send({ title: 'Партнерам' })
+
+    expect(res.status).toBe(400)
+    expect(mockUpsertPartnersPage).not.toHaveBeenCalled()
+    expect(mockUpsertFixedPage).not.toHaveBeenCalled()
+  })
+
+  it('CRM upsert partners page saves sections', async () => {
+    mockVerifyAdminJwt.mockReturnValue({ adminId: 1, role: 'owner' })
+    const sections = {
+      hero: { image: null, heading: 'Стать партнёром', text: '<p>Текст</p>' },
+    }
+    mockUpsertPartnersPage.mockResolvedValue({
+      id: '22',
+      slug: 'partners',
+      title: 'Партнерам',
+      bodyHtml: '',
+      heroImage: null,
+      sections,
+      seoTitle: '',
+      seoDescription: '',
+      isVisible: true,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    })
+
+    const app = buildApp()
+    const res = await request(app)
+      .put('/api/crm/content/pages/by-slug/partners')
+      .set('Cookie', 'admin_token=valid')
+      .send({ title: 'Партнерам', sections })
+
+    expect(res.status).toBe(200)
+    expect(res.body.data.sections.hero.heading).toBe('Стать партнёром')
+    expect(res.body.data.title).toBe('Партнерам')
+    expect(mockUpsertPartnersPage).toHaveBeenCalledWith({ title: 'Партнерам', sections })
     expect(mockUpsertFixedPage).not.toHaveBeenCalled()
   })
 })

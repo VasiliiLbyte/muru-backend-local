@@ -11,6 +11,7 @@ import {
   pageWriteSchema,
   companyPageWriteSchema,
   vacancyPageWriteSchema,
+  partnersPageWriteSchema,
   fixedPageWriteSchema,
   parsePositiveIntParam,
   parseRouteParam,
@@ -88,6 +89,13 @@ export const upsertPageBySlugHandler = async (req: Request, res: Response, next:
         return fail(res, 400, zodErrorMessage(parsed.error.issues), 'VALIDATION', parsed.error.issues)
       }
       return ok(res, await contentService.upsertVacancyPage(parsed.data))
+    }
+    if (slug === 'partners') {
+      const parsed = partnersPageWriteSchema.safeParse(req.body)
+      if (!parsed.success) {
+        return fail(res, 400, zodErrorMessage(parsed.error.issues), 'VALIDATION', parsed.error.issues)
+      }
+      return ok(res, await contentService.upsertPartnersPage(parsed.data))
     }
     const parsed = fixedPageWriteSchema.safeParse(req.body)
     if (!parsed.success) {
