@@ -8,7 +8,7 @@ import {
 } from 'lucide-react'
 import { NavLink, Navigate, Outlet, useNavigate } from 'react-router-dom'
 
-import { Badge, Button } from './ui'
+import { Button } from './ui'
 import { useAuth } from '../context/AuthContext'
 
 const navItems = [
@@ -63,11 +63,17 @@ export const ProtectedLayout = () => {
             </NavLink>
           ))}
 
-          <div className="sidebar-muted">
-            <Settings className="sidebar-muted__icon" aria-hidden />
-            <span>Настройки</span>
-            <Badge variant="neutral">скоро</Badge>
-          </div>
+          {admin.role === 'owner' ? (
+            <NavLink
+              to="/settings"
+              className={({ isActive }) =>
+                `sidebar-link${isActive ? ' sidebar-link--active' : ''}`
+              }
+            >
+              <Settings className="sidebar-link__icon" aria-hidden />
+              Настройки
+            </NavLink>
+          ) : null}
         </nav>
 
         <div className="sidebar-footer">

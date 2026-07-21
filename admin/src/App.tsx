@@ -2,6 +2,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 
 import { ContentIndexRedirect, ContentLayout } from './components/content/ContentLayout'
 import { CatalogIndexRedirect, CatalogLayout } from './components/catalog/CatalogLayout'
+import { RequireOwner } from './components/RequireOwner'
 import { ProtectedLayout } from './components/ProtectedLayout'
 import { ConfirmProvider, PromptProvider, ToastProvider } from './components/ui'
 import { AuthProvider } from './context/AuthContext'
@@ -19,6 +20,8 @@ import { LoginPage } from './pages/LoginPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { OrderDetailPage } from './pages/orders/OrderDetailPage'
 import { OrdersListPage } from './pages/orders/OrdersListPage'
+import { SettingsHubPage } from './pages/settings/SettingsHubPage'
+import { UsersSettingsPage } from './pages/settings/UsersSettingsPage'
 import { CharacteristicsPage } from './pages/catalog/CharacteristicsPage'
 import { ImportExportPage } from './pages/catalog/ImportExportPage'
 import { ProductEditPage } from './pages/catalog/ProductEditPage'
@@ -51,6 +54,10 @@ function App() {
           <Route index element={<DashboardPage />} />
           <Route path="orders" element={<OrdersListPage />} />
           <Route path="orders/:id" element={<OrderDetailPage />} />
+          <Route path="settings" element={<RequireOwner />}>
+            <Route index element={<SettingsHubPage />} />
+            <Route path="users" element={<UsersSettingsPage />} />
+          </Route>
           <Route path="catalog" element={<CatalogLayout />}>
             <Route index element={<CatalogIndexRedirect />} />
             <Route path="sections" element={<SectionsHubPage />} />

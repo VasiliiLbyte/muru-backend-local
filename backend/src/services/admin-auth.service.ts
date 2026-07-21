@@ -35,7 +35,13 @@ export type AdminLoginResult = {
 
 export const DUMMY_HASH = '$2b$12$Qf7A0fW4rWuN7qWn1U8l7eM6h4lVY6s2mVw7i7a2M7S2QW6wG0m7u'
 
-const normalizeEmail = (email: string): string => email.trim().toLowerCase()
+export const PASSWORD_MIN_LENGTH = 12
+export const BCRYPT_COST = 12
+
+export const normalizeEmail = (email: string): string => email.trim().toLowerCase()
+
+export const hashAdminPassword = (password: string): Promise<string> =>
+  bcrypt.hash(password, BCRYPT_COST)
 
 const toAdminRow = (row: AdminDbRow): AdminRow => ({
   id: row.id,
