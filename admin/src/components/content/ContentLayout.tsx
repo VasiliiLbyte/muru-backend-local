@@ -5,6 +5,7 @@ import { Tabs, TabsList, TabsTrigger } from '../ui'
 const tabs = [
   { to: '/content/help', label: 'Клиентам' },
   { to: '/content/contacts', label: 'Контакты' },
+  { to: '/content/company', label: 'О нас' },
   { to: '/content/banners', label: 'Баннеры' },
 ] as const
 

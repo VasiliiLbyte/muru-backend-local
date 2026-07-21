@@ -5,6 +5,32 @@ export type ContentImage = {
   height?: number
 }
 
+export type CompanyPromoCardKey = 'vacancy' | 'contacts' | 'partners'
+
+export type CompanyPromoCard = {
+  key: CompanyPromoCardKey
+  title: string
+  text: string
+}
+
+export type CompanySections = {
+  hero: {
+    image: ContentImage | null
+    heading: string
+    text: string
+  }
+  mission: {
+    label: string
+    heading: string
+    text: string
+    images: [ContentImage | null, ContentImage | null]
+  }
+  promo: {
+    image: ContentImage | null
+    cards: [CompanyPromoCard, CompanyPromoCard, CompanyPromoCard]
+  }
+}
+
 export type ContentSeo = {
   title: string
   description: string
@@ -16,6 +42,7 @@ export type StaticPageDto = {
   title: string
   body: string
   heroImage: ContentImage | null
+  sections?: CompanySections | null
   seo: ContentSeo
   updatedAt?: string
 }
@@ -88,6 +115,7 @@ export type CrmPageDto = {
   title: string
   bodyHtml: string
   heroImage: ContentImage | null
+  sections?: CompanySections | null
   seoTitle: string
   seoDescription: string
   isVisible: boolean

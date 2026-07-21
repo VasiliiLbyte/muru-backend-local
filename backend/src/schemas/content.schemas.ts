@@ -7,6 +7,71 @@ export const imageJsonSchema = z.object({
   height: z.number().int().positive().optional(),
 })
 
+const nullableImageSchema = imageJsonSchema.nullable()
+
+export const companyPromoCardKeySchema = z.enum(['vacancy', 'contacts', 'partners'])
+
+const companyPromoCardSchema = z
+  .object({
+    key: companyPromoCardKeySchema,
+    title: z.string(),
+    text: z.string(),
+  })
+  .strict()
+
+export const companySectionsSchema = z
+  .object({
+    hero: z
+      .object({
+        image: nullableImageSchema,
+        heading: z.string(),
+        text: z.string(),
+      })
+      .strict(),
+    mission: z
+      .object({
+        label: z.string(),
+        heading: z.string(),
+        text: z.string(),
+        images: z.tuple([nullableImageSchema, nullableImageSchema]),
+      })
+      .strict(),
+    promo: z
+      .object({
+        image: nullableImageSchema,
+        cards: z.array(companyPromoCardSchema).length(3),
+      })
+      .strict(),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    const expectedKeys: Array<z.infer<typeof companyPromoCardKeySchema>> = [
+      'vacancy',
+      'contacts',
+      'partners',
+    ]
+    const actualKeys = value.promo.cards.map((card) => card.key)
+    if (actualKeys.join(',') !== expectedKeys.join(',')) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'promo.cards keys must be vacancy, contacts, partners in that order',
+        path: ['promo', 'cards'],
+      })
+    }
+  })
+
+export const companyPageWriteSchema = z
+  .object({
+    title: z.string().min(1).optional(),
+    seoTitle: z.string().optional(),
+    seoDescription: z.string().optional(),
+    isVisible: z.boolean().optional(),
+    sections: companySectionsSchema,
+  })
+  .strict()
+
+export type CompanyPageWriteInput = z.infer<typeof companyPageWriteSchema>
+
 export const pageWriteSchema = z.object({
   slug: z.string().min(1),
   title: z.string().min(1),

@@ -13,8 +13,10 @@ import {
 } from './content.mapper'
 import { listPublicHotspotsForLookbook } from './content-hotspots.service'
 import { sanitizeContentHtml } from './content-sanitize.service'
+import type { CompanyPageWriteInput } from '../schemas/content.schemas'
 import type {
   CollectionDto,
+  CompanySections,
   ContentImage,
   CrmBannerDto,
   CrmCollectionDto,
@@ -90,13 +92,45 @@ export const assertSkusExist = async (skus: string[]): Promise<void> => {
 
 // --- Pages ---
 
-export const FIXED_PAGE_SLUGS = ['help', 'contacts'] as const
+export const FIXED_PAGE_SLUGS = ['help', 'contacts', 'company', 'vacancy', 'partners'] as const
 export type FixedPageSlug = (typeof FIXED_PAGE_SLUGS)[number]
 
 const FIXED_PAGE_DEFAULT_TITLES: Record<FixedPageSlug, string> = {
   help: 'Клиентам',
   contacts: 'Контакты',
+  company: 'О нас',
+  vacancy: 'Вакансии',
+  partners: 'Стать партнёром',
 }
+
+const SECTIONS_NULL_SLUGS: FixedPageSlug[] = ['vacancy', 'partners']
+
+export const createDefaultCompanySections = (): CompanySections => ({
+  hero: { image: null, heading: 'О нас', text: '' },
+  mission: { label: 'Миссия', heading: '', text: '', images: [null, null] },
+  promo: {
+    image: null,
+    cards: [
+      { key: 'vacancy', title: 'Вакансии', text: '' },
+      { key: 'contacts', title: 'Контакты', text: '' },
+      { key: 'partners', title: 'Стать партнёром', text: '' },
+    ],
+  },
+})
+
+export const sanitizeCompanySections = (
+  sections: CompanyPageWriteInput['sections'],
+): CompanyPageWriteInput['sections'] => ({
+  ...sections,
+  hero: {
+    ...sections.hero,
+    text: sanitizeContentHtml(sections.hero.text),
+  },
+  mission: {
+    ...sections.mission,
+    text: sanitizeContentHtml(sections.mission.text),
+  },
+})
 
 export const assertFixedPageSlug = (slug: string): FixedPageSlug => {
   if ((FIXED_PAGE_SLUGS as readonly string[]).includes(slug)) {
@@ -105,7 +139,7 @@ export const assertFixedPageSlug = (slug: string): FixedPageSlug => {
   throw new HttpError(400, 'Invalid page slug', 'VALIDATION')
 }
 
-const PAGE_SELECT = `id, slug, title, body_html, hero_image, seo_title, seo_description, is_visible, created_at, updated_at`
+const PAGE_SELECT = `id, slug, title, body_html, hero_image, sections, seo_title, seo_description, is_visible, created_at, updated_at`
 
 export const listCrmPages = async (): Promise<CrmPageDto[]> => {
   const result = await pool.query(
@@ -170,6 +204,8 @@ export type UpsertFixedPageInput = {
   isVisible?: boolean
 }
 
+export type UpsertCompanyPageInput = CompanyPageWriteInput
+
 export const createPage = async (input: UpsertPageInput): Promise<CrmPageDto> => {
   const bodyHtml = sanitizeContentHtml(input.bodyHtml)
   try {
@@ -230,6 +266,7 @@ export const upsertFixedPage = async (
   const fixedSlug = assertFixedPageSlug(slug)
   const bodyHtml = sanitizeContentHtml(input.bodyHtml)
   const heroImageJson = input.heroImage ? JSON.stringify(input.heroImage) : null
+  const clearSections = SECTIONS_NULL_SLUGS.includes(fixedSlug)
 
   const existing = await pool.query<{ id: number; title: string }>(
     `SELECT id, title FROM content_pages WHERE slug = $1`,
@@ -239,10 +276,11 @@ export const upsertFixedPage = async (
 
   try {
     if (row) {
+      const sectionsClause = clearSections ? ', sections = NULL' : ''
       const result = await pool.query(
         `UPDATE content_pages
          SET title = $2, body_html = $3, hero_image = $4, seo_title = $5, seo_description = $6,
-             is_visible = $7, updated_at = NOW()
+             is_visible = $7, updated_at = NOW()${sectionsClause}
          WHERE id = $1
          RETURNING ${PAGE_SELECT}`,
         [
@@ -258,15 +296,83 @@ export const upsertFixedPage = async (
       return mapPageRowToCrm(result.rows[0])
     }
 
+    const insertColumns = clearSections
+      ? `(slug, title, body_html, hero_image, sections, seo_title, seo_description, is_visible)`
+      : `(slug, title, body_html, hero_image, seo_title, seo_description, is_visible)`
+    const insertValues = clearSections
+      ? `($1, $2, $3, $4, NULL, $5, $6, $7)`
+      : `($1, $2, $3, $4, $5, $6, $7)`
+    const insertParams = clearSections
+      ? [
+          fixedSlug,
+          input.title?.trim() || FIXED_PAGE_DEFAULT_TITLES[fixedSlug],
+          bodyHtml,
+          heroImageJson,
+          input.seoTitle ?? '',
+          input.seoDescription ?? '',
+          input.isVisible ?? true,
+        ]
+      : [
+          fixedSlug,
+          input.title?.trim() || FIXED_PAGE_DEFAULT_TITLES[fixedSlug],
+          bodyHtml,
+          heroImageJson,
+          input.seoTitle ?? '',
+          input.seoDescription ?? '',
+          input.isVisible ?? true,
+        ]
+
     const result = await pool.query(
-      `INSERT INTO content_pages (slug, title, body_html, hero_image, seo_title, seo_description, is_visible)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO content_pages ${insertColumns}
+       VALUES ${insertValues}
+       RETURNING ${PAGE_SELECT}`,
+      insertParams,
+    )
+    return mapPageRowToCrm(result.rows[0])
+  } catch (err) {
+    return wrapDbError(err)
+  }
+}
+
+export const upsertCompanyPage = async (input: UpsertCompanyPageInput): Promise<CrmPageDto> => {
+  const fixedSlug = assertFixedPageSlug('company')
+  const sections = sanitizeCompanySections(input.sections)
+  const sectionsJson = JSON.stringify(sections)
+
+  const existing = await pool.query<{ id: number; title: string }>(
+    `SELECT id, title FROM content_pages WHERE slug = $1`,
+    [fixedSlug],
+  )
+  const row = existing.rows[0]
+
+  try {
+    if (row) {
+      const result = await pool.query(
+        `UPDATE content_pages
+         SET title = $2, body_html = '', hero_image = NULL, sections = $3, seo_title = $4,
+             seo_description = $5, is_visible = $6, updated_at = NOW()
+         WHERE id = $1
+         RETURNING ${PAGE_SELECT}`,
+        [
+          row.id,
+          input.title?.trim() || row.title,
+          sectionsJson,
+          input.seoTitle ?? '',
+          input.seoDescription ?? '',
+          input.isVisible ?? true,
+        ],
+      )
+      return mapPageRowToCrm(result.rows[0])
+    }
+
+    const result = await pool.query(
+      `INSERT INTO content_pages (slug, title, body_html, hero_image, sections, seo_title, seo_description, is_visible)
+       VALUES ($1, $2, '', NULL, $3, $4, $5, $6)
        RETURNING ${PAGE_SELECT}`,
       [
         fixedSlug,
         input.title?.trim() || FIXED_PAGE_DEFAULT_TITLES[fixedSlug],
-        bodyHtml,
-        heroImageJson,
+        sectionsJson,
         input.seoTitle ?? '',
         input.seoDescription ?? '',
         input.isVisible ?? true,

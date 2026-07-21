@@ -21,6 +21,7 @@ import { HttpError } from '../utils/api-response'
 import {
   assertFixedPageSlug,
   assertSkusExist,
+  createDefaultCompanySections,
   createLookbook,
   createPage,
   getCrmPageBySlug,
@@ -30,8 +31,11 @@ import {
   setCollectionProducts,
   updateLookbook,
   updatePage,
+  upsertCompanyPage,
   upsertFixedPage,
 } from './content.service'
+
+const defaultSections = createDefaultCompanySections()
 
 describe('content.service', () => {
   beforeEach(() => {
@@ -140,6 +144,10 @@ describe('content.service', () => {
     }
   })
 
+  it('assertFixedPageSlug accepts vacancy', () => {
+    expect(assertFixedPageSlug('vacancy')).toBe('vacancy')
+  })
+
   it('getCrmPageBySlug returns mapped page for allowlisted slug', async () => {
     mockPoolQuery.mockResolvedValueOnce({
       rows: [
@@ -230,6 +238,98 @@ describe('content.service', () => {
       upsertFixedPage('privacy', { bodyHtml: '<p>x</p>' }),
     ).rejects.toMatchObject({ status: 400, code: 'VALIDATION' })
     expect(mockPoolQuery).not.toHaveBeenCalled()
+  })
+
+  it('upsertCompanyPage inserts when row is missing', async () => {
+    const inputSections = {
+      ...defaultSections,
+      hero: { ...defaultSections.hero, text: '<p>Safe</p><script>x</script>' },
+    }
+    mockPoolQuery
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: 20,
+            slug: 'company',
+            title: 'О нас',
+            body_html: '',
+            hero_image: null,
+            sections: {
+              ...inputSections,
+              hero: { ...inputSections.hero, text: '<p>Safe</p>' },
+            },
+            seo_title: '',
+            seo_description: '',
+            is_visible: true,
+            created_at: '2026-01-01T00:00:00.000Z',
+            updated_at: '2026-01-01T00:00:00.000Z',
+          },
+        ],
+      })
+
+    const page = await upsertCompanyPage({ sections: inputSections })
+
+    expect(String(mockPoolQuery.mock.calls[1]?.[0])).toContain('INSERT INTO content_pages')
+    const sectionsArg = mockPoolQuery.mock.calls[1]?.[1]?.[2] as string
+    expect(sectionsArg).toContain('<p>Safe</p>')
+    expect(sectionsArg).not.toContain('<script')
+    expect(page.slug).toBe('company')
+    expect(page.sections?.hero.text).toContain('<p>Safe</p>')
+  })
+
+  it('upsertCompanyPage updates existing row', async () => {
+    mockPoolQuery
+      .mockResolvedValueOnce({ rows: [{ id: 20, title: 'О нас' }] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: 20,
+            slug: 'company',
+            title: 'О нас',
+            body_html: '',
+            hero_image: null,
+            sections: defaultSections,
+            seo_title: '',
+            seo_description: '',
+            is_visible: true,
+            created_at: '2026-01-01T00:00:00.000Z',
+            updated_at: '2026-01-01T00:00:00.000Z',
+          },
+        ],
+      })
+
+    await upsertCompanyPage({ sections: defaultSections })
+
+    expect(String(mockPoolQuery.mock.calls[1]?.[0])).toContain('UPDATE content_pages')
+    expect(String(mockPoolQuery.mock.calls[1]?.[0])).toContain('sections = $3')
+  })
+
+  it('upsertFixedPage clears sections for vacancy on insert', async () => {
+    mockPoolQuery
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: 21,
+            slug: 'vacancy',
+            title: 'Вакансии',
+            body_html: '<p>V</p>',
+            hero_image: null,
+            sections: null,
+            seo_title: '',
+            seo_description: '',
+            is_visible: true,
+            created_at: '2026-01-01T00:00:00.000Z',
+            updated_at: '2026-01-01T00:00:00.000Z',
+          },
+        ],
+      })
+
+    await upsertFixedPage('vacancy', { bodyHtml: '<p>V</p>' })
+
+    expect(String(mockPoolQuery.mock.calls[1]?.[0])).toContain('sections')
+    expect(String(mockPoolQuery.mock.calls[1]?.[0])).toContain('NULL')
   })
 
   it('createPage throws 409 on duplicate slug', async () => {

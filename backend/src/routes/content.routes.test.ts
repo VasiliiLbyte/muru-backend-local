@@ -12,6 +12,7 @@ const mockGetPublicLookbookBySlug = vi.fn()
 const mockListPublicLookbooks = vi.fn()
 const mockGetCrmPageBySlug = vi.fn()
 const mockUpsertFixedPage = vi.fn()
+const mockUpsertCompanyPage = vi.fn()
 
 vi.mock('../services/admin-auth.service', () => ({
   verifyAdminJwt: (...args: unknown[]) => mockVerifyAdminJwt(...args),
@@ -42,6 +43,7 @@ vi.mock('../services/content.service', () => ({
   getCrmPageById: vi.fn(),
   getCrmPageBySlug: (...args: unknown[]) => mockGetCrmPageBySlug(...args),
   upsertFixedPage: (...args: unknown[]) => mockUpsertFixedPage(...args),
+  upsertCompanyPage: (...args: unknown[]) => mockUpsertCompanyPage(...args),
   listCrmBanners: vi.fn(),
   getCrmBannerById: vi.fn(),
   createBanner: vi.fn(),
@@ -238,5 +240,59 @@ describe('content routes', () => {
       bodyHtml: '<p>Body</p>',
       heroImage: { url: '/uploads/a.jpg' },
     })
+  })
+
+  it('CRM upsert company page requires sections', async () => {
+    mockVerifyAdminJwt.mockReturnValue({ adminId: 1, role: 'owner' })
+
+    const app = buildApp()
+    const res = await request(app)
+      .put('/api/crm/content/pages/by-slug/company')
+      .set('Cookie', 'admin_token=valid')
+      .send({ title: 'О нас' })
+
+    expect(res.status).toBe(400)
+    expect(mockUpsertCompanyPage).not.toHaveBeenCalled()
+    expect(mockUpsertFixedPage).not.toHaveBeenCalled()
+  })
+
+  it('CRM upsert company page saves sections', async () => {
+    mockVerifyAdminJwt.mockReturnValue({ adminId: 1, role: 'owner' })
+    const sections = {
+      hero: { image: null, heading: 'Тест', text: '<p>Текст</p>' },
+      mission: { label: 'Миссия', heading: '', text: '', images: [null, null] },
+      promo: {
+        image: null,
+        cards: [
+          { key: 'vacancy', title: 'В', text: '' },
+          { key: 'contacts', title: 'К', text: '' },
+          { key: 'partners', title: 'П', text: '' },
+        ],
+      },
+    }
+    mockUpsertCompanyPage.mockResolvedValue({
+      id: '20',
+      slug: 'company',
+      title: 'О нас',
+      bodyHtml: '',
+      heroImage: null,
+      sections,
+      seoTitle: '',
+      seoDescription: '',
+      isVisible: true,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    })
+
+    const app = buildApp()
+    const res = await request(app)
+      .put('/api/crm/content/pages/by-slug/company')
+      .set('Cookie', 'admin_token=valid')
+      .send({ sections })
+
+    expect(res.status).toBe(200)
+    expect(res.body.data.sections.hero.heading).toBe('Тест')
+    expect(mockUpsertCompanyPage).toHaveBeenCalledWith({ sections })
+    expect(mockUpsertFixedPage).not.toHaveBeenCalled()
   })
 })

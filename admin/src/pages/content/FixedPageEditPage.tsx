@@ -17,7 +17,9 @@ import { ApiError } from '../../lib/api'
 import { getPageBySlug, upsertPageBySlug } from '../../lib/content-api'
 import type { ContentImage } from '../../types/content'
 
-export type FixedPageSection = 'help' | 'contacts'
+import type { FixedPageSlug } from '../../types/content'
+
+export type FixedPageSection = FixedPageSlug
 
 const SECTION_META: Record<
   FixedPageSection,
@@ -32,6 +34,16 @@ const SECTION_META: Record<
     title: 'Контакты',
     hint: 'Изображение над реквизитами на витрине',
     defaultTitle: 'Контакты',
+  },
+  vacancy: {
+    title: 'Вакансии',
+    hint: 'Страница /company/vacancy/ на витрине',
+    defaultTitle: 'Вакансии',
+  },
+  partners: {
+    title: 'Стать партнёром',
+    hint: 'Страница /company/partners/ на витрине',
+    defaultTitle: 'Стать партнёром',
   },
 }
 

@@ -5,12 +5,52 @@ export type ContentImage = {
   height?: number
 }
 
+export type CompanyPromoCardKey = 'vacancy' | 'contacts' | 'partners'
+
+export type CompanyPromoCard = {
+  key: CompanyPromoCardKey
+  title: string
+  text: string
+}
+
+export type CompanySections = {
+  hero: {
+    image: ContentImage | null
+    heading: string
+    text: string
+  }
+  mission: {
+    label: string
+    heading: string
+    text: string
+    images: [ContentImage | null, ContentImage | null]
+  }
+  promo: {
+    image: ContentImage | null
+    cards: [CompanyPromoCard, CompanyPromoCard, CompanyPromoCard]
+  }
+}
+
+export const createDefaultCompanySections = (): CompanySections => ({
+  hero: { image: null, heading: 'О нас', text: '' },
+  mission: { label: 'Миссия', heading: '', text: '', images: [null, null] },
+  promo: {
+    image: null,
+    cards: [
+      { key: 'vacancy', title: 'Вакансии', text: '' },
+      { key: 'contacts', title: 'Контакты', text: '' },
+      { key: 'partners', title: 'Стать партнёром', text: '' },
+    ],
+  },
+})
+
 export type CrmPageDto = {
   id: string
   slug: string
   title: string
   bodyHtml: string
   heroImage: ContentImage | null
+  sections?: CompanySections | null
   seoTitle: string
   seoDescription: string
   isVisible: boolean
@@ -64,6 +104,8 @@ export type CrmBannerDto = {
   updatedAt: string
 }
 
+export type FixedPageSlug = 'help' | 'contacts' | 'vacancy' | 'partners'
+
 export type FixedPageWriteInput = {
   title?: string
   bodyHtml: string
@@ -71,6 +113,14 @@ export type FixedPageWriteInput = {
   seoTitle?: string
   seoDescription?: string
   isVisible?: boolean
+}
+
+export type CompanyPageWriteInput = {
+  title?: string
+  seoTitle?: string
+  seoDescription?: string
+  isVisible?: boolean
+  sections: CompanySections
 }
 
 export type PageWriteInput = {

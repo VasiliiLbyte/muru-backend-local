@@ -9,6 +9,7 @@ import {
   lookbookImagesSchema,
   lookbookWriteSchema,
   pageWriteSchema,
+  companyPageWriteSchema,
   fixedPageWriteSchema,
   parsePositiveIntParam,
   parseRouteParam,
@@ -72,6 +73,13 @@ export const upsertPageBySlugHandler = async (req: Request, res: Response, next:
     const slug = parseRouteParam(req.params.slug)
     if (!slug) {
       return fail(res, 400, 'Invalid slug', 'VALIDATION')
+    }
+    if (slug === 'company') {
+      const parsed = companyPageWriteSchema.safeParse(req.body)
+      if (!parsed.success) {
+        return fail(res, 400, zodErrorMessage(parsed.error.issues), 'VALIDATION', parsed.error.issues)
+      }
+      return ok(res, await contentService.upsertCompanyPage(parsed.data))
     }
     const parsed = fixedPageWriteSchema.safeParse(req.body)
     if (!parsed.success) {

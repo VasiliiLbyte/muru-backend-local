@@ -171,6 +171,7 @@ CREATE TABLE IF NOT EXISTS content_pages (
   title TEXT NOT NULL,
   body_html TEXT NOT NULL DEFAULT '',
   hero_image JSONB,
+  sections JSONB,
   seo_title TEXT NOT NULL DEFAULT '',
   seo_description TEXT NOT NULL DEFAULT '',
   is_visible BOOLEAN NOT NULL DEFAULT true,

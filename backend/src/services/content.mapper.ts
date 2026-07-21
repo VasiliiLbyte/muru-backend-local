@@ -1,5 +1,6 @@
 import type {
   CollectionDto,
+  CompanySections,
   ContentImage,
   ContentSeo,
   CrmBannerDto,
@@ -27,6 +28,86 @@ export const parseImageJson = (value: unknown): ContentImage | undefined => {
   return image
 }
 
+const parseNullableImage = (value: unknown): ContentImage | null => {
+  if (value == null) return null
+  return parseImageJson(value) ?? null
+}
+
+const isPromoCardKey = (value: unknown): value is CompanySections['promo']['cards'][0]['key'] =>
+  value === 'vacancy' || value === 'contacts' || value === 'partners'
+
+export const parseSectionsJson = (value: unknown): CompanySections | null => {
+  if (!value || typeof value !== 'object') return null
+  const obj = value as Record<string, unknown>
+
+  const hero = obj.hero
+  const mission = obj.mission
+  const promo = obj.promo
+  if (!hero || typeof hero !== 'object' || !mission || typeof mission !== 'object') {
+    return null
+  }
+  if (!promo || typeof promo !== 'object') return null
+
+  const heroObj = hero as Record<string, unknown>
+  const missionObj = mission as Record<string, unknown>
+  const promoObj = promo as Record<string, unknown>
+
+  if (typeof heroObj.heading !== 'string' || typeof heroObj.text !== 'string') return null
+  if (
+    typeof missionObj.label !== 'string' ||
+    typeof missionObj.heading !== 'string' ||
+    typeof missionObj.text !== 'string'
+  ) {
+    return null
+  }
+
+  const missionImages = missionObj.images
+  if (!Array.isArray(missionImages) || missionImages.length !== 2) return null
+
+  const cards = promoObj.cards
+  if (!Array.isArray(cards) || cards.length !== 3) return null
+
+  const parsedCards = cards.map((card) => {
+    if (!card || typeof card !== 'object') return null
+    const cardObj = card as Record<string, unknown>
+    if (!isPromoCardKey(cardObj.key)) return null
+    if (typeof cardObj.title !== 'string' || typeof cardObj.text !== 'string') return null
+    return {
+      key: cardObj.key,
+      title: cardObj.title,
+      text: cardObj.text,
+    }
+  })
+
+  if (parsedCards.length !== 3 || parsedCards.some((card) => card === null)) return null
+
+  const expectedKeys: CompanySections['promo']['cards'][number]['key'][] = [
+    'vacancy',
+    'contacts',
+    'partners',
+  ]
+  const typedCards = parsedCards as CompanySections['promo']['cards']
+  if (typedCards.map((c) => c.key).join(',') !== expectedKeys.join(',')) return null
+
+  return {
+    hero: {
+      image: parseNullableImage(heroObj.image),
+      heading: heroObj.heading,
+      text: heroObj.text,
+    },
+    mission: {
+      label: missionObj.label,
+      heading: missionObj.heading,
+      text: missionObj.text,
+      images: [parseNullableImage(missionImages[0]), parseNullableImage(missionImages[1])],
+    },
+    promo: {
+      image: parseNullableImage(promoObj.image),
+      cards: typedCards,
+    },
+  }
+}
+
 export const toIsoString = (value: Date | string | null | undefined): string | undefined => {
   if (value == null) return undefined
   if (value instanceof Date) return value.toISOString()
@@ -44,6 +125,7 @@ type PageRow = {
   title: string
   body_html: string
   hero_image: unknown
+  sections?: unknown
   seo_title: string
   seo_description: string
   is_visible: boolean
@@ -51,27 +133,37 @@ type PageRow = {
   updated_at: Date | string
 }
 
-export const mapPageRowToCrm = (row: PageRow): CrmPageDto => ({
-  id: String(row.id),
-  slug: row.slug,
-  title: row.title,
-  bodyHtml: row.body_html,
-  heroImage: parseImageJson(row.hero_image) ?? null,
-  seoTitle: row.seo_title,
-  seoDescription: row.seo_description,
-  isVisible: row.is_visible,
-  createdAt: toIsoString(row.created_at) ?? '',
-  updatedAt: toIsoString(row.updated_at) ?? '',
-})
+export const mapPageRowToCrm = (row: PageRow): CrmPageDto => {
+  const sections = parseSectionsJson(row.sections)
+  const dto: CrmPageDto = {
+    id: String(row.id),
+    slug: row.slug,
+    title: row.title,
+    bodyHtml: row.body_html,
+    heroImage: parseImageJson(row.hero_image) ?? null,
+    seoTitle: row.seo_title,
+    seoDescription: row.seo_description,
+    isVisible: row.is_visible,
+    createdAt: toIsoString(row.created_at) ?? '',
+    updatedAt: toIsoString(row.updated_at) ?? '',
+  }
+  if (sections) dto.sections = sections
+  return dto
+}
 
-export const mapPageRowToPublic = (row: PageRow): StaticPageDto => ({
-  slug: row.slug,
-  title: row.title,
-  body: row.body_html,
-  heroImage: parseImageJson(row.hero_image) ?? null,
-  seo: mapSeo(row.seo_title, row.seo_description),
-  updatedAt: toIsoString(row.updated_at),
-})
+export const mapPageRowToPublic = (row: PageRow): StaticPageDto => {
+  const sections = parseSectionsJson(row.sections)
+  const dto: StaticPageDto = {
+    slug: row.slug,
+    title: row.title,
+    body: row.body_html,
+    heroImage: parseImageJson(row.hero_image) ?? null,
+    seo: mapSeo(row.seo_title, row.seo_description),
+    updatedAt: toIsoString(row.updated_at),
+  }
+  if (sections) dto.sections = sections
+  return dto
+}
 
 type CollectionRow = {
   id: number

@@ -9,6 +9,7 @@ import { BannerEditPage } from './pages/content/BannerEditPage'
 import { BannersListPage } from './pages/content/BannersListPage'
 import { CollectionEditPage } from './pages/content/CollectionEditPage'
 import { CollectionsListPage } from './pages/content/CollectionsListPage'
+import { CompanyPageEditPage } from './pages/content/CompanyPageEditPage'
 import { FixedPageEditPage } from './pages/content/FixedPageEditPage'
 import { LookbookEditPage } from './pages/content/LookbookEditPage'
 import { LookbooksListPage } from './pages/content/LookbooksListPage'
@@ -70,6 +71,9 @@ function App() {
             <Route index element={<ContentIndexRedirect />} />
             <Route path="help" element={<FixedPageEditPage section="help" />} />
             <Route path="contacts" element={<FixedPageEditPage section="contacts" />} />
+            <Route path="company" element={<CompanyPageEditPage />} />
+            <Route path="company/vacancy" element={<FixedPageEditPage section="vacancy" />} />
+            <Route path="company/partners" element={<FixedPageEditPage section="partners" />} />
             <Route path="pages" element={<Navigate to="/content/help" replace />} />
             <Route path="pages/new" element={<Navigate to="/content/help" replace />} />
             <Route path="pages/:id" element={<Navigate to="/content/help" replace />} />

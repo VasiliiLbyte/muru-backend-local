@@ -4,8 +4,10 @@ import {
   mapCollectionRowToPublic,
   mapLookbookRowToCrm,
   mapLookbookRowToPublic,
+  mapPageRowToCrm,
   mapPageRowToPublic,
   parseImageJson,
+  parseSectionsJson,
 } from './content.mapper'
 
 describe('content.mapper', () => {
@@ -61,6 +63,61 @@ describe('content.mapper', () => {
     })
 
     expect(dto.heroImage).toEqual({ url: '/uploads/shop.jpg', alt: 'Магазин' })
+  })
+
+  const companySections = {
+    hero: { image: null, heading: 'О нас', text: '<p>Hero</p>' },
+    mission: { label: 'Миссия', heading: 'H', text: '<p>M</p>', images: [null, null] as const,
+    },
+    promo: {
+      image: null,
+      cards: [
+        { key: 'vacancy' as const, title: 'Вакансии', text: '' },
+        { key: 'contacts' as const, title: 'Контакты', text: '' },
+        { key: 'partners' as const, title: 'Стать партнёром', text: '' },
+      ],
+    },
+  }
+
+  it('mapPageRowToPublic includes sections when present', () => {
+    const dto = mapPageRowToPublic({
+      id: 5,
+      slug: 'company',
+      title: 'О нас',
+      body_html: '',
+      hero_image: null,
+      sections: companySections,
+      seo_title: '',
+      seo_description: '',
+      is_visible: true,
+      created_at: '2026-01-01T00:00:00.000Z',
+      updated_at: '2026-07-08T10:00:00.000Z',
+    })
+
+    expect(dto.sections?.hero.heading).toBe('О нас')
+  })
+
+  it('mapPageRowToCrm includes sections when present', () => {
+    const dto = mapPageRowToCrm({
+      id: 5,
+      slug: 'company',
+      title: 'О нас',
+      body_html: '',
+      hero_image: null,
+      sections: companySections,
+      seo_title: '',
+      seo_description: '',
+      is_visible: true,
+      created_at: '2026-01-01T00:00:00.000Z',
+      updated_at: '2026-07-08T10:00:00.000Z',
+    })
+
+    expect(dto.sections?.promo.cards[0].key).toBe('vacancy')
+  })
+
+  it('parseSectionsJson rejects invalid payload', () => {
+    expect(parseSectionsJson(null)).toBeNull()
+    expect(parseSectionsJson({ hero: {} })).toBeNull()
   })
 
   it('mapCollectionRowToPublic includes productSlugs and camelCase fields', () => {
