@@ -112,7 +112,51 @@ describe('content.mapper', () => {
       updated_at: '2026-07-08T10:00:00.000Z',
     })
 
-    expect(dto.sections?.promo.cards[0].key).toBe('vacancy')
+    expect(dto.sections && 'promo' in dto.sections ? dto.sections.promo.cards[0].key : null).toBe(
+      'vacancy',
+    )
+  })
+
+  const vacancySections = {
+    hero: { image: null, heading: 'Вакансии', text: '<p>Hero</p>' },
+    hr: { heading: 'HR', contactName: 'Анна', phone: '+7000', email: 'hr@example.com' },
+    vacancies: {
+      heading: 'Открытые',
+      items: [
+        {
+          id: 'example-1',
+          title: 'Менеджер',
+          city: 'СПб',
+          experience: '',
+          format: '',
+          salary: '',
+          description: '<p>Desc</p>',
+        },
+      ],
+    },
+  }
+
+  it('mapPageRowToPublic includes vacancy sections when present', () => {
+    const dto = mapPageRowToPublic({
+      id: 6,
+      slug: 'vacancy',
+      title: 'Вакансии',
+      body_html: '',
+      hero_image: null,
+      sections: vacancySections,
+      seo_title: '',
+      seo_description: '',
+      is_visible: true,
+      created_at: '2026-01-01T00:00:00.000Z',
+      updated_at: '2026-07-08T10:00:00.000Z',
+    })
+
+    expect(dto.sections && 'hr' in dto.sections ? dto.sections.hr.contactName : null).toBe('Анна')
+  })
+
+  it('parseSectionsJson parses vacancy sections', () => {
+    const parsed = parseSectionsJson(vacancySections)
+    expect(parsed && 'vacancies' in parsed ? parsed.vacancies.items[0]?.id : null).toBe('example-1')
   })
 
   it('parseSectionsJson rejects invalid payload', () => {

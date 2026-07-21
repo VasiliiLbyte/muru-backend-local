@@ -44,13 +44,62 @@ export const createDefaultCompanySections = (): CompanySections => ({
   },
 })
 
+export type VacancyItem = {
+  id: string
+  title: string
+  city: string
+  experience: string
+  format: string
+  salary: string
+  description: string
+}
+
+export type VacancySections = {
+  hero: {
+    image: ContentImage | null
+    heading: string
+    text: string
+  }
+  hr: {
+    heading: string
+    contactName: string
+    phone: string
+    email: string
+  }
+  vacancies: {
+    heading: string
+    items: VacancyItem[]
+  }
+}
+
+export type PageSections = CompanySections | VacancySections
+
+export const createDefaultVacancySections = (): VacancySections => ({
+  hero: { image: null, heading: 'Вакансии', text: '' },
+  hr: { heading: 'Контакты HR', contactName: '', phone: '', email: '' },
+  vacancies: {
+    heading: 'Открытые вакансии',
+    items: [
+      {
+        id: 'example-1',
+        title: 'Пример вакансии',
+        city: '',
+        experience: '',
+        format: '',
+        salary: '',
+        description: '',
+      },
+    ],
+  },
+})
+
 export type CrmPageDto = {
   id: string
   slug: string
   title: string
   bodyHtml: string
   heroImage: ContentImage | null
-  sections?: CompanySections | null
+  sections?: PageSections | null
   seoTitle: string
   seoDescription: string
   isVisible: boolean
@@ -121,6 +170,14 @@ export type CompanyPageWriteInput = {
   seoDescription?: string
   isVisible?: boolean
   sections: CompanySections
+}
+
+export type VacancyPageWriteInput = {
+  title?: string
+  seoTitle?: string
+  seoDescription?: string
+  isVisible?: boolean
+  sections: VacancySections
 }
 
 export type PageWriteInput = {

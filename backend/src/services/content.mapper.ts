@@ -8,8 +8,11 @@ import type {
   CrmLookbookDto,
   CrmPageDto,
   LookbookDto,
+  PageSections,
   PublicBannerDto,
   StaticPageDto,
+  VacancyItem,
+  VacancySections,
 } from '../types/content'
 
 export const parseImageJson = (value: unknown): ContentImage | undefined => {
@@ -36,7 +39,7 @@ const parseNullableImage = (value: unknown): ContentImage | null => {
 const isPromoCardKey = (value: unknown): value is CompanySections['promo']['cards'][0]['key'] =>
   value === 'vacancy' || value === 'contacts' || value === 'partners'
 
-export const parseSectionsJson = (value: unknown): CompanySections | null => {
+export const parseCompanySectionsJson = (value: unknown): CompanySections | null => {
   if (!value || typeof value !== 'object') return null
   const obj = value as Record<string, unknown>
 
@@ -107,6 +110,83 @@ export const parseSectionsJson = (value: unknown): CompanySections | null => {
     },
   }
 }
+
+const parseVacancyItem = (value: unknown): VacancyItem | null => {
+  if (!value || typeof value !== 'object') return null
+  const obj = value as Record<string, unknown>
+  if (typeof obj.id !== 'string' || obj.id.length === 0) return null
+  if (typeof obj.title !== 'string') return null
+  if (typeof obj.city !== 'string') return null
+  if (typeof obj.experience !== 'string') return null
+  if (typeof obj.format !== 'string') return null
+  if (typeof obj.salary !== 'string') return null
+  if (typeof obj.description !== 'string') return null
+  return {
+    id: obj.id,
+    title: obj.title,
+    city: obj.city,
+    experience: obj.experience,
+    format: obj.format,
+    salary: obj.salary,
+    description: obj.description,
+  }
+}
+
+export const parseVacancySectionsJson = (value: unknown): VacancySections | null => {
+  if (!value || typeof value !== 'object') return null
+  const obj = value as Record<string, unknown>
+
+  const hero = obj.hero
+  const hr = obj.hr
+  const vacancies = obj.vacancies
+  if (!hero || typeof hero !== 'object') return null
+  if (!hr || typeof hr !== 'object') return null
+  if (!vacancies || typeof vacancies !== 'object') return null
+
+  const heroObj = hero as Record<string, unknown>
+  const hrObj = hr as Record<string, unknown>
+  const vacanciesObj = vacancies as Record<string, unknown>
+
+  if (typeof heroObj.heading !== 'string' || typeof heroObj.text !== 'string') return null
+  if (
+    typeof hrObj.heading !== 'string' ||
+    typeof hrObj.contactName !== 'string' ||
+    typeof hrObj.phone !== 'string' ||
+    typeof hrObj.email !== 'string'
+  ) {
+    return null
+  }
+  if (typeof vacanciesObj.heading !== 'string') return null
+  if (!Array.isArray(vacanciesObj.items)) return null
+
+  const items: VacancyItem[] = []
+  for (const raw of vacanciesObj.items) {
+    const item = parseVacancyItem(raw)
+    if (!item) return null
+    items.push(item)
+  }
+
+  return {
+    hero: {
+      image: parseNullableImage(heroObj.image),
+      heading: heroObj.heading,
+      text: heroObj.text,
+    },
+    hr: {
+      heading: hrObj.heading,
+      contactName: hrObj.contactName,
+      phone: hrObj.phone,
+      email: hrObj.email,
+    },
+    vacancies: {
+      heading: vacanciesObj.heading,
+      items,
+    },
+  }
+}
+
+export const parseSectionsJson = (value: unknown): PageSections | null =>
+  parseCompanySectionsJson(value) ?? parseVacancySectionsJson(value)
 
 export const toIsoString = (value: Date | string | null | undefined): string | undefined => {
   if (value == null) return undefined

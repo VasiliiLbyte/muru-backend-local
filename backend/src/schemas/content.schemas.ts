@@ -72,6 +72,56 @@ export const companyPageWriteSchema = z
 
 export type CompanyPageWriteInput = z.infer<typeof companyPageWriteSchema>
 
+const vacancyItemSchema = z
+  .object({
+    id: z.string().min(1),
+    title: z.string(),
+    city: z.string(),
+    experience: z.string(),
+    format: z.string(),
+    salary: z.string(),
+    description: z.string(),
+  })
+  .strict()
+
+export const vacancySectionsSchema = z
+  .object({
+    hero: z
+      .object({
+        image: nullableImageSchema,
+        heading: z.string(),
+        text: z.string(),
+      })
+      .strict(),
+    hr: z
+      .object({
+        heading: z.string(),
+        contactName: z.string(),
+        phone: z.string(),
+        email: z.string(),
+      })
+      .strict(),
+    vacancies: z
+      .object({
+        heading: z.string(),
+        items: z.array(vacancyItemSchema),
+      })
+      .strict(),
+  })
+  .strict()
+
+export const vacancyPageWriteSchema = z
+  .object({
+    title: z.string().min(1).optional(),
+    seoTitle: z.string().optional(),
+    seoDescription: z.string().optional(),
+    isVisible: z.boolean().optional(),
+    sections: vacancySectionsSchema,
+  })
+  .strict()
+
+export type VacancyPageWriteInput = z.infer<typeof vacancyPageWriteSchema>
+
 export const pageWriteSchema = z.object({
   slug: z.string().min(1),
   title: z.string().min(1),

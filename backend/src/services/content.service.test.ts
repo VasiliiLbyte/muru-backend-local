@@ -22,6 +22,7 @@ import {
   assertFixedPageSlug,
   assertSkusExist,
   createDefaultCompanySections,
+  createDefaultVacancySections,
   createLookbook,
   createPage,
   getCrmPageBySlug,
@@ -33,9 +34,11 @@ import {
   updatePage,
   upsertCompanyPage,
   upsertFixedPage,
+  upsertVacancyPage,
 } from './content.service'
 
 const defaultSections = createDefaultCompanySections()
+const defaultVacancySections = createDefaultVacancySections()
 
 describe('content.service', () => {
   beforeEach(() => {
@@ -305,7 +308,20 @@ describe('content.service', () => {
     expect(String(mockPoolQuery.mock.calls[1]?.[0])).toContain('sections = $3')
   })
 
-  it('upsertFixedPage clears sections for vacancy on insert', async () => {
+  it('upsertVacancyPage inserts when row is missing', async () => {
+    const inputSections = {
+      ...defaultVacancySections,
+      hero: { ...defaultVacancySections.hero, text: '<p>Safe</p><script>x</script>' },
+      vacancies: {
+        ...defaultVacancySections.vacancies,
+        items: [
+          {
+            ...defaultVacancySections.vacancies.items[0],
+            description: '<p>Job</p><script>y</script>',
+          },
+        ],
+      },
+    }
     mockPoolQuery
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({
@@ -314,7 +330,75 @@ describe('content.service', () => {
             id: 21,
             slug: 'vacancy',
             title: 'Вакансии',
-            body_html: '<p>V</p>',
+            body_html: '',
+            hero_image: null,
+            sections: {
+              ...inputSections,
+              hero: { ...inputSections.hero, text: '<p>Safe</p>' },
+              vacancies: {
+                ...inputSections.vacancies,
+                items: [{ ...inputSections.vacancies.items[0], description: '<p>Job</p>' }],
+              },
+            },
+            seo_title: '',
+            seo_description: '',
+            is_visible: true,
+            created_at: '2026-01-01T00:00:00.000Z',
+            updated_at: '2026-01-01T00:00:00.000Z',
+          },
+        ],
+      })
+
+    const page = await upsertVacancyPage({ sections: inputSections })
+
+    expect(String(mockPoolQuery.mock.calls[1]?.[0])).toContain('INSERT INTO content_pages')
+    const sectionsArg = mockPoolQuery.mock.calls[1]?.[1]?.[2] as string
+    expect(sectionsArg).toContain('<p>Safe</p>')
+    expect(sectionsArg).toContain('<p>Job</p>')
+    expect(sectionsArg).not.toContain('<script')
+    expect(page.slug).toBe('vacancy')
+    expect(page.sections && 'hr' in page.sections ? page.sections.hr.heading : null).toBe(
+      'Контакты HR',
+    )
+  })
+
+  it('upsertVacancyPage updates existing row', async () => {
+    mockPoolQuery
+      .mockResolvedValueOnce({ rows: [{ id: 21, title: 'Вакансии' }] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: 21,
+            slug: 'vacancy',
+            title: 'Вакансии',
+            body_html: '',
+            hero_image: null,
+            sections: defaultVacancySections,
+            seo_title: '',
+            seo_description: '',
+            is_visible: true,
+            created_at: '2026-01-01T00:00:00.000Z',
+            updated_at: '2026-01-01T00:00:00.000Z',
+          },
+        ],
+      })
+
+    await upsertVacancyPage({ sections: defaultVacancySections })
+
+    expect(String(mockPoolQuery.mock.calls[1]?.[0])).toContain('UPDATE content_pages')
+    expect(String(mockPoolQuery.mock.calls[1]?.[0])).toContain('sections = $3')
+  })
+
+  it('upsertFixedPage clears sections for partners on insert', async () => {
+    mockPoolQuery
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: 22,
+            slug: 'partners',
+            title: 'Стать партнёром',
+            body_html: '<p>P</p>',
             hero_image: null,
             sections: null,
             seo_title: '',
@@ -326,7 +410,7 @@ describe('content.service', () => {
         ],
       })
 
-    await upsertFixedPage('vacancy', { bodyHtml: '<p>V</p>' })
+    await upsertFixedPage('partners', { bodyHtml: '<p>P</p>' })
 
     expect(String(mockPoolQuery.mock.calls[1]?.[0])).toContain('sections')
     expect(String(mockPoolQuery.mock.calls[1]?.[0])).toContain('NULL')

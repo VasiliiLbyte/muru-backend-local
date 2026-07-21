@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { companySectionsSchema } from './content.schemas'
+import { companySectionsSchema, vacancySectionsSchema } from './content.schemas'
 
 const validSections = {
   hero: { image: null, heading: 'О нас', text: '<p>Текст</p>' },
@@ -11,6 +11,25 @@ const validSections = {
       { key: 'vacancy', title: 'Вакансии', text: 'Текст' },
       { key: 'contacts', title: 'Контакты', text: 'Текст' },
       { key: 'partners', title: 'Стать партнёром', text: 'Текст' },
+    ],
+  },
+}
+
+const validVacancySections = {
+  hero: { image: null, heading: 'Вакансии', text: '<p>Текст</p>' },
+  hr: { heading: 'HR', contactName: 'Имя', phone: '+7000', email: 'hr@example.com' },
+  vacancies: {
+    heading: 'Открытые вакансии',
+    items: [
+      {
+        id: 'example-1',
+        title: 'Менеджер',
+        city: 'СПб',
+        experience: '1 год',
+        format: 'офис',
+        salary: 'по договорённости',
+        description: '<p>Описание</p>',
+      },
     ],
   },
 }
@@ -67,6 +86,62 @@ describe('companySectionsSchema', () => {
           { key: 'vacancy', title: 'В', text: '' },
           { key: 'contacts', title: 'К', text: '' },
           { key: 'privacy', title: 'П', text: '' },
+        ],
+      },
+    })
+    expect(result.success).toBe(false)
+  })
+})
+
+describe('vacancySectionsSchema', () => {
+  it('accepts valid vacancy sections shape', () => {
+    const result = vacancySectionsSchema.safeParse(validVacancySections)
+    expect(result.success).toBe(true)
+  })
+
+  it('rejects extra top-level key (strict)', () => {
+    const result = vacancySectionsSchema.safeParse({
+      ...validVacancySections,
+      extra: true,
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects item without id', () => {
+    const result = vacancySectionsSchema.safeParse({
+      ...validVacancySections,
+      vacancies: {
+        heading: 'Открытые вакансии',
+        items: [
+          {
+            title: 'Менеджер',
+            city: 'СПб',
+            experience: '',
+            format: '',
+            salary: '',
+            description: '',
+          },
+        ],
+      },
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects item with wrong field type', () => {
+    const result = vacancySectionsSchema.safeParse({
+      ...validVacancySections,
+      vacancies: {
+        heading: 'Открытые вакансии',
+        items: [
+          {
+            id: 'example-1',
+            title: 'Менеджер',
+            city: 'СПб',
+            experience: '',
+            format: '',
+            salary: 100,
+            description: '',
+          },
         ],
       },
     })

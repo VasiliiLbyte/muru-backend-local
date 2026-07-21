@@ -47,7 +47,11 @@ export const CompanyPageEditPage = () => {
       try {
         const page = await getPageBySlug('company')
         setTitle(page.title || 'О нас')
-        setSections(page.sections ?? createDefaultCompanySections())
+        setSections(
+          page.sections && 'promo' in page.sections
+            ? page.sections
+            : createDefaultCompanySections(),
+        )
         setSeoTitle(page.seoTitle)
         setSeoDescription(page.seoDescription)
         setIsVisible(page.isVisible)
@@ -91,7 +95,11 @@ export const CompanyPageEditPage = () => {
         sections,
       })
       setTitle(saved.title)
-      setSections(saved.sections ?? createDefaultCompanySections())
+      setSections(
+        saved.sections && 'promo' in saved.sections
+          ? saved.sections
+          : createDefaultCompanySections(),
+      )
       setSeoTitle(saved.seoTitle)
       setSeoDescription(saved.seoDescription)
       setIsVisible(saved.isVisible)

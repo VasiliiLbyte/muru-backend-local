@@ -1422,6 +1422,60 @@
   gap: 4px;
 }
 
+.vacancy-items-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.vacancy-items-editor__item {
+  border: 1px solid var(--muru-border);
+  border-radius: var(--r-md);
+  background: var(--muru-surface);
+  overflow: hidden;
+}
+
+.vacancy-items-editor__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--muru-surface-muted);
+}
+
+.vacancy-items-editor__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--muru-text-strong);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+}
+
+.vacancy-items-editor__toggle span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vacancy-items-editor__actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.vacancy-items-editor__body {
+  padding: 12px;
+  border-top: 1px solid var(--muru-border);
+}
+
 /* Orders status tabs */
 .orders-status-tabs {
   display: flex;

@@ -31,6 +31,36 @@ export type CompanySections = {
   }
 }
 
+export type VacancyItem = {
+  id: string
+  title: string
+  city: string
+  experience: string
+  format: string
+  salary: string
+  description: string
+}
+
+export type VacancySections = {
+  hero: {
+    image: ContentImage | null
+    heading: string
+    text: string
+  }
+  hr: {
+    heading: string
+    contactName: string
+    phone: string
+    email: string
+  }
+  vacancies: {
+    heading: string
+    items: VacancyItem[]
+  }
+}
+
+export type PageSections = CompanySections | VacancySections
+
 export type ContentSeo = {
   title: string
   description: string
@@ -42,7 +72,7 @@ export type StaticPageDto = {
   title: string
   body: string
   heroImage: ContentImage | null
-  sections?: CompanySections | null
+  sections?: PageSections | null
   seo: ContentSeo
   updatedAt?: string
 }
@@ -115,7 +145,7 @@ export type CrmPageDto = {
   title: string
   bodyHtml: string
   heroImage: ContentImage | null
-  sections?: CompanySections | null
+  sections?: PageSections | null
   seoTitle: string
   seoDescription: string
   isVisible: boolean

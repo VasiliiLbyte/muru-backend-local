@@ -10,6 +10,7 @@ import {
   lookbookWriteSchema,
   pageWriteSchema,
   companyPageWriteSchema,
+  vacancyPageWriteSchema,
   fixedPageWriteSchema,
   parsePositiveIntParam,
   parseRouteParam,
@@ -80,6 +81,13 @@ export const upsertPageBySlugHandler = async (req: Request, res: Response, next:
         return fail(res, 400, zodErrorMessage(parsed.error.issues), 'VALIDATION', parsed.error.issues)
       }
       return ok(res, await contentService.upsertCompanyPage(parsed.data))
+    }
+    if (slug === 'vacancy') {
+      const parsed = vacancyPageWriteSchema.safeParse(req.body)
+      if (!parsed.success) {
+        return fail(res, 400, zodErrorMessage(parsed.error.issues), 'VALIDATION', parsed.error.issues)
+      }
+      return ok(res, await contentService.upsertVacancyPage(parsed.data))
     }
     const parsed = fixedPageWriteSchema.safeParse(req.body)
     if (!parsed.success) {
