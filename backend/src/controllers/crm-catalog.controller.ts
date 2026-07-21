@@ -76,8 +76,19 @@ const parseGiftGuide = (value: unknown): 'true' | 'false' | 'all' | undefined =>
   return undefined
 }
 
+const parseNewArrival = (value: unknown): 'true' | 'false' | 'all' | undefined => {
+  if (value === 'true' || value === 'false' || value === 'all') return value
+  return undefined
+}
+
 const parseSortBy = (value: unknown): CrmCatalogSortBy | undefined => {
-  if (value === 'sku' || value === 'price' || value === 'inStock' || value === 'updatedAt') {
+  if (
+    value === 'sku' ||
+    value === 'price' ||
+    value === 'inStock' ||
+    value === 'updatedAt' ||
+    value === 'newArrivalAt'
+  ) {
     return value
   }
   return undefined
@@ -86,6 +97,19 @@ const parseSortBy = (value: unknown): CrmCatalogSortBy | undefined => {
 const parseSortDir = (value: unknown): CrmCatalogSortDir | undefined => {
   if (value === 'asc' || value === 'desc') return value
   return undefined
+}
+
+/** Returns undefined when absent; throws HttpError 400 when present but invalid. */
+const parseCollectionIdQuery = (value: unknown): number | undefined => {
+  if (value === undefined || value === null || value === '') return undefined
+  if (typeof value !== 'string' && typeof value !== 'number') {
+    throw new HttpError(400, 'Invalid collectionId', 'VALIDATION')
+  }
+  const parsed = Number(value)
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new HttpError(400, 'Invalid collectionId', 'VALIDATION')
+  }
+  return parsed
 }
 
 const handleServiceError = (error: unknown, res: Response, next: NextFunction) => {
@@ -131,9 +155,11 @@ export const listCrmCatalogProductsHandler = async (
       q: typeof req.query.q === 'string' ? req.query.q : undefined,
       category: typeof req.query.category === 'string' ? req.query.category : undefined,
       subcategory: typeof req.query.subcategory === 'string' ? req.query.subcategory : undefined,
+      collectionId: parseCollectionIdQuery(req.query.collectionId),
       inStock: parseInStock(req.query.inStock),
       archived: parseArchived(req.query.archived),
       giftGuide: parseGiftGuide(req.query.giftGuide),
+      newArrival: parseNewArrival(req.query.newArrival),
       page: req.query.page,
       pageSize: req.query.pageSize,
       sortBy: parseSortBy(req.query.sortBy),

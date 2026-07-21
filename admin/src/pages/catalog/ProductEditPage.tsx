@@ -29,7 +29,13 @@ import {
   unarchiveProduct,
   updateProductStock,
 } from '../../lib/catalog-api'
+import { listCollections } from '../../lib/content-api'
+import {
+  getProductCollections,
+  putProductCollections,
+} from '../../lib/product-collections-api'
 import type { CrmCatalogProductDetail, CrmCategoryItem, ProductImageSlot } from '../../types/catalog'
+import type { CrmCollectionDto } from '../../types/content'
 
 const MANAGED_SPEC_KEYS = [
   'Материал',
@@ -58,6 +64,7 @@ export const ProductEditPage = () => {
 
   const [product, setProduct] = useState<CrmCatalogProductDetail | null>(null)
   const [categories, setCategories] = useState<CrmCategoryItem[]>([])
+  const [collections, setCollections] = useState<CrmCollectionDto[]>([])
 
   const [sku, setSku] = useState('')
   const [name, setName] = useState('')
@@ -67,12 +74,15 @@ export const ProductEditPage = () => {
   const [inStock, setInStock] = useState('0')
   const [categoryId, setCategoryId] = useState('')
   const [subcategoryIds, setSubcategoryIds] = useState<number[]>([])
+  const [collectionIds, setCollectionIds] = useState<number[]>([])
   const [material, setMaterial] = useState('')
   const [colorField, setColorField] = useState('')
   const [country, setCountry] = useState('')
   const [sizeField, setSizeField] = useState('')
   const [brand, setBrand] = useState('')
   const [isGiftGuide, setIsGiftGuide] = useState(false)
+  const [isNewArrival, setIsNewArrival] = useState(false)
+  const [newArrivalAt, setNewArrivalAt] = useState<string | null>(null)
   const [imageSlots, setImageSlots] = useState<ProductImageSlot[]>([])
   const [weightGrams, setWeightGrams] = useState('')
   const [dimLengthCm, setDimLengthCm] = useState('')
@@ -107,6 +117,14 @@ export const ProductEditPage = () => {
     )
   }
 
+  const toggleCollection = (collectionId: number) => {
+    setCollectionIds((prev) =>
+      prev.includes(collectionId)
+        ? prev.filter((x) => x !== collectionId)
+        : [...prev, collectionId],
+    )
+  }
+
   const moveSelectedSubcategory = (index: number, direction: -1 | 1) => {
     setSubcategoryIds((prev) => {
       const target = index + direction
@@ -133,6 +151,8 @@ export const ProductEditPage = () => {
     setSizeField(specs['Размер'] ?? data.size ?? '')
     setBrand(specs['Бренд'] ?? '')
     setIsGiftGuide(data.isGiftGuide ?? false)
+    setIsNewArrival(data.isNewArrival ?? false)
+    setNewArrivalAt(data.newArrivalAt ?? null)
     setImageSlots(productToImageSlots(data))
     setWeightGrams(String(data.weightGrams))
     setDimLengthCm(String(data.dimLengthCm))
@@ -147,8 +167,15 @@ export const ProductEditPage = () => {
       .catch(() => setCategories([]))
   }, [])
 
+  useEffect(() => {
+    void listCollections()
+      .then(setCollections)
+      .catch(() => setCollections([]))
+  }, [])
+
   const load = useCallback(async () => {
     if (isNew) {
+      setCollectionIds([])
       setLoading(false)
       return
     }
@@ -165,13 +192,24 @@ export const ProductEditPage = () => {
       const data = await getProduct(productId!)
       setProduct(data)
       applyProductToForm(data)
+      try {
+        const membership = await getProductCollections(data.sku)
+        setCollectionIds(membership.collectionIds)
+      } catch (membershipErr) {
+        setCollectionIds([])
+        toast.error(
+          membershipErr instanceof Error
+            ? membershipErr.message
+            : 'Не удалось загрузить коллекции товара',
+        )
+      }
     } catch (err) {
       setProduct(null)
       setError(err instanceof Error ? err.message : 'Не удалось загрузить товар')
     } finally {
       setLoading(false)
     }
-  }, [isNew, productId, applyProductToForm])
+  }, [isNew, productId, applyProductToForm, toast])
 
   useEffect(() => {
     void load()
@@ -215,6 +253,7 @@ export const ProductEditPage = () => {
       color: trimmedColor || null,
       size: trimmedSize || null,
       isGiftGuide,
+      isNewArrival,
       imageUrls,
       imageUrl1: imageUrls[0],
       imageUrl2: imageUrls[1] ?? imageUrls[0],
@@ -238,6 +277,15 @@ export const ProductEditPage = () => {
           sku: sku.trim(),
           ...buildBody(),
         })
+        try {
+          await putProductCollections(created.sku, collectionIds)
+        } catch (membershipErr) {
+          toast.error(
+            membershipErr instanceof Error
+              ? membershipErr.message
+              : 'Товар сохранён, но коллекции не обновлены',
+          )
+        }
         toast.success('Сохранено')
         navigate(`/catalog/products/${created.id}`, { replace: true })
         return
@@ -246,6 +294,15 @@ export const ProductEditPage = () => {
       const updated = await patchProduct(productId!, buildBody())
       setProduct(updated)
       applyProductToForm(updated)
+      try {
+        await putProductCollections(updated.sku || sku.trim(), collectionIds)
+      } catch (membershipErr) {
+        toast.error(
+          membershipErr instanceof Error
+            ? membershipErr.message
+            : 'Товар сохранён, но коллекции не обновлены',
+        )
+      }
       toast.success('Сохранено')
     } catch (err) {
       if (err instanceof ApiError && err.code === 'LOCKED') {
@@ -434,6 +491,25 @@ export const ProductEditPage = () => {
             onChange={(e) => setIsGiftGuide(e.target.checked)}
             disabled={readOnly}
           />
+
+          <Checkbox
+            label="Добавить в новинки"
+            checked={isNewArrival}
+            onChange={(e) => setIsNewArrival(e.target.checked)}
+            disabled={readOnly}
+          />
+          {isNewArrival && newArrivalAt ? (
+            <p className="muted-text">
+              Дата:{' '}
+              {new Date(newArrivalAt).toLocaleString('ru-RU', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            </p>
+          ) : null}
         </Card>
 
         <Card title="Категория">
@@ -512,6 +588,28 @@ export const ProductEditPage = () => {
               </ul>
             </Card>
           ) : null}
+        </Card>
+
+        <Card title="Коллекции">
+          {collections.length === 0 ? (
+            <p className="muted-text">Коллекций пока нет</p>
+          ) : (
+            collections.map((col) => {
+              const idNum = Number(col.id)
+              return (
+                <Checkbox
+                  key={col.id}
+                  label={col.title}
+                  checked={Number.isInteger(idNum) && collectionIds.includes(idNum)}
+                  onChange={() => {
+                    if (!Number.isInteger(idNum) || idNum <= 0) return
+                    toggleCollection(idNum)
+                  }}
+                  disabled={readOnly || !Number.isInteger(idNum) || idNum <= 0}
+                />
+              )
+            })
+          )}
         </Card>
 
         <Card title="Фото">

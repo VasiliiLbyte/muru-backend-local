@@ -12,6 +12,7 @@ import { catalogRouter } from './routes/catalog.routes'
 import { contentCrmRouter } from './routes/content-crm.routes'
 import { crmCatalogRouter } from './routes/crm-catalog.routes'
 import { crmOrdersRouter } from './routes/crm-orders.routes'
+import { crmProductCollectionsRouter } from './routes/crm-product-collections.routes'
 import { crmUsersRouter } from './routes/crm-users.routes'
 import { contentPublicRouter } from './routes/content-public.routes'
 import { favoritesRouter } from './routes/favorites.routes'
@@ -82,6 +83,7 @@ app.use('/api/admin-auth', adminAuthRouter)
 app.use('/api/crm/content', contentCrmRouter)
 app.use('/api/crm/orders', crmOrdersRouter)
 app.use('/api/crm/catalog', crmCatalogRouter)
+app.use('/api/crm/products', crmProductCollectionsRouter)
 app.use('/api/crm/users', crmUsersRouter)
 app.use('/api/content', contentPublicRouter)
 app.use('/api/admin', adminRouter)

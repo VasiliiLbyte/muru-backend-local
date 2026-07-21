@@ -23,8 +23,10 @@ import {
 } from '../../components/ui'
 import { useCatalogMetaContext } from '../../context/CatalogMetaContext'
 import { archiveProduct, listCategories, listProducts } from '../../lib/catalog-api'
+import { listCollections } from '../../lib/content-api'
 import { isSaleCategorySlug } from '../../lib/sale-category'
 import type { CrmCatalogListResult, CrmCatalogSortBy, CrmCatalogSortDir, CrmCategoryItem } from '../../types/catalog'
+import type { CrmCollectionDto } from '../../types/content'
 import { formatMoney } from '../../utils/order-labels'
 
 const PAGE_SIZE = 20
@@ -32,6 +34,18 @@ const PAGE_SIZE = 20
 type ArchivedFilter = 'false' | 'true' | 'all'
 type StockFilter = 'all' | 'in' | 'out'
 type GiftGuideFilter = 'all' | 'true' | 'false'
+type NewArrivalFilter = 'all' | 'true' | 'false'
+
+const formatNewArrivalDate = (value: string | null | undefined): string => {
+  if (!value) return '—'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '—'
+  return date.toLocaleString('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
+}
 
 type SubcategoryOption = {
   slug: string
@@ -78,9 +92,12 @@ export const ProductsListPage = () => {
   const [inStock, setInStock] = useState<StockFilter>('all')
   const [archived, setArchived] = useState<ArchivedFilter>('false')
   const [giftGuide, setGiftGuide] = useState<GiftGuideFilter>('all')
+  const [newArrival, setNewArrival] = useState<NewArrivalFilter>('all')
+  const [collectionFilter, setCollectionFilter] = useState('')
   const [page, setPage] = useState(1)
   const [data, setData] = useState<CrmCatalogListResult | null>(null)
   const [categories, setCategories] = useState<CrmCategoryItem[]>([])
+  const [collections, setCollections] = useState<CrmCollectionDto[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
@@ -95,7 +112,7 @@ export const ProductsListPage = () => {
 
   useEffect(() => {
     setPage(1)
-  }, [q, category, subcategory, inStock, archived, giftGuide])
+  }, [q, category, subcategory, inStock, archived, giftGuide, newArrival, collectionFilter])
 
   useEffect(() => {
     void listCategories()
@@ -103,17 +120,29 @@ export const ProductsListPage = () => {
       .catch(() => setCategories([]))
   }, [])
 
+  useEffect(() => {
+    void listCollections()
+      .then(setCollections)
+      .catch(() => setCollections([]))
+  }, [])
+
   const load = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
+      const collectionId = collectionFilter ? Number(collectionFilter) : undefined
       const result = await listProducts({
         q: q || undefined,
         category: category || undefined,
         subcategory: subcategory || undefined,
+        collectionId:
+          typeof collectionId === 'number' && Number.isInteger(collectionId) && collectionId > 0
+            ? collectionId
+            : undefined,
         inStock: inStock === 'all' ? undefined : inStock,
         archived,
         giftGuide,
+        newArrival,
         page,
         pageSize: PAGE_SIZE,
         sortBy: sortBy === 'updatedAt' ? undefined : sortBy,
@@ -126,7 +155,7 @@ export const ProductsListPage = () => {
     } finally {
       setLoading(false)
     }
-  }, [q, category, subcategory, inStock, archived, giftGuide, page, sortBy, sortDir])
+  }, [q, category, subcategory, collectionFilter, inStock, archived, giftGuide, newArrival, page, sortBy, sortDir])
 
   useEffect(() => {
     void load()
@@ -156,12 +185,12 @@ export const ProductsListPage = () => {
   }
 
   const onSort = (key: string) => {
-    if (key !== 'sku' && key !== 'price' && key !== 'inStock') return
+    if (key !== 'sku' && key !== 'price' && key !== 'inStock' && key !== 'newArrivalAt') return
     if (sortBy === key) {
       setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
     } else {
-      setSortBy(key)
-      setSortDir('asc')
+      setSortBy(key as CrmCatalogSortBy)
+      setSortDir(key === 'newArrivalAt' ? 'desc' : 'asc')
     }
     setPage(1)
   }
@@ -315,6 +344,33 @@ export const ProductsListPage = () => {
               <option value="false">Нет</option>
             </Select>
           </Field>
+
+          <Field label="Новинки" htmlFor="catalog-new-arrival">
+            <Select
+              id="catalog-new-arrival"
+              value={newArrival}
+              onChange={(e) => setNewArrival(e.target.value as NewArrivalFilter)}
+            >
+              <option value="all">Все</option>
+              <option value="true">Да</option>
+              <option value="false">Нет</option>
+            </Select>
+          </Field>
+
+          <Field label="Коллекция" htmlFor="catalog-collection">
+            <Select
+              id="catalog-collection"
+              value={collectionFilter}
+              onChange={(e) => setCollectionFilter(e.target.value)}
+            >
+              <option value="">Все</option>
+              {collections.map((col) => (
+                <option key={col.id} value={col.id}>
+                  {col.title}
+                </option>
+              ))}
+            </Select>
+          </Field>
         </div>
       </div>
 
@@ -341,7 +397,7 @@ export const ProductsListPage = () => {
       {error ? <p className="error-text">{error}</p> : null}
 
       {loading ? (
-        <SkeletonTable rows={8} cols={readOnly ? 7 : 8} />
+        <SkeletonTable rows={8} cols={readOnly ? 8 : 9} />
       ) : !data || data.items.length === 0 ? (
         <EmptyState icon={Package} title="Товары не найдены" />
       ) : (
@@ -360,6 +416,9 @@ export const ProductsListPage = () => {
               </TableHead>
               <TableHead numeric sortable sortKey="inStock" activeSort={sortBy} sortDir={sortDir} onSort={onSort}>
                 Остаток
+              </TableHead>
+              <TableHead sortable sortKey="newArrivalAt" activeSort={sortBy} sortDir={sortDir} onSort={onSort}>
+                Дата новинки
               </TableHead>
               <TableHead>Статус</TableHead>
             </TableRow>
@@ -387,6 +446,9 @@ export const ProductsListPage = () => {
                 <TableCell>{item.webSubcategoryName ?? '—'}</TableCell>
                 <TableCell numeric>{formatMoney(item.price)}</TableCell>
                 <TableCell numeric>{item.inStock}</TableCell>
+                <TableCell>
+                  {item.isNewArrival ? formatNewArrivalDate(item.newArrivalAt) : '—'}
+                </TableCell>
                 <TableCell>
                   {item.isArchived ? <Badge variant="neutral">Архив</Badge> : '—'}
                 </TableCell>

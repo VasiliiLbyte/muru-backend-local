@@ -123,6 +123,8 @@ export type CatalogProductListItem = {
   dimensionsLabel?: string
   colorTags?: string[]
   giftGuide: boolean
+  newArrival: boolean
+  newArrivalAt?: string | null
 }
 
 export type CatalogProductDetail = CatalogProductListItem & {

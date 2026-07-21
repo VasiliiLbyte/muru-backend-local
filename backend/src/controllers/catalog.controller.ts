@@ -35,6 +35,8 @@ export const getCatalogProductsHandler = async (req: Request, res: Response, nex
       size: req.query.size ? String(req.query.size) : undefined,
       priceMax: req.query.priceMax ? Number(req.query.priceMax) : undefined,
       giftGuide: req.query.giftGuide === 'true' ? true : undefined,
+      newArrival: req.query.newArrival === 'true' ? true : undefined,
+      sort: req.query.sort ? String(req.query.sort) : undefined,
     }
     const products = await getCatalogProducts(filters)
     const debugEnabled = req.query.debug === '1'

@@ -42,6 +42,8 @@ export type CrmCatalogListItem = {
   inStock: number
   isArchived: boolean
   isGiftGuide: boolean
+  isNewArrival: boolean
+  newArrivalAt: string | null
   categoryName: string | null
   webSubcategoryName: string | null
   imageUrl: string | null
@@ -57,6 +59,8 @@ export type CrmCatalogProductDetail = {
   inStock: number
   isArchived: boolean
   isGiftGuide: boolean
+  isNewArrival: boolean
+  newArrivalAt: string | null
   specs: Record<string, string>
   imageUrls: string[]
   imageUrl1: string
@@ -81,16 +85,18 @@ export type CrmCatalogProductDetail = {
   updatedAt: string
 }
 
-export type CrmCatalogSortBy = 'sku' | 'price' | 'inStock' | 'updatedAt'
+export type CrmCatalogSortBy = 'sku' | 'price' | 'inStock' | 'updatedAt' | 'newArrivalAt'
 export type CrmCatalogSortDir = 'asc' | 'desc'
 
 export type CrmCatalogListFilters = {
   q?: string
   category?: string
   subcategory?: string
+  collectionId?: number
   inStock?: 'in' | 'out' | 'all'
   archived?: 'true' | 'false' | 'all'
   giftGuide?: 'true' | 'false' | 'all'
+  newArrival?: 'true' | 'false' | 'all'
   page?: unknown
   pageSize?: unknown
   sortBy?: CrmCatalogSortBy
@@ -116,6 +122,8 @@ type ProductRow = {
   in_stock: number
   is_archived: boolean
   is_gift_guide: boolean
+  is_new_arrival: boolean
+  new_arrival_at: Date | string | null
   specs: Record<string, string> | null
   image_url_1: string
   image_url_2: string
@@ -163,6 +171,12 @@ const normalizeImageUrls = (
   return { imageUrl1: first, imageUrl2: second, imageUrls: normalized }
 }
 
+const toIsoOrNull = (value: Date | string | null | undefined): string | null => {
+  if (value == null) return null
+  if (value instanceof Date) return value.toISOString()
+  return value
+}
+
 const mapListRow = (row: ProductRow): CrmCatalogListItem => ({
   id: row.id,
   sku: row.sku,
@@ -172,6 +186,8 @@ const mapListRow = (row: ProductRow): CrmCatalogListItem => ({
   inStock: row.in_stock,
   isArchived: row.is_archived,
   isGiftGuide: row.is_gift_guide,
+  isNewArrival: row.is_new_arrival,
+  newArrivalAt: toIsoOrNull(row.new_arrival_at),
   categoryName: row.category_name,
   webSubcategoryName: row.web_subcategory_name,
   imageUrl: pickImageUrl(row),
@@ -187,6 +203,8 @@ const mapDetailRow = (row: ProductRow): CrmCatalogProductDetail => ({
   inStock: row.in_stock,
   isArchived: row.is_archived,
   isGiftGuide: row.is_gift_guide,
+  isNewArrival: row.is_new_arrival,
+  newArrivalAt: toIsoOrNull(row.new_arrival_at),
   specs: row.specs ?? {},
   imageUrls: Array.isArray(row.image_urls)
     ? row.image_urls.filter(Boolean)
@@ -223,6 +241,8 @@ const PRODUCT_SELECT = `
   p.in_stock,
   p.is_archived,
   p.is_gift_guide,
+  p.is_new_arrival,
+  p.new_arrival_at,
   p.specs,
   p.image_url_1,
   p.image_url_2,
@@ -295,6 +315,13 @@ const buildListFilters = (filters: CrmCatalogListFilters): FilterBuildResult => 
     where.push('p.is_gift_guide = FALSE')
   }
 
+  const newArrival = filters.newArrival ?? 'all'
+  if (newArrival === 'true') {
+    where.push('p.is_new_arrival = TRUE')
+  } else if (newArrival === 'false') {
+    where.push('p.is_new_arrival = FALSE')
+  }
+
   const inStock = filters.inStock ?? 'all'
   if (inStock === 'in') {
     where.push('p.in_stock > 0')
@@ -309,6 +336,21 @@ const buildListFilters = (filters: CrmCatalogListFilters): FilterBuildResult => 
     where.push(`(p.sku ILIKE $${idx} OR p.name ILIKE $${idx})`)
   }
 
+  if (
+    typeof filters.collectionId === 'number' &&
+    Number.isInteger(filters.collectionId) &&
+    filters.collectionId > 0
+  ) {
+    params.push(filters.collectionId)
+    const idx = params.length
+    where.push(
+      `EXISTS (
+        SELECT 1 FROM content_collection_products ccp
+        WHERE ccp.sku = p.sku AND ccp.collection_id = $${idx}
+      )`,
+    )
+  }
+
   return { where, params }
 }
 
@@ -317,6 +359,7 @@ const SORT_COLUMN: Record<CrmCatalogSortBy, string> = {
   price: 'p.price',
   inStock: 'p.in_stock',
   updatedAt: 'p.updated_at',
+  newArrivalAt: 'p.new_arrival_at',
 }
 
 const buildListOrderBy = (filters: CrmCatalogListFilters): string => {
@@ -324,7 +367,7 @@ const buildListOrderBy = (filters: CrmCatalogListFilters): string => {
     Boolean(filters.sortBy) &&
     Object.prototype.hasOwnProperty.call(SORT_COLUMN, filters.sortBy as CrmCatalogSortBy)
   const sortBy = isValidSortBy ? (filters.sortBy as CrmCatalogSortBy) : 'updatedAt'
-  const defaultDir = sortBy === 'updatedAt' ? 'desc' : 'asc'
+  const defaultDir = sortBy === 'updatedAt' || sortBy === 'newArrivalAt' ? 'desc' : 'asc'
   const sortDir =
     isValidSortBy && (filters.sortDir === 'asc' || filters.sortDir === 'desc')
       ? filters.sortDir
@@ -515,7 +558,7 @@ export const createCrmCatalogProduct = async (
          dims_source, weight_source,
          web_subcategory_name, web_subcategory_slug,
          subcategory, subcategory_slug,
-         is_gift_guide, is_archived, updated_at
+         is_gift_guide, is_new_arrival, new_arrival_at, is_archived, updated_at
        ) VALUES (
          $1, $2, $3, $4, $5, $6, $7::jsonb,
          $8, $9, $10::jsonb, $11,
@@ -524,7 +567,7 @@ export const createCrmCatalogProduct = async (
          $20, $21,
          $22, $23,
          $24, $25,
-         $26, FALSE, NOW()
+         $26, $27, $28, FALSE, NOW()
        ) RETURNING id`,
       [
         sku,
@@ -553,6 +596,8 @@ export const createCrmCatalogProduct = async (
         denorm.subcategory,
         denorm.subcategorySlug,
         input.isGiftGuide ?? false,
+        input.isNewArrival ?? false,
+        input.isNewArrival === true ? new Date() : null,
       ],
     )
 
@@ -635,6 +680,20 @@ export const updateCrmCatalogProduct = async (
   if (input.isGiftGuide !== undefined) {
     params.push(input.isGiftGuide)
     sets.push(`is_gift_guide = $${params.length}`)
+  }
+  if (input.isNewArrival !== undefined) {
+    const current = await pool.query<{ is_new_arrival: boolean }>(
+      `SELECT is_new_arrival FROM products WHERE id = $1`,
+      [id],
+    )
+    const wasNewArrival = current.rows[0]?.is_new_arrival === true
+    params.push(input.isNewArrival)
+    sets.push(`is_new_arrival = $${params.length}`)
+    if (input.isNewArrival && !wasNewArrival) {
+      sets.push(`new_arrival_at = NOW()`)
+    } else if (!input.isNewArrival) {
+      sets.push(`new_arrival_at = NULL`)
+    }
   }
   if (input.specs !== undefined) {
     params.push(JSON.stringify(input.specs))

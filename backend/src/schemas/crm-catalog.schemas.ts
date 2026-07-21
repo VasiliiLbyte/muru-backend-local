@@ -29,6 +29,7 @@ export const createCrmCatalogProductSchema = z
     imageUrl2: z.string().optional(),
     subcategoryIds: z.array(z.number().int().positive()).optional(),
     isGiftGuide: z.boolean().optional(),
+    isNewArrival: z.boolean().optional(),
     weightGrams: z.number().int().positive().optional(),
     dimLengthCm: z.number().int().positive().optional(),
     dimWidthCm: z.number().int().positive().optional(),

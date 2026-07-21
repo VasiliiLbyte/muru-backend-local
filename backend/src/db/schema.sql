@@ -47,6 +47,10 @@ ALTER TABLE products ADD COLUMN IF NOT EXISTS subcategory TEXT;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS subcategory_slug TEXT;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS is_archived BOOLEAN NOT NULL DEFAULT FALSE;
 CREATE INDEX IF NOT EXISTS idx_products_is_archived ON products(is_archived);
+ALTER TABLE products ADD COLUMN IF NOT EXISTS is_new_arrival BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS new_arrival_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS idx_products_is_new_arrival
+  ON products (is_new_arrival, new_arrival_at DESC) WHERE is_new_arrival = TRUE;
 
 CREATE TABLE IF NOT EXISTS characteristics (
   id SERIAL PRIMARY KEY,

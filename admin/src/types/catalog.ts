@@ -12,6 +12,8 @@ export type CrmCatalogListItem = {
   inStock: number
   isArchived: boolean
   isGiftGuide: boolean
+  isNewArrival: boolean
+  newArrivalAt: string | null
   categoryName: string | null
   webSubcategoryName: string | null
   imageUrl: string | null
@@ -27,6 +29,8 @@ export type CrmCatalogProductDetail = {
   inStock: number
   isArchived: boolean
   isGiftGuide: boolean
+  isNewArrival: boolean
+  newArrivalAt: string | null
   specs: Record<string, string>
   imageUrls: string[]
   imageUrl1: string
@@ -51,19 +55,21 @@ export type CrmCatalogProductDetail = {
   updatedAt: string
 }
 
-export type CrmCatalogSortBy = 'sku' | 'price' | 'inStock' | 'updatedAt'
+export type CrmCatalogSortBy = 'sku' | 'price' | 'inStock' | 'updatedAt' | 'newArrivalAt'
 export type CrmCatalogSortDir = 'asc' | 'desc'
 
 export type CrmCatalogListParams = {
   q?: string
   category?: string
   subcategory?: string
+  collectionId?: number
   inStock?: 'in' | 'out' | 'all'
   archived?: 'true' | 'false' | 'all'
   giftGuide?: 'true' | 'false' | 'all'
+  newArrival?: 'true' | 'false' | 'all'
   page?: number
   pageSize?: number
-  sortBy?: 'sku' | 'price' | 'inStock'
+  sortBy?: CrmCatalogSortBy
   sortDir?: CrmCatalogSortDir
 }
 
@@ -98,6 +104,7 @@ export type CrmCatalogProductCreateBody = {
   dimWidthCm?: number
   dimHeightCm?: number
   isGiftGuide?: boolean
+  isNewArrival?: boolean
 }
 
 export type CrmCatalogProductPatchBody = Partial<Omit<CrmCatalogProductCreateBody, 'sku'>>

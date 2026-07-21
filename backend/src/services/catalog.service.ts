@@ -41,6 +41,8 @@ type ProductRow = {
   discount_percent: string
   in_stock: number
   is_gift_guide: boolean
+  is_new_arrival: boolean
+  new_arrival_at: Date | string | null
   image_url_1: string
   image_url_2: string
   image_urls: string[] | null
@@ -244,6 +246,8 @@ export const getCatalogProducts = async (params: {
   size?: string
   priceMax?: number
   giftGuide?: boolean
+  newArrival?: boolean
+  sort?: string
 }) => {
   const {
     channel,
@@ -256,6 +260,8 @@ export const getCatalogProducts = async (params: {
     size,
     priceMax,
     giftGuide,
+    newArrival,
+    sort,
   } = params
   const web = isWebChannel(channel)
   const conditions: string[] = ['p.is_archived = FALSE']
@@ -342,7 +348,15 @@ export const getCatalogProducts = async (params: {
     conditions.push('p.is_gift_guide = TRUE')
   }
 
+  if (newArrival === true) {
+    conditions.push('p.is_new_arrival = TRUE')
+  }
+
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
+  const orderBy =
+    sort === 'new'
+      ? 'ORDER BY p.new_arrival_at DESC NULLS LAST, p.updated_at DESC'
+      : 'ORDER BY p.updated_at DESC'
   const webSelect = web
     ? `,
        p.web_subcategory_name,
@@ -366,6 +380,8 @@ export const getCatalogProducts = async (params: {
        p.discount_percent::text,
        p.in_stock,
        p.is_gift_guide,
+       p.is_new_arrival,
+       p.new_arrival_at,
        p.image_url_1,
        p.image_url_2,
        p.image_urls,
@@ -380,7 +396,7 @@ export const getCatalogProducts = async (params: {
      LEFT JOIN categories c ON c.id = p.category_id${webJoins}
      LEFT JOIN variants v ON v.product_id = p.id
      ${whereClause}
-     ORDER BY p.updated_at DESC`,
+     ${orderBy}`,
     values,
   )
 
@@ -399,6 +415,11 @@ export const getCatalogProducts = async (params: {
         category: row.category_name ?? 'Без категории',
         subcategory: web ? (row.web_subcategory_name?.trim() ?? '') : '',
         giftGuide: row.is_gift_guide,
+        newArrival: row.is_new_arrival,
+        newArrivalAt:
+          row.new_arrival_at instanceof Date
+            ? row.new_arrival_at.toISOString()
+            : row.new_arrival_at,
       }
       if (web) {
         const subSlug = mapSubcategorySlug(row.web_subcategory_slug)
@@ -464,6 +485,8 @@ export const getCatalogProductBySku = async (
        p.discount_percent::text,
        p.in_stock,
        p.is_gift_guide,
+       p.is_new_arrival,
+       p.new_arrival_at,
        p.image_url_1,
        p.image_url_2,
        p.image_urls,
@@ -523,6 +546,11 @@ export const getCatalogProductBySku = async (
     category: first.category_name ?? 'Без категории',
     subcategory: web ? (first.web_subcategory_name?.trim() ?? '') : '',
     giftGuide: first.is_gift_guide,
+    newArrival: first.is_new_arrival,
+    newArrivalAt:
+      first.new_arrival_at instanceof Date
+        ? first.new_arrival_at.toISOString()
+        : first.new_arrival_at,
     description: first.description ?? '',
     specs: first.specs ?? {},
     variants,

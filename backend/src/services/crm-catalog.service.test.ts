@@ -66,6 +66,8 @@ const productDetailRow = {
   subcategory_slug: 'bags',
   is_archived: false,
   is_gift_guide: false,
+  is_new_arrival: false,
+  new_arrival_at: null,
   created_at: new Date(),
   updated_at: new Date(),
 }
@@ -109,6 +111,31 @@ describe('crm-catalog.service', () => {
     expect(countSql).toContain('p.in_stock > 0')
     expect(countSql).toContain('p.sku ILIKE')
     expect(countParams[0]).toBe('%MU%')
+  })
+
+  it('list applies collectionId EXISTS filter', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ total: '0' }] })
+      .mockResolvedValueOnce({ rows: [] })
+
+    await listCrmCatalogProducts({ collectionId: 5 })
+
+    const countSql = String(mockQuery.mock.calls[0][0])
+    const countParams = mockQuery.mock.calls[0][1] as unknown[]
+    expect(countSql).toContain('content_collection_products')
+    expect(countSql).toContain('ccp.collection_id')
+    expect(countParams).toContain(5)
+  })
+
+  it('list without collectionId does not join content_collection_products', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ total: '0' }] })
+      .mockResolvedValueOnce({ rows: [] })
+
+    await listCrmCatalogProducts({ archived: 'false' })
+
+    const countSql = String(mockQuery.mock.calls[0][0])
+    expect(countSql).not.toContain('content_collection_products')
   })
 
   it('list applies sortBy=sku&sortDir=asc in ORDER BY', async () => {
@@ -326,5 +353,89 @@ describe('crm-catalog.service', () => {
 
     const updateSql = String(mockClientQuery.mock.calls[1][0])
     expect(updateSql).toContain('is_gift_guide')
+  })
+
+  it('list applies newArrival=true filter', async () => {
+    mockEnv.catalogSource = 'crm'
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ total: '0' }] })
+      .mockResolvedValueOnce({ rows: [] })
+
+    await listCrmCatalogProducts({ newArrival: 'true' })
+
+    const countSql = String(mockQuery.mock.calls[0][0])
+    expect(countSql).toContain('p.is_new_arrival = TRUE')
+  })
+
+  it('list applies sortBy=newArrivalAt desc', async () => {
+    mockEnv.catalogSource = 'crm'
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ total: '0' }] })
+      .mockResolvedValueOnce({ rows: [] })
+
+    await listCrmCatalogProducts({ sortBy: 'newArrivalAt', sortDir: 'desc' })
+
+    const listSql = String(mockQuery.mock.calls[1][0])
+    expect(listSql).toContain('ORDER BY p.new_arrival_at DESC')
+  })
+
+  it('update false→true sets new_arrival_at = NOW()', async () => {
+    mockEnv.catalogSource = 'crm'
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ is_new_arrival: false }] })
+      .mockResolvedValueOnce({
+        rows: [{ ...productDetailRow, is_new_arrival: true, new_arrival_at: new Date() }],
+      })
+      .mockResolvedValueOnce({ rows: [] })
+    mockClientQuery
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [] })
+
+    await updateCrmCatalogProduct(42, { isNewArrival: true })
+
+    const updateSql = String(mockClientQuery.mock.calls[1][0])
+    expect(updateSql).toContain('is_new_arrival')
+    expect(updateSql).toContain('new_arrival_at = NOW()')
+  })
+
+  it('update true→false clears new_arrival_at', async () => {
+    mockEnv.catalogSource = 'crm'
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ is_new_arrival: true }] })
+      .mockResolvedValueOnce({
+        rows: [{ ...productDetailRow, is_new_arrival: false, new_arrival_at: null }],
+      })
+      .mockResolvedValueOnce({ rows: [] })
+    mockClientQuery
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [] })
+
+    await updateCrmCatalogProduct(42, { isNewArrival: false })
+
+    const updateSql = String(mockClientQuery.mock.calls[1][0])
+    expect(updateSql).toContain('is_new_arrival')
+    expect(updateSql).toContain('new_arrival_at = NULL')
+  })
+
+  it('update true→true does not rewrite new_arrival_at', async () => {
+    mockEnv.catalogSource = 'crm'
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ is_new_arrival: true }] })
+      .mockResolvedValueOnce({
+        rows: [{ ...productDetailRow, is_new_arrival: true, new_arrival_at: new Date() }],
+      })
+      .mockResolvedValueOnce({ rows: [] })
+    mockClientQuery
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [] })
+
+    await updateCrmCatalogProduct(42, { isNewArrival: true })
+
+    const updateSql = String(mockClientQuery.mock.calls[1][0])
+    expect(updateSql).toContain('is_new_arrival')
+    expect(updateSql).not.toContain('new_arrival_at')
   })
 })

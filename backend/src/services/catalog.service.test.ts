@@ -19,6 +19,8 @@ const baseProductRow = {
   discount_percent: '0',
   in_stock: 5,
   is_gift_guide: false,
+  is_new_arrival: false,
+  new_arrival_at: null,
   image_url_1: 'https://example.com/1.webp',
   image_url_2: 'https://example.com/1.webp',
   image_urls: ['https://example.com/1.webp'],
@@ -80,6 +82,44 @@ describe('getCatalogProducts', () => {
 
     const sql = String(queryMock.mock.calls[0][0])
     expect(sql).toContain('p.is_gift_guide = TRUE')
+  })
+
+  it('filters new arrival products when newArrival=true', async () => {
+    queryMock.mockResolvedValueOnce({ rows: [] })
+
+    await getCatalogProducts({ newArrival: true })
+
+    const sql = String(queryMock.mock.calls[0][0])
+    expect(sql).toContain('p.is_new_arrival = TRUE')
+  })
+
+  it('orders by new_arrival_at when sort=new', async () => {
+    queryMock.mockResolvedValueOnce({ rows: [] })
+
+    await getCatalogProducts({ sort: 'new' })
+
+    const sql = String(queryMock.mock.calls[0][0])
+    expect(sql).toContain('ORDER BY p.new_arrival_at DESC NULLS LAST, p.updated_at DESC')
+  })
+
+  it('keeps updated_at order without sort', async () => {
+    queryMock.mockResolvedValueOnce({ rows: [] })
+
+    await getCatalogProducts({})
+
+    const sql = String(queryMock.mock.calls[0][0])
+    expect(sql).toContain('ORDER BY p.updated_at DESC')
+    expect(sql).not.toContain('new_arrival_at DESC')
+  })
+
+  it('maps newArrival from row', async () => {
+    queryMock.mockResolvedValueOnce({
+      rows: [{ ...baseProductRow, is_new_arrival: true, new_arrival_at: '2026-07-01T00:00:00.000Z' }],
+    })
+
+    const products = await getCatalogProducts({})
+    expect(products[0].newArrival).toBe(true)
+    expect(products[0].newArrivalAt).toBe('2026-07-01T00:00:00.000Z')
   })
 
   it('filters only by primary category slug without channel', async () => {
