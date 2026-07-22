@@ -29,6 +29,8 @@ export type RawCheckoutInput = {
   recipientName: string
   recipientPhone: string
   email: string | null
+  /** Server-only: from verified customer JWT on web create; never from client body */
+  customerId?: number | null
   cdekTariffCode: number | null
   cdekCityCode: number | null
   cdekCityName: string | null
@@ -54,6 +56,8 @@ export type CheckoutSnapshot = {
   recipientName: string
   recipientPhone: string
   email: string | null
+  /** Server-stamped from customer JWT; never trust client-supplied id */
+  customerId?: number | null
   cdekTariffCode: number | null
   cdekCityCode: number | null
   cdekCityName: string | null

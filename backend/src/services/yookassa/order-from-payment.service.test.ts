@@ -33,7 +33,7 @@ vi.mock('../../utils/db', () => ({
   },
 }))
 
-import { fulfillPaidPayment, fulfillPaidIntent, validatePreCheckoutIntent } from './order-from-payment.service'
+import { fulfillPaidPayment, fulfillPaidIntent, validatePreCheckoutIntent, _snapshotToOrderInputForTests } from './order-from-payment.service'
 
 const snap = {
   telegramUserId: 123,
@@ -52,6 +52,8 @@ const snap = {
   birthDate: null,
   recipientName: 'Test User',
   recipientPhone: '+79001234567',
+  email: null,
+  customerId: null,
   cdekTariffCode: null,
   cdekCityCode: null,
   cdekCityName: null,
@@ -240,5 +242,41 @@ describe('validatePreCheckoutIntent', () => {
     })
     const result = await validatePreCheckoutIntent(7, 123, 99999)
     expect(result).toEqual({ ok: false, errorMessage: 'Сумма не совпадает' })
+  })
+})
+
+describe('snapshotToOrderInput customer fields', () => {
+  it('maps customerId, normalized email and phone from web snapshot', () => {
+    const input = _snapshotToOrderInputForTests(
+      {
+        ...snap,
+        channel: 'web',
+        telegramUserId: null,
+        email: '  Buyer@Example.COM ',
+        customerId: 42,
+        recipientPhone: '89001234567',
+      },
+      'yk-charge-1',
+    )
+    expect(input.customerId).toBe(42)
+    expect(input.customerEmail).toBe('buyer@example.com')
+    expect(input.customerPhone).toBe('+79001234567')
+  })
+
+  it('keeps customerId null for guest and still maps email/phone', () => {
+    const input = _snapshotToOrderInputForTests(
+      {
+        ...snap,
+        channel: 'web',
+        telegramUserId: null,
+        email: 'guest@example.com',
+        customerId: null,
+        recipientPhone: '+79007654321',
+      },
+      'yk-guest',
+    )
+    expect(input.customerId).toBeNull()
+    expect(input.customerEmail).toBe('guest@example.com')
+    expect(input.customerPhone).toBe('+79007654321')
   })
 })

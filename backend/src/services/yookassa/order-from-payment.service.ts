@@ -1,7 +1,9 @@
 import { pool } from '../../utils/db'
 import { env } from '../../utils/env'
+import { normalizeEmail } from '../../utils/normalize-email'
 import { decreaseStockInSheets } from '../google-sheets-write.service'
 import { createOrder } from '../orders.service'
+import { normalizeRussianPhone } from '../cdek/phone'
 import {
   notifyAdminsPaymentReceived,
   notifyClientPaymentReceived,
@@ -27,6 +29,9 @@ const snapshotToOrderInput = (snap: CheckoutSnapshot, paymentChargeId: string) =
   promoDiscount: snap.promoDiscount,
   recipientName: snap.recipientName,
   recipientPhone: snap.recipientPhone,
+  customerId: snap.customerId ?? null,
+  customerEmail: snap.email ? normalizeEmail(snap.email) : null,
+  customerPhone: normalizeRussianPhone(snap.recipientPhone),
   cdekTariffCode: snap.cdekTariffCode ?? undefined,
   cdekCityCode: snap.cdekCityCode ?? undefined,
   cdekCityName: snap.cdekCityName ?? undefined,
@@ -37,6 +42,9 @@ const snapshotToOrderInput = (snap: CheckoutSnapshot, paymentChargeId: string) =
   paymentStatus: 'succeeded',
   channel: snap.channel,
 })
+
+/** Exported for unit tests */
+export const _snapshotToOrderInputForTests = snapshotToOrderInput
 
 const cancelOrphanOrder = async (orderId: number, items: { sku: string; quantity: number }[]) => {
   await pool.query(`UPDATE orders SET status='Отменён', updated_at=NOW() WHERE id=$1`, [orderId])

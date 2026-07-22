@@ -3,6 +3,7 @@ import { z } from 'zod'
 
 import type { AuthenticatedRequest } from '../middleware/auth.middleware'
 import { createInvoiceForCheckout } from '../services/telegram/invoice.service'
+import { verifyCustomerAccessJwt } from '../services/customer-auth.service'
 import {
   createPayment,
   getPaymentIntentStatusForUser,
@@ -73,6 +74,7 @@ export const parseCheckoutBody = (
     ...parsed.data,
     telegramUserId,
     channel: 'telegram',
+    customerId: null,
   }
 }
 
@@ -96,7 +98,17 @@ export const parseWebCheckoutBody = (
     telegramUserId: null,
     channel: 'web',
     promoCode: null,
+    customerId: null,
   }
+}
+
+const optionalCustomerIdFromRequest = (req: Request): number | null => {
+  const authHeader = req.headers.authorization
+  if (!authHeader?.startsWith('Bearer ')) return null
+  const token = authHeader.slice('Bearer '.length).trim()
+  if (!token) return null
+  const payload = verifyCustomerAccessJwt(token)
+  return payload?.customerId ?? null
 }
 
 export const createPaymentHandler = async (req: Request, res: Response, next: NextFunction) => {
@@ -123,6 +135,8 @@ export const createWebPaymentHandler = async (req: Request, res: Response, next:
 
     const raw = parseWebCheckoutBody(req, res)
     if (!raw) return
+
+    raw.customerId = optionalCustomerIdFromRequest(req)
 
     const result = await createPayment(raw)
     return ok(res, result)

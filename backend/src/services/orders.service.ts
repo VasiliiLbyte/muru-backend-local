@@ -291,10 +291,11 @@ export const createOrder = async (input: CheckoutDraftInput): Promise<OrderDraft
         address, comment, birth_date, subtotal, total, promo_code, promo_discount,
         cdek_tariff_code, cdek_to_city_code, cdek_to_city_name, cdek_pvz_code, cdek_pvz_address,
         cdek_recipient_name, cdek_recipient_phone,
+        customer_id, customer_email, customer_phone,
         consent_accepted, consent_version, consent_accepted_at,
         payment_id, payment_status, paid_at,
         channel, is_draft, created_at, updated_at
-      ) VALUES ($1, 'Новый', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, CASE WHEN $20 THEN NOW() ELSE NULL END, $22, $23, CASE WHEN $23 = 'succeeded' THEN NOW() ELSE NULL END, $24, FALSE, NOW(), NOW())
+      ) VALUES ($1, 'Новый', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, CASE WHEN $23 THEN NOW() ELSE NULL END, $25, $26, CASE WHEN $26 = 'succeeded' THEN NOW() ELSE NULL END, $27, FALSE, NOW(), NOW())
       RETURNING id, telegram_user_id, status, delivery_mode, delivery_option, delivery_price::text,
                 delivery_eta, address, comment, birth_date::text, subtotal::text, total::text,
                 promo_code, promo_discount::text,
@@ -320,6 +321,9 @@ export const createOrder = async (input: CheckoutDraftInput): Promise<OrderDraft
         input.cdekPvzAddress ?? null,
         input.recipientName ?? null,
         input.recipientPhone ?? null,
+        input.customerId ?? null,
+        input.customerEmail ?? null,
+        input.customerPhone ?? null,
         consentAccepted,
         input.consentVersion ?? null,
         input.paymentId ?? null,

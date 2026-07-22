@@ -30,6 +30,10 @@ export type CheckoutDraftInput = {
   cdekPvzAddress?: string | null
   recipientName?: string
   recipientPhone?: string
+  /** Web/customer account linkage (nullable for guests / telegram) */
+  customerId?: number | null
+  customerEmail?: string | null
+  customerPhone?: string | null
   consentAccepted?: boolean
   consentVersion?: string
   paymentId?: string

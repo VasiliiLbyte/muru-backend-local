@@ -21,6 +21,7 @@ export const buildSnapshotFromPricing = (
   recipientName: raw.recipientName,
   recipientPhone: raw.recipientPhone,
   email: raw.email,
+  customerId: raw.customerId ?? null,
   cdekTariffCode: raw.cdekTariffCode,
   cdekCityCode: raw.cdekCityCode,
   cdekCityName: raw.cdekCityName,

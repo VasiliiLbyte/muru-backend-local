@@ -5,6 +5,7 @@ import cookieParser from 'cookie-parser'
 
 import { adminRouter } from './routes/admin'
 import { adminAuthRouter } from './routes/admin-auth.routes'
+import { accountRouter } from './routes/account.routes'
 import { imageRouter } from './routes/images'
 import { authRouter } from './routes/auth.routes'
 import { cdekRouter } from './routes/cdek.routes'
@@ -79,6 +80,7 @@ app.use(
 )
 app.use(imageRouter)
 app.use('/api/auth', authRouter)
+app.use('/api/account', accountRouter)
 app.use('/api/admin-auth', adminAuthRouter)
 app.use('/api/crm/content', contentCrmRouter)
 app.use('/api/crm/orders', crmOrdersRouter)
@@ -120,6 +122,17 @@ app.listen(port, () => {
     console.log(`[muru-backend] Listening on port ${port}`)
   }
   startTelegramBotPolling()
+
+  if (process.env.NODE_ENV !== 'test' && env.customerAccountsEnabled) {
+    void import('./services/email.service')
+      .then((m) => m.verifySmtpTransport())
+      .catch((error) => {
+        console.error('[email] SMTP verify failed at startup:', error)
+        if (env.nodeEnv === 'production') {
+          process.exit(1)
+        }
+      })
+  }
 
   if (process.env.NODE_ENV !== 'test' && env.cdek.clientId && env.cdek.clientSecret) {
     setTimeout(() => {

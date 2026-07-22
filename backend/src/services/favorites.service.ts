@@ -30,7 +30,7 @@ export const addFavorite = async (payload: FavoritePayload): Promise<void> => {
   await pool.query(
     `INSERT INTO favorites (telegram_user_id, product_sku, created_at)
      VALUES ($1, $2, NOW())
-     ON CONFLICT (telegram_user_id, product_sku) DO NOTHING`,
+     ON CONFLICT (telegram_user_id, product_sku) WHERE (telegram_user_id IS NOT NULL) DO NOTHING`,
     [payload.telegramUserId, payload.sku],
   )
 }

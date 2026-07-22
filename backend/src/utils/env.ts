@@ -28,6 +28,12 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
   ADMIN_JWT_SECRET: z.string().optional(),
+  CUSTOMER_JWT_SECRET: z.string().optional(),
+  SMARTCAPTCHA_SERVER_KEY: z.string().optional(),
+  SMARTCAPTCHA_CLIENT_KEY: z.string().optional(),
+  SMARTCAPTCHA_DEV_BYPASS: z.string().optional(),
+  STOREFRONT_PUBLIC_URL: z.string().optional(),
+  CUSTOMER_CONSENT_VERSION: z.string().optional(),
   DEV_TELEGRAM_USER_ID: z.string().optional(),
   ALLOWED_ORIGINS: z.string().optional(),
   ADMIN_TELEGRAM_IDS: z.string().default(''),
@@ -127,6 +133,22 @@ if (nodeEnvForYookassa === 'production') {
     console.error('[env] production requires ADMIN_JWT_SECRET (>=32 chars)')
     process.exit(1)
   }
+  const customerJwtSecretProd = parsed.data.CUSTOMER_JWT_SECRET?.trim() ?? ''
+  if (customerJwtSecretProd.length > 0) {
+    if (customerJwtSecretProd.length < 32) {
+      console.error('[env] production CUSTOMER_JWT_SECRET must be >=32 chars when set')
+      process.exit(1)
+    }
+    const smtpHost = parsed.data.SMTP_HOST?.trim() ?? ''
+    const smtpUser = parsed.data.SMTP_USER?.trim() ?? ''
+    const smtpPass = parsed.data.SMTP_PASS?.trim() ?? ''
+    if (!smtpHost || !smtpUser || !smtpPass) {
+      console.error(
+        '[env] production requires SMTP_HOST/SMTP_USER/SMTP_PASS when CUSTOMER_JWT_SECRET is set (ЛК)',
+      )
+      process.exit(1)
+    }
+  }
 }
 
 const rawAdminIds = parsed.data.ADMIN_TELEGRAM_IDS
@@ -189,7 +211,17 @@ const DEFAULT_BOT_WELCOME_MESSAGE = `Добро пожаловать в MURU
 
 const maintenanceMode = parsed.data.MINIAPP_MAINTENANCE?.trim().toLowerCase() === 'true'
 
+const customerJwtSecret = parsed.data.CUSTOMER_JWT_SECRET?.trim() ?? ''
+const customerAccountsEnabled = customerJwtSecret.length > 0
+const storefrontPublicUrl = (parsed.data.STOREFRONT_PUBLIC_URL?.trim() || 'http://localhost:3000').replace(
+  /\/$/,
+  '',
+)
+const customerConsentVersion = parsed.data.CUSTOMER_CONSENT_VERSION?.trim() || '2026-06-03'
+
 const nodeEnv = parsed.data.NODE_ENV || 'development'
+const smartCaptchaDevBypass =
+  parsed.data.SMARTCAPTCHA_DEV_BYPASS?.trim().toLowerCase() === 'true' && nodeEnv !== 'production'
 const defaultImageCacheDir =
   nodeEnv === 'production'
     ? '/var/www/muru/cache/img'
@@ -208,6 +240,13 @@ export const env = {
   databaseUrl: parsed.data.DATABASE_URL,
   jwtSecret: parsed.data.JWT_SECRET,
   adminJwtSecret: parsed.data.ADMIN_JWT_SECRET?.trim() ?? '',
+  customerJwtSecret,
+  customerAccountsEnabled,
+  smartCaptchaServerKey: parsed.data.SMARTCAPTCHA_SERVER_KEY?.trim() ?? '',
+  smartCaptchaClientKey: parsed.data.SMARTCAPTCHA_CLIENT_KEY?.trim() ?? '',
+  smartCaptchaDevBypass,
+  storefrontPublicUrl,
+  customerConsentVersion,
   devTelegramUserId: parsed.data.DEV_TELEGRAM_USER_ID ?? '',
   allowedOrigins,
   adminTelegramIds,

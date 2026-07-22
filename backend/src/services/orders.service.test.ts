@@ -107,4 +107,31 @@ describe('createOrder', () => {
       expect.anything(),
     )
   })
+
+  it('writes customer_id, customer_email, customer_phone on INSERT', async () => {
+    await createOrder({
+      telegramUserId: null,
+      channel: 'web',
+      items: [{ sku: 'MU0001', name: 'Vase', price: 1000, quantity: 1 }],
+      deliveryMode: 'pickup',
+      deliveryPrice: 0,
+      address: '',
+      comment: '',
+      consentAccepted: true,
+      paymentId: 'yk-1',
+      paymentStatus: 'succeeded',
+      customerId: 7,
+      customerEmail: 'buyer@example.com',
+      customerPhone: '+79001234567',
+    })
+
+    const insertCall = mockClientQuery.mock.calls.find(
+      (call) => typeof call[0] === 'string' && call[0].includes('INSERT INTO orders'),
+    )
+    expect(insertCall).toBeDefined()
+    expect(insertCall![0]).toContain('customer_id, customer_email, customer_phone')
+    expect(insertCall![1]).toEqual(
+      expect.arrayContaining([7, 'buyer@example.com', '+79001234567']),
+    )
+  })
 })

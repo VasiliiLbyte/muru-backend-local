@@ -3,6 +3,9 @@ import jwt from 'jsonwebtoken'
 
 import { pool } from '../utils/db'
 import { env } from '../utils/env'
+import { normalizeEmail } from '../utils/normalize-email'
+
+export { normalizeEmail }
 
 export type AdminRole = 'owner' | 'manager'
 
@@ -37,8 +40,6 @@ export const DUMMY_HASH = '$2b$12$Qf7A0fW4rWuN7qWn1U8l7eM6h4lVY6s2mVw7i7a2M7S2QW
 
 export const PASSWORD_MIN_LENGTH = 12
 export const BCRYPT_COST = 12
-
-export const normalizeEmail = (email: string): string => email.trim().toLowerCase()
 
 export const hashAdminPassword = (password: string): Promise<string> =>
   bcrypt.hash(password, BCRYPT_COST)
