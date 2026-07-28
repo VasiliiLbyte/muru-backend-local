@@ -3,24 +3,20 @@ import {
   FolderTree,
   LayoutDashboard,
   LogOut,
+  Package,
   Settings,
   ShoppingBag,
 } from 'lucide-react'
-import { NavLink, Navigate, Outlet, useNavigate } from 'react-router-dom'
+import { NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 import { Button } from './ui'
 import { useAuth } from '../context/AuthContext'
 
-const navItems = [
-  { to: '/', label: 'Дашборд', icon: LayoutDashboard, end: true },
-  { to: '/catalog', label: 'Каталог и разделы', icon: FolderTree, end: false },
-  { to: '/orders', label: 'Заказы', icon: ShoppingBag, end: false },
-  { to: '/content', label: 'Контент', icon: FileText, end: false },
-] as const
-
 export const ProtectedLayout = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   const { admin, loading, logout } = useAuth()
+  const { pathname } = location
 
   if (loading) {
     return (
@@ -40,6 +36,10 @@ export const ProtectedLayout = () => {
     navigate('/login', { replace: true })
   }
 
+  const catalogActive =
+    pathname.startsWith('/catalog') && !pathname.startsWith('/catalog/products')
+  const productsActive = pathname.startsWith('/catalog/products')
+
   return (
     <div className="layout-shell">
       <aside className="sidebar">
@@ -49,19 +49,46 @@ export const ProtectedLayout = () => {
         </div>
 
         <nav className="sidebar-nav" aria-label="Основная навигация">
-          {navItems.map(({ to, label, icon: Icon, end }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              className={({ isActive }) =>
-                `sidebar-link${isActive ? ' sidebar-link--active' : ''}`
-              }
-            >
-              <Icon className="sidebar-link__icon" aria-hidden />
-              {label}
-            </NavLink>
-          ))}
+          <NavLink
+            to="/"
+            end
+            className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}
+          >
+            <LayoutDashboard className="sidebar-link__icon" aria-hidden />
+            Дашборд
+          </NavLink>
+
+          <NavLink
+            to="/catalog"
+            className={() => `sidebar-link${catalogActive ? ' sidebar-link--active' : ''}`}
+          >
+            <FolderTree className="sidebar-link__icon" aria-hidden />
+            Каталог и разделы
+          </NavLink>
+
+          <NavLink
+            to="/catalog/products"
+            className={() => `sidebar-link${productsActive ? ' sidebar-link--active' : ''}`}
+          >
+            <Package className="sidebar-link__icon" aria-hidden />
+            Товары
+          </NavLink>
+
+          <NavLink
+            to="/orders"
+            className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}
+          >
+            <ShoppingBag className="sidebar-link__icon" aria-hidden />
+            Заказы
+          </NavLink>
+
+          <NavLink
+            to="/content"
+            className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}
+          >
+            <FileText className="sidebar-link__icon" aria-hidden />
+            Контент
+          </NavLink>
 
           {admin.role === 'owner' ? (
             <NavLink

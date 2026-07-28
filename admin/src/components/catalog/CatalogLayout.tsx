@@ -1,17 +1,16 @@
 import { Outlet, Navigate } from 'react-router-dom'
 
-import { CatalogMetaProvider, useCatalogMetaContext } from '../../context/CatalogMetaContext'
+import { useCatalogMetaContext } from '../../context/CatalogMetaContext'
 import { Tabs, TabsList, TabsTrigger } from '../ui'
 import { CatalogReadOnlyBanner } from './CatalogReadOnlyBanner'
 
 const tabs = [
   { to: '/catalog/sections', label: 'Разделы' },
-  { to: '/catalog/products', label: 'Товары' },
   { to: '/catalog/characteristics', label: 'Характеристики' },
   { to: '/catalog/import-export', label: 'Импорт / Экспорт' },
 ] as const
 
-const CatalogLayoutInner = () => {
+export const CatalogLayout = () => {
   const { readOnly, loading, error } = useCatalogMetaContext()
 
   return (
@@ -37,11 +36,5 @@ const CatalogLayoutInner = () => {
     </div>
   )
 }
-
-export const CatalogLayout = () => (
-  <CatalogMetaProvider>
-    <CatalogLayoutInner />
-  </CatalogMetaProvider>
-)
 
 export const CatalogIndexRedirect = () => <Navigate to="sections" replace />

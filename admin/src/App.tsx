@@ -2,6 +2,8 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 
 import { ContentIndexRedirect, ContentLayout } from './components/content/ContentLayout'
 import { CatalogIndexRedirect, CatalogLayout } from './components/catalog/CatalogLayout'
+import { CatalogRootLayout } from './components/catalog/CatalogRootLayout'
+import { ProductsLayout } from './components/catalog/ProductsLayout'
 import { RequireOwner } from './components/RequireOwner'
 import { ProtectedLayout } from './components/ProtectedLayout'
 import { ConfirmProvider, PromptProvider, ToastProvider } from './components/ui'
@@ -58,23 +60,27 @@ function App() {
             <Route index element={<SettingsHubPage />} />
             <Route path="users" element={<UsersSettingsPage />} />
           </Route>
-          <Route path="catalog" element={<CatalogLayout />}>
-            <Route index element={<CatalogIndexRedirect />} />
-            <Route path="sections" element={<SectionsHubPage />} />
-            <Route path="sections/categories/:id" element={<CategoryDetailPage />} />
-            <Route path="sections/inspiration" element={<LookbooksListPage />} />
-            <Route path="sections/inspiration/new" element={<LookbookEditPage />} />
-            <Route path="sections/inspiration/:id" element={<LookbookEditPage />} />
-            <Route path="sections/collections" element={<CollectionsListPage />} />
-            <Route path="sections/collections/new" element={<CollectionEditPage />} />
-            <Route path="sections/collections/:id" element={<CollectionEditPage />} />
-            <Route path="sections/gift-guide" element={<GiftGuideListPage />} />
-            <Route path="products" element={<ProductsListPage />} />
-            <Route path="products/new" element={<ProductEditPage />} />
-            <Route path="products/:id" element={<ProductEditPage />} />
-            <Route path="categories" element={<Navigate to="/catalog/sections" replace />} />
-            <Route path="characteristics" element={<CharacteristicsPage />} />
-            <Route path="import-export" element={<ImportExportPage />} />
+          <Route path="catalog" element={<CatalogRootLayout />}>
+            <Route element={<CatalogLayout />}>
+              <Route index element={<CatalogIndexRedirect />} />
+              <Route path="sections" element={<SectionsHubPage />} />
+              <Route path="sections/categories/:id" element={<CategoryDetailPage />} />
+              <Route path="sections/inspiration" element={<LookbooksListPage />} />
+              <Route path="sections/inspiration/new" element={<LookbookEditPage />} />
+              <Route path="sections/inspiration/:id" element={<LookbookEditPage />} />
+              <Route path="sections/collections" element={<CollectionsListPage />} />
+              <Route path="sections/collections/new" element={<CollectionEditPage />} />
+              <Route path="sections/collections/:id" element={<CollectionEditPage />} />
+              <Route path="sections/gift-guide" element={<GiftGuideListPage />} />
+              <Route path="categories" element={<Navigate to="/catalog/sections" replace />} />
+              <Route path="characteristics" element={<CharacteristicsPage />} />
+              <Route path="import-export" element={<ImportExportPage />} />
+            </Route>
+            <Route element={<ProductsLayout />}>
+              <Route path="products" element={<ProductsListPage />} />
+              <Route path="products/new" element={<ProductEditPage />} />
+              <Route path="products/:id" element={<ProductEditPage />} />
+            </Route>
           </Route>
           <Route path="content" element={<ContentLayout />}>
             <Route index element={<ContentIndexRedirect />} />
