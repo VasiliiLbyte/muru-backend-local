@@ -76,4 +76,23 @@ describe('email.service', () => {
     await expect(verifySmtpTransport()).resolves.toBeUndefined()
     expect(mockCreateTransport).not.toHaveBeenCalled()
   })
+
+  it('buildAlreadyRegisteredEmailHtml links to login and forgot password', async () => {
+    const { buildAlreadyRegisteredEmailHtml } = await import('./email.service')
+    const html = buildAlreadyRegisteredEmailHtml()
+    expect(html).toContain('http://localhost:3000/login/')
+    expect(html).toContain('http://localhost:3000/password/forgot/')
+    expect(html).toContain('уже зарегистрирован')
+  })
+
+  it('handleSmtpStartupVerifyFailure logs and does not exit', async () => {
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => undefined) as never)
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const { handleSmtpStartupVerifyFailure } = await import('./email.service')
+    handleSmtpStartupVerifyFailure(new Error('SMTP down'))
+    expect(exitSpy).not.toHaveBeenCalled()
+    expect(errSpy).toHaveBeenCalled()
+    exitSpy.mockRestore()
+    errSpy.mockRestore()
+  })
 })

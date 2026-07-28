@@ -14,7 +14,7 @@ export const signJwt = (payload: JwtPayload): string =>
 
 export const verifyJwt = (token: string): JwtPayload | null => {
   try {
-    return jwt.verify(token, env.jwtSecret) as JwtPayload
+    return jwt.verify(token, env.jwtSecret, { algorithms: ['HS256'] }) as JwtPayload
   } catch {
     return null
   }

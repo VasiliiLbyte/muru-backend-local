@@ -115,4 +115,11 @@ describe('admin-auth.service', () => {
     expect(verifyAdminJwt(expiredToken)).toBeNull()
     expect(verifyAdminJwt('broken.token.value')).toBeNull()
   })
+
+  it('verifyAdminJwt rejects alg=none token', () => {
+    const header = Buffer.from(JSON.stringify({ alg: 'none', typ: 'JWT' })).toString('base64url')
+    const payload = Buffer.from(JSON.stringify({ adminId: 1, role: 'owner' })).toString('base64url')
+    const forged = `${header}.${payload}.`
+    expect(verifyAdminJwt(forged)).toBeNull()
+  })
 })

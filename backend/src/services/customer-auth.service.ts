@@ -7,6 +7,7 @@ import { normalizeRussianPhone } from './cdek/phone'
 import {
   EmailNotConfiguredError,
   EmailSendError,
+  sendAlreadyRegisteredEmail,
   sendPasswordResetEmail,
   sendVerifyEmail,
 } from './email.service'
@@ -23,6 +24,8 @@ export const ACCESS_TTL = '15m'
 export const REFRESH_TTL_MS = 180 * 24 * 60 * 60 * 1000
 export const AUTH_TOKEN_TTL_MS = 60 * 60 * 1000
 export const LOGIN_FAIL_CAPTCHA_THRESHOLD = 3
+export const EMAIL_SEND_LIMIT_PER_HOUR = 5
+export const EMAIL_SEND_WINDOW_MS = 60 * 60 * 1000
 
 export const INVALID_CREDENTIALS_MESSAGE = 'Invalid email or password'
 
@@ -84,6 +87,62 @@ export type TokenPair = {
 }
 
 const loginFailCounts = new Map<string, { count: number; resetAt: number }>()
+/** Independent of IP — key = normalized email */
+const loginFailByEmailCounts = new Map<string, { count: number; resetAt: number }>()
+type EmailSendKind = 'password_reset' | 'email_verify' | 'already_registered'
+const emailSendCounts = new Map<string, { count: number; resetAt: number }>()
+
+const bumpWindowCount = (
+  map: Map<string, { count: number; resetAt: number }>,
+  key: string,
+  windowMs: number,
+): number => {
+  const now = Date.now()
+  const entry = map.get(key)
+  if (!entry || entry.resetAt <= now) {
+    map.set(key, { count: 1, resetAt: now + windowMs })
+    return 1
+  }
+  entry.count += 1
+  return entry.count
+}
+
+const getWindowCount = (
+  map: Map<string, { count: number; resetAt: number }>,
+  key: string,
+): number => {
+  const entry = map.get(key)
+  if (!entry) return 0
+  if (entry.resetAt <= Date.now()) {
+    map.delete(key)
+    return 0
+  }
+  return entry.count
+}
+
+const emailSendKey = (kind: EmailSendKind, email: string): string =>
+  `${kind}:${normalizeEmail(email)}`
+
+/**
+ * Enforce per-email send budget before actually sending.
+ * Throws 429 RATE_LIMITED when exceeded (no account enumeration).
+ */
+export const assertEmailSendAllowed = (kind: EmailSendKind, email: string): void => {
+  const key = emailSendKey(kind, email)
+  if (getWindowCount(emailSendCounts, key) >= EMAIL_SEND_LIMIT_PER_HOUR) {
+    const err = new Error('Too many requests') as Error & { status?: number; code?: string }
+    err.status = 429
+    err.code = 'RATE_LIMITED'
+    throw err
+  }
+}
+
+export const recordEmailSend = (kind: EmailSendKind, email: string): number =>
+  bumpWindowCount(emailSendCounts, emailSendKey(kind, email), EMAIL_SEND_WINDOW_MS)
+
+export const _resetEmailSendCountsForTests = (): void => {
+  emailSendCounts.clear()
+}
 
 const toIso = (value: Date | string | null | undefined): string | null => {
   if (value == null) return null
@@ -153,7 +212,9 @@ export const signCustomerAccessJwt = (payload: CustomerJwtPayload): string => {
 export const verifyCustomerAccessJwt = (token: string): CustomerJwtPayload | null => {
   if (!env.customerJwtSecret) return null
   try {
-    const decoded = jwt.verify(token, env.customerJwtSecret) as Partial<CustomerJwtPayload>
+    const decoded = jwt.verify(token, env.customerJwtSecret, {
+      algorithms: ['HS256'],
+    }) as Partial<CustomerJwtPayload>
     if (typeof decoded.customerId !== 'number' || !Number.isInteger(decoded.customerId)) {
       return null
     }
@@ -166,40 +227,33 @@ export const verifyCustomerAccessJwt = (token: string): CustomerJwtPayload | nul
 export const loginFailKey = (ip: string, email: string): string =>
   `ip:${ip}|email:${normalizeEmail(email)}`
 
-export const getLoginFailCount = (ip: string, email: string): number => {
-  const key = loginFailKey(ip, email)
-  const entry = loginFailCounts.get(key)
-  if (!entry) return 0
-  if (entry.resetAt <= Date.now()) {
-    loginFailCounts.delete(key)
-    return 0
-  }
-  return entry.count
-}
+export const loginFailEmailKey = (email: string): string => normalizeEmail(email)
+
+export const getLoginFailCount = (ip: string, email: string): number =>
+  getWindowCount(loginFailCounts, loginFailKey(ip, email))
+
+export const getLoginFailCountByEmail = (email: string): number =>
+  getWindowCount(loginFailByEmailCounts, loginFailEmailKey(email))
 
 export const recordLoginFailure = (ip: string, email: string): number => {
-  const key = loginFailKey(ip, email)
-  const now = Date.now()
-  const entry = loginFailCounts.get(key)
-  if (!entry || entry.resetAt <= now) {
-    loginFailCounts.set(key, { count: 1, resetAt: now + 60 * 60 * 1000 })
-    return 1
-  }
-  entry.count += 1
-  return entry.count
+  bumpWindowCount(loginFailByEmailCounts, loginFailEmailKey(email), EMAIL_SEND_WINDOW_MS)
+  return bumpWindowCount(loginFailCounts, loginFailKey(ip, email), EMAIL_SEND_WINDOW_MS)
 }
 
 export const clearLoginFailures = (ip: string, email: string): void => {
   loginFailCounts.delete(loginFailKey(ip, email))
+  loginFailByEmailCounts.delete(loginFailEmailKey(email))
 }
 
 /** Test helper */
 export const _resetLoginFailCountsForTests = (): void => {
   loginFailCounts.clear()
+  loginFailByEmailCounts.clear()
 }
 
 export const requiresCaptchaForLogin = (ip: string, email: string): boolean =>
-  getLoginFailCount(ip, email) >= LOGIN_FAIL_CAPTCHA_THRESHOLD
+  getLoginFailCount(ip, email) >= LOGIN_FAIL_CAPTCHA_THRESHOLD ||
+  getLoginFailCountByEmail(email) >= LOGIN_FAIL_CAPTCHA_THRESHOLD
 
 export const parseOptionalPhone = (raw: string | null | undefined): string | null => {
   if (raw == null || String(raw).trim() === '') return null
@@ -287,9 +341,7 @@ export type RegisterInput = {
   consentAccepted: boolean
 }
 
-export const registerCustomer = async (
-  input: RegisterInput,
-): Promise<{ customer: CustomerDto }> => {
+export const registerCustomer = async (input: RegisterInput): Promise<{ ok: true }> => {
   assertCustomerModuleEnabled()
 
   if (!input.consentAccepted) {
@@ -311,13 +363,21 @@ export const registerCustomer = async (
   const email = normalizeEmail(input.email)
   const phone = parseOptionalPhone(input.phone)
   const existing = await findCustomerByEmail(email)
+
   if (existing) {
-    const err = new Error('Email is already registered') as Error & { status?: number; code?: string }
-    err.status = 409
-    err.code = 'CONFLICT'
-    throw err
+    // Timing parity with create path (hash cost); do not persist.
+    await hashCustomerPassword(input.password)
+    assertEmailSendAllowed('already_registered', email)
+    recordEmailSend('already_registered', email)
+    try {
+      await sendAlreadyRegisteredEmail(email)
+    } catch (error) {
+      console.error('[customer-auth] already-registered email failed:', error)
+    }
+    return { ok: true }
   }
 
+  assertEmailSendAllowed('email_verify', email)
   const passwordHash = await hashCustomerPassword(input.password)
   const consentVersion = env.customerConsentVersion
   const insert = await pool.query<CustomerDbRow>(
@@ -330,6 +390,7 @@ export const registerCustomer = async (
   )
   const customer = toCustomerRow(insert.rows[0]!)
   const verifyToken = await createAuthToken(customer.id, 'email_verify')
+  recordEmailSend('email_verify', email)
   try {
     await sendVerifyEmail(email, verifyToken)
   } catch (error) {
@@ -343,12 +404,15 @@ export const registerCustomer = async (
     throw err
   }
 
-  return { customer: toCustomerDto(customer) }
+  return { ok: true }
 }
 
 export const resendVerifyEmail = async (emailRaw: string): Promise<{ ok: true }> => {
   assertCustomerModuleEnabled()
   const email = normalizeEmail(emailRaw)
+  // Budget by request email (anti-enumeration): consume even if no send.
+  assertEmailSendAllowed('email_verify', email)
+  recordEmailSend('email_verify', email)
   const customer = await findCustomerByEmail(email)
   if (customer && customer.isActive && !customer.emailVerifiedAt) {
     const token = await createAuthToken(customer.id, 'email_verify')
@@ -471,29 +535,46 @@ export const refreshCustomerSession = async (
 ): Promise<TokenPair & { customer: CustomerDto }> => {
   assertCustomerModuleEnabled()
   const tokenHash = hashToken(refreshTokenRaw)
-  const result = await pool.query<{
-    id: number
-    customer_id: number
-    expires_at: Date | string
-    revoked_at: Date | string | null
-  }>(
-    `SELECT id, customer_id, expires_at, revoked_at
-     FROM customer_refresh_tokens
+
+  const claimed = await pool.query<{ id: number; customer_id: number }>(
+    `UPDATE customer_refresh_tokens
+     SET revoked_at = NOW()
      WHERE token_hash = $1
-     LIMIT 1`,
+       AND revoked_at IS NULL
+       AND expires_at > NOW()
+     RETURNING id, customer_id`,
     [tokenHash],
   )
-  const row = result.rows[0]
-  if (!row || row.revoked_at || new Date(row.expires_at).getTime() < Date.now()) {
+  const claimedRow = claimed.rows[0]
+
+  if (!claimedRow) {
+    const existing = await pool.query<{
+      id: number
+      customer_id: number
+      revoked_at: Date | string | null
+      expires_at: Date | string
+    }>(
+      `SELECT id, customer_id, revoked_at, expires_at
+       FROM customer_refresh_tokens
+       WHERE token_hash = $1
+       LIMIT 1`,
+      [tokenHash],
+    )
+    const row = existing.rows[0]
+    if (row?.revoked_at) {
+      await pool.query(
+        `UPDATE customer_refresh_tokens SET revoked_at = NOW()
+         WHERE customer_id = $1 AND revoked_at IS NULL`,
+        [row.customer_id],
+      )
+    }
     const err = new Error('Invalid refresh token') as Error & { status?: number; code?: string }
     err.status = 401
     err.code = 'UNAUTHORIZED'
     throw err
   }
 
-  await pool.query(`UPDATE customer_refresh_tokens SET revoked_at = NOW() WHERE id = $1`, [row.id])
-
-  const customer = await findCustomerById(row.customer_id)
+  const customer = await findCustomerById(claimedRow.customer_id)
   if (!customer || !customer.isActive) {
     const err = new Error('Invalid refresh token') as Error & { status?: number; code?: string }
     err.status = 401
@@ -508,6 +589,9 @@ export const refreshCustomerSession = async (
 export const forgotPassword = async (emailRaw: string): Promise<{ ok: true }> => {
   assertCustomerModuleEnabled()
   const email = normalizeEmail(emailRaw)
+  // Budget by request email (anti-enumeration): consume even if no send.
+  assertEmailSendAllowed('password_reset', email)
+  recordEmailSend('password_reset', email)
   const customer = await findCustomerByEmail(email)
   if (customer && customer.isActive) {
     const token = await createAuthToken(customer.id, 'password_reset')

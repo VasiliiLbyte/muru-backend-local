@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mockPoolQuery = vi.fn()
 const mockSendVerifyEmail = vi.fn()
 const mockSendPasswordResetEmail = vi.fn()
+const mockSendAlreadyRegisteredEmail = vi.fn()
 
 vi.mock('../utils/db', () => ({
   pool: {
@@ -37,18 +38,24 @@ vi.mock('./email.service', () => ({
   },
   sendVerifyEmail: (...args: unknown[]) => mockSendVerifyEmail(...args),
   sendPasswordResetEmail: (...args: unknown[]) => mockSendPasswordResetEmail(...args),
+  sendAlreadyRegisteredEmail: (...args: unknown[]) => mockSendAlreadyRegisteredEmail(...args),
 }))
 
 import {
+  _resetEmailSendCountsForTests,
   _resetLoginFailCountsForTests,
   INVALID_CREDENTIALS_MESSAGE,
   changePassword,
+  forgotPassword,
   linkGuestOrdersToCustomer,
   loginCustomer,
   normalizeEmail,
   parseOptionalPhone,
   parseRequiredPhone,
+  recordLoginFailure,
+  refreshCustomerSession,
   registerCustomer,
+  requiresCaptchaForLogin,
   resetPassword,
   signCustomerAccessJwt,
   toCustomerDto,
@@ -61,8 +68,10 @@ describe('customer-auth.service', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     _resetLoginFailCountsForTests()
+    _resetEmailSendCountsForTests()
     mockSendVerifyEmail.mockResolvedValue(undefined)
     mockSendPasswordResetEmail.mockResolvedValue(undefined)
+    mockSendAlreadyRegisteredEmail.mockResolvedValue(undefined)
   })
 
   it('normalizeEmail trims and lowercases', () => {
@@ -116,7 +125,13 @@ describe('customer-auth.service', () => {
     expect(verifyCustomerAccessJwt(adminToken)).toBeNull()
   })
 
-  it('register creates customer without password_hash in DTO', async () => {
+  it('verifyCustomerAccessJwt rejects alg=none token', () => {
+    const header = Buffer.from(JSON.stringify({ alg: 'none', typ: 'JWT' })).toString('base64url')
+    const payload = Buffer.from(JSON.stringify({ customerId: 1 })).toString('base64url')
+    expect(verifyCustomerAccessJwt(`${header}.${payload}.`)).toBeNull()
+  })
+
+  it('register creates customer and returns ok without customer body', async () => {
     mockPoolQuery
       .mockResolvedValueOnce({ rows: [] }) // find by email
       .mockResolvedValueOnce({
@@ -148,10 +163,103 @@ describe('customer-auth.service', () => {
       consentAccepted: true,
     })
 
-    expect(result.customer.email).toBe('user@example.com')
-    expect(result.customer).not.toHaveProperty('password_hash')
+    expect(result).toEqual({ ok: true })
     expect(JSON.stringify(result)).not.toContain('hashed')
     expect(mockSendVerifyEmail).toHaveBeenCalled()
+    expect(mockPoolQuery).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO customers'),
+      expect.anything(),
+    )
+  })
+
+  it('register existing vs new email returns identical { ok: true }', async () => {
+    const existingRow = {
+      id: 5,
+      email: 'taken@example.com',
+      password_hash: 'stored-hash',
+      full_name: 'Taken',
+      phone: null,
+      phone_verified_at: null,
+      email_verified_at: new Date(),
+      telegram_id: null,
+      is_active: true,
+      consent_accepted: true,
+      consent_version: '2026-06-03',
+      consent_accepted_at: new Date(),
+      created_at: new Date(),
+      last_login_at: null,
+    }
+
+    mockPoolQuery.mockResolvedValueOnce({ rows: [existingRow] })
+    const occupied = await registerCustomer({
+      email: 'taken@example.com',
+      password: 'password1',
+      fullName: 'Attacker',
+      consentAccepted: true,
+    })
+    expect(occupied).toEqual({ ok: true })
+    expect(mockSendAlreadyRegisteredEmail).toHaveBeenCalledWith('taken@example.com')
+    expect(mockSendVerifyEmail).not.toHaveBeenCalled()
+    expect(mockPoolQuery.mock.calls.some((c) => String(c[0]).includes('INSERT INTO customers'))).toBe(
+      false,
+    )
+
+    mockPoolQuery
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            ...existingRow,
+            id: 6,
+            email: 'fresh@example.com',
+            email_verified_at: null,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] })
+
+    const created = await registerCustomer({
+      email: 'fresh@example.com',
+      password: 'password1',
+      fullName: 'Fresh',
+      consentAccepted: true,
+    })
+    expect(created).toEqual({ ok: true })
+    expect(created).toEqual(occupied)
+    expect(mockSendVerifyEmail).toHaveBeenCalled()
+  })
+
+  it('register occupied path still returns ok when already-registered mail fails', async () => {
+    mockPoolQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          id: 5,
+          email: 'taken@example.com',
+          password_hash: 'stored',
+          full_name: 'Taken',
+          phone: null,
+          phone_verified_at: null,
+          email_verified_at: new Date(),
+          telegram_id: null,
+          is_active: true,
+          consent_accepted: true,
+          consent_version: '2026-06-03',
+          consent_accepted_at: new Date(),
+          created_at: new Date(),
+          last_login_at: null,
+        },
+      ],
+    })
+    mockSendAlreadyRegisteredEmail.mockRejectedValueOnce(new Error('SMTP down'))
+
+    await expect(
+      registerCustomer({
+        email: 'taken@example.com',
+        password: 'password1',
+        fullName: 'X',
+        consentAccepted: true,
+      }),
+    ).resolves.toEqual({ ok: true })
   })
 
   it('register deletes customer when verify email fails (no orphan)', async () => {
@@ -374,5 +482,157 @@ describe('customer-auth.service', () => {
       [3],
     )
     compareSpy.mockRestore()
+  })
+
+  it('requires captcha after 3 fails with rotating IPs on the same email', async () => {
+    const email = 'rotate@example.com'
+    recordLoginFailure('1.1.1.1', email)
+    recordLoginFailure('2.2.2.2', email)
+    recordLoginFailure('3.3.3.3', email)
+    expect(requiresCaptchaForLogin('9.9.9.9', email)).toBe(true)
+    expect(requiresCaptchaForLogin('9.9.9.9', 'other@example.com')).toBe(false)
+  })
+
+  it('forgotPassword returns 429 on 6th send for the same email', async () => {
+    mockPoolQuery.mockResolvedValue({ rows: [] })
+    for (let i = 0; i < 5; i++) {
+      await expect(forgotPassword('limit@example.com')).resolves.toEqual({ ok: true })
+    }
+    await expect(forgotPassword('limit@example.com')).rejects.toMatchObject({
+      status: 429,
+      code: 'RATE_LIMITED',
+    })
+  })
+
+  describe('refreshCustomerSession atomic rotation', () => {
+    const customerRow = {
+      id: 11,
+      email: 'u@example.com',
+      password_hash: 'hashed',
+      full_name: 'User',
+      phone: null,
+      phone_verified_at: null,
+      email_verified_at: new Date(),
+      telegram_id: null,
+      is_active: true,
+      consent_accepted: true,
+      consent_version: '2026-06-03',
+      consent_accepted_at: new Date(),
+      created_at: new Date(),
+      last_login_at: null,
+    }
+
+    const isAtomicClaim = (sql: string) =>
+      sql.includes('UPDATE customer_refresh_tokens') &&
+      sql.includes('RETURNING id, customer_id') &&
+      sql.includes('revoked_at IS NULL') &&
+      sql.includes('expires_at > NOW()')
+
+    const isReuseLookup = (sql: string) =>
+      sql.includes('SELECT id, customer_id, revoked_at, expires_at') &&
+      sql.includes('FROM customer_refresh_tokens')
+
+    const isMassRevoke = (sql: string) =>
+      sql.includes('UPDATE customer_refresh_tokens SET revoked_at = NOW()') &&
+      sql.includes('WHERE customer_id = $1 AND revoked_at IS NULL')
+
+    it('allows only one of two parallel refreshes with the same RT', async () => {
+      let claimCount = 0
+      mockPoolQuery.mockImplementation(async (sql: string) => {
+        if (isAtomicClaim(sql)) {
+          claimCount += 1
+          if (claimCount === 1) {
+            return { rows: [{ id: 100, customer_id: 11 }] }
+          }
+          return { rows: [] }
+        }
+        if (isReuseLookup(sql)) {
+          return {
+            rows: [
+              {
+                id: 100,
+                customer_id: 11,
+                revoked_at: new Date(),
+                expires_at: new Date(Date.now() + 60_000),
+              },
+            ],
+          }
+        }
+        if (isMassRevoke(sql)) return { rows: [], rowCount: 1 }
+        if (sql.includes('FROM customers') && sql.includes('WHERE id = $1')) {
+          return { rows: [customerRow] }
+        }
+        if (sql.includes('INSERT INTO customer_refresh_tokens')) {
+          return { rows: [] }
+        }
+        return { rows: [] }
+      })
+
+      const raw = 'same-refresh-token-raw'
+      const [a, b] = await Promise.allSettled([
+        refreshCustomerSession(raw),
+        refreshCustomerSession(raw),
+      ])
+
+      const successes = [a, b].filter((r) => r.status === 'fulfilled')
+      const failures = [a, b].filter((r) => r.status === 'rejected')
+      expect(successes).toHaveLength(1)
+      expect(failures).toHaveLength(1)
+      expect((failures[0] as PromiseRejectedResult).reason).toMatchObject({
+        status: 401,
+        message: 'Invalid refresh token',
+      })
+      expect(mockPoolQuery).toHaveBeenCalledWith(
+        expect.stringContaining('WHERE customer_id = $1 AND revoked_at IS NULL'),
+        [11],
+      )
+    })
+
+    it('on reuse of revoked RT mass-revokes all sessions for the customer', async () => {
+      let claimCount = 0
+      mockPoolQuery.mockImplementation(async (sql: string) => {
+        if (isAtomicClaim(sql)) {
+          claimCount += 1
+          if (claimCount === 1) {
+            return { rows: [{ id: 100, customer_id: 11 }] }
+          }
+          return { rows: [] }
+        }
+        if (isReuseLookup(sql)) {
+          return {
+            rows: [
+              {
+                id: 100,
+                customer_id: 11,
+                revoked_at: new Date(),
+                expires_at: new Date(Date.now() + 60_000),
+              },
+            ],
+          }
+        }
+        if (isMassRevoke(sql)) return { rows: [], rowCount: 2 }
+        if (sql.includes('FROM customers') && sql.includes('WHERE id = $1')) {
+          return { rows: [customerRow] }
+        }
+        if (sql.includes('INSERT INTO customer_refresh_tokens')) {
+          return { rows: [] }
+        }
+        return { rows: [] }
+      })
+
+      const raw = 'reuse-refresh-token'
+      await expect(refreshCustomerSession(raw)).resolves.toMatchObject({
+        accessToken: expect.any(String),
+        refreshToken: expect.any(String),
+      })
+
+      await expect(refreshCustomerSession(raw)).rejects.toMatchObject({ status: 401 })
+      expect(mockPoolQuery).toHaveBeenCalledWith(
+        expect.stringMatching(
+          /UPDATE customer_refresh_tokens SET revoked_at = NOW\(\)[\s\S]*WHERE customer_id = \$1 AND revoked_at IS NULL/,
+        ),
+        [11],
+      )
+    })
   })
 })

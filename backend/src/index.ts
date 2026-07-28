@@ -124,14 +124,13 @@ app.listen(port, () => {
   startTelegramBotPolling()
 
   if (process.env.NODE_ENV !== 'test' && env.customerAccountsEnabled) {
-    void import('./services/email.service')
-      .then((m) => m.verifySmtpTransport())
-      .catch((error) => {
-        console.error('[email] SMTP verify failed at startup:', error)
-        if (env.nodeEnv === 'production') {
-          process.exit(1)
-        }
-      })
+    void import('./services/email.service').then(async (m) => {
+      try {
+        await m.verifySmtpTransport()
+      } catch (error) {
+        m.handleSmtpStartupVerifyFailure(error)
+      }
+    })
   }
 
   if (process.env.NODE_ENV !== 'test' && env.cdek.clientId && env.cdek.clientSecret) {

@@ -55,7 +55,13 @@ const mapServiceError = (error: unknown, next: NextFunction, res: Response) => {
       res,
       err.status,
       err.message,
-      (err.code as 'VALIDATION' | 'UNAUTHORIZED' | 'NOT_FOUND' | 'CONFLICT' | 'UPSTREAM') || undefined,
+      (err.code as
+        | 'VALIDATION'
+        | 'UNAUTHORIZED'
+        | 'NOT_FOUND'
+        | 'CONFLICT'
+        | 'UPSTREAM'
+        | 'RATE_LIMITED') || undefined,
     )
   }
   return next(error)
@@ -125,7 +131,7 @@ export const registerHandler = async (req: Request, res: Response, next: NextFun
     }
     await requireCaptcha(parsed.data.captchaToken, req)
     const result = await registerCustomer(parsed.data)
-    return ok(res, result, 201)
+    return ok(res, result)
   } catch (error) {
     return mapServiceError(error, next, res)
   }

@@ -62,7 +62,9 @@ export const signAdminJwt = (payload: AdminJwtPayload): string => {
 export const verifyAdminJwt = (token: string): AdminJwtPayload | null => {
   if (!env.adminJwtSecret) return null
   try {
-    const decoded = jwt.verify(token, env.adminJwtSecret) as Partial<AdminJwtPayload>
+    const decoded = jwt.verify(token, env.adminJwtSecret, {
+      algorithms: ['HS256'],
+    }) as Partial<AdminJwtPayload>
     if (
       typeof decoded.adminId !== 'number' ||
       !Number.isInteger(decoded.adminId) ||

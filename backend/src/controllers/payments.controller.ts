@@ -4,6 +4,7 @@ import { z } from 'zod'
 import type { AuthenticatedRequest } from '../middleware/auth.middleware'
 import { createInvoiceForCheckout } from '../services/telegram/invoice.service'
 import { verifyCustomerAccessJwt } from '../services/customer-auth.service'
+import { normalizeRussianPhone } from '../services/cdek/phone'
 import {
   createPayment,
   getPaymentIntentStatusForUser,
@@ -13,6 +14,15 @@ import {
 } from '../services/yookassa/payments.service'
 import { env } from '../utils/env'
 import { fail, ok } from '../utils/api-response'
+
+const recipientPhoneSchema = z.string().transform((raw, ctx) => {
+  const normalized = normalizeRussianPhone(raw)
+  if (!normalized) {
+    ctx.addIssue({ code: 'custom', message: 'Некорректный телефон' })
+    return z.NEVER
+  }
+  return normalized
+})
 
 export const snapshotSchema = z
   .object({
@@ -35,7 +45,7 @@ export const snapshotSchema = z
     comment: z.string().default(''),
     birthDate: z.string().nullable().default(null),
     recipientName: z.string().min(2),
-    recipientPhone: z.string().min(10),
+    recipientPhone: recipientPhoneSchema,
     cdekTariffCode: z.number().int().nullable().default(null),
     cdekCityCode: z.number().int().nullable().default(null),
     cdekCityName: z.string().nullable().default(null),

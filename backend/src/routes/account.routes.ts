@@ -29,7 +29,7 @@ export const accountRouter = Router()
 
 accountRouter.post('/register', rateLimitByIp('account:register', 5), registerHandler)
 accountRouter.post('/resend-verify', rateLimitByIp('account:resend-verify', 5), resendVerifyHandler)
-accountRouter.get('/verify', verifyEmailHandler)
+accountRouter.get('/verify', rateLimitByIp('account:verify', 30), verifyEmailHandler)
 accountRouter.post('/login', rateLimitByIp('account:login', 10), loginHandler)
 accountRouter.post('/logout', logoutHandler)
 accountRouter.post('/refresh', rateLimitByIp('account:refresh', 30), refreshHandler)

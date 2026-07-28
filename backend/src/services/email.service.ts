@@ -101,6 +101,24 @@ export const sendPasswordResetEmail = async (to: string, token: string): Promise
   })
 }
 
+export const buildAlreadyRegisteredEmailHtml = (): string => {
+  const loginUrl = `${env.storefrontPublicUrl}/login/`
+  const forgotUrl = `${env.storefrontPublicUrl}/password/forgot/`
+  return `<p>Здравствуйте!</p>
+<p>На этот email уже зарегистрирован аккаунт MURU.</p>
+<p>Войти: <a href="${loginUrl}">${loginUrl}</a></p>
+<p>Сбросить пароль: <a href="${forgotUrl}">${forgotUrl}</a></p>
+<p>Если вы не пытались зарегистрироваться — проигнорируйте это письмо.</p>`
+}
+
+export const sendAlreadyRegisteredEmail = async (to: string): Promise<void> => {
+  await sendEmail({
+    to,
+    subject: 'Аккаунт MURU уже зарегистрирован',
+    html: buildAlreadyRegisteredEmailHtml(),
+  })
+}
+
 /**
  * Startup SMTP health check when customer accounts (ЛК) are enabled.
  * Throws if credentials missing or transporter.verify() fails.
@@ -123,4 +141,12 @@ export const verifySmtpTransport = async (): Promise<void> => {
     console.error('[email] SMTP verify failed:', error)
     throw new EmailSendError('SMTP transport verification failed', error)
   }
+}
+
+/**
+ * Runtime SMTP unreachable at startup must not kill the process.
+ * Missing SMTP config in production+ЛК remains fatal via env.ts load.
+ */
+export const handleSmtpStartupVerifyFailure = (error: unknown): void => {
+  console.error('[email] SMTP verify failed at startup (continuing without exit):', error)
 }

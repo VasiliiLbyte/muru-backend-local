@@ -29,6 +29,7 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
   ADMIN_JWT_SECRET: z.string().optional(),
   CUSTOMER_JWT_SECRET: z.string().optional(),
+  INTERNAL_PROXY_TOKEN: z.string().optional(),
   SMARTCAPTCHA_SERVER_KEY: z.string().optional(),
   SMARTCAPTCHA_CLIENT_KEY: z.string().optional(),
   SMARTCAPTCHA_DEV_BYPASS: z.string().optional(),
@@ -148,6 +149,13 @@ if (nodeEnvForYookassa === 'production') {
       )
       process.exit(1)
     }
+    const internalProxyTokenProd = parsed.data.INTERNAL_PROXY_TOKEN?.trim() ?? ''
+    if (internalProxyTokenProd.length < 32) {
+      console.error(
+        '[env] production requires INTERNAL_PROXY_TOKEN (>=32 chars) when CUSTOMER_JWT_SECRET is set (ЛК)',
+      )
+      process.exit(1)
+    }
   }
 }
 
@@ -242,6 +250,7 @@ export const env = {
   adminJwtSecret: parsed.data.ADMIN_JWT_SECRET?.trim() ?? '',
   customerJwtSecret,
   customerAccountsEnabled,
+  internalProxyToken: parsed.data.INTERNAL_PROXY_TOKEN?.trim() ?? '',
   smartCaptchaServerKey: parsed.data.SMARTCAPTCHA_SERVER_KEY?.trim() ?? '',
   smartCaptchaClientKey: parsed.data.SMARTCAPTCHA_CLIENT_KEY?.trim() ?? '',
   smartCaptchaDevBypass,
