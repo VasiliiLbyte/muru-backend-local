@@ -28,6 +28,7 @@ import {
   SYNC_REASON_MISSING_SKU,
   syncDbErrorReason,
 } from './google-sync-errors'
+import { slugify } from './crm-catalog.helpers'
 import { invalidateImageCache } from './image-proxy.service'
 import { buildTwoSlotImageUrls } from './google-sync-image-urls'
 import {
@@ -69,13 +70,6 @@ const DB_PROGRESS_EVERY = 10
 
 const STOCK_WRITE_DISABLED_WARNING =
   'Списание остатков в таблицу отключено; остаток обновляется только при синхронизации каталога.'
-
-const slugify = (value: string) =>
-  (value
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9а-яё-]/gi, '') || 'bez-kategorii')
 
 const parseNumber = (value: string | number | undefined) => {
   if (typeof value === 'number') return value
@@ -253,7 +247,7 @@ const upsertProductWithClient = async (
   const imageUrl1 = product.imageUrls[0] ?? DEFAULT_IMAGE_URL
   const imageUrl2 = product.imageUrls[1] ?? imageUrl1
   const productResult = await client.query<{ id: number }>(
-    `INSERT INTO products (sku, name, description, price, discount_percent, in_stock, specs, image_url_1, image_url_2, image_urls, category_id, color, color_tags, size, dimensions_label, web_subcategory_name, web_subcategory_slug, updated_at)
+    `INSERT INTO products (sku, name, description, price, discount_percent, in_stock, specs, image_url_1, image_url_2, image_urls, category_id, color, color_tags, size, dimensions_label, web_subcategory_name, web_subcategory_slug, slug, updated_at)
      VALUES ${PRODUCT_UPSERT_VALUES_SQL}
      ON CONFLICT (sku)
      DO UPDATE SET
@@ -273,6 +267,7 @@ const upsertProductWithClient = async (
        dimensions_label = EXCLUDED.dimensions_label,
        web_subcategory_name = EXCLUDED.web_subcategory_name,
        web_subcategory_slug = EXCLUDED.web_subcategory_slug,
+       slug = COALESCE(products.slug, EXCLUDED.slug),
        updated_at = NOW()
      RETURNING id`,
     [
@@ -293,6 +288,7 @@ const upsertProductWithClient = async (
       product.dimensionsLabel ?? '',
       product.webSubcategoryName,
       product.webSubcategorySlug,
+      slugify(product.name),
     ],
   )
 

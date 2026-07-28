@@ -2,6 +2,7 @@ import { Router } from 'express'
 
 import {
   getCatalogProductBySkuHandler,
+  getCatalogProductBySlugHandler,
   getCatalogProductsHandler,
   getCatalogTreeHandler,
   restockNotifyHandler,
@@ -12,6 +13,7 @@ const catalogRouter = Router()
 
 catalogRouter.get('/tree', getCatalogTreeHandler)
 catalogRouter.get('/products', getCatalogProductsHandler)
+catalogRouter.get('/products/by-slug/:slug', getCatalogProductBySlugHandler)
 catalogRouter.get('/products/:sku', getCatalogProductBySkuHandler)
 catalogRouter.post(
   '/restock-notify',

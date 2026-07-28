@@ -10,6 +10,7 @@
     "test": "vitest run",
     "seed:admin": "node dist/scripts/seed-admin.js",
     "backfill:order-contacts": "tsx src/scripts/backfill-order-customer-contacts.ts",
+    "backfill:product-slugs": "tsx src/scripts/backfill-product-slugs.ts",
     "cleanup:unverified-customers": "tsx src/scripts/cleanup-unverified-customers.ts"
   },
   "keywords": [

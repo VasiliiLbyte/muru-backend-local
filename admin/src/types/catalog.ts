@@ -6,6 +6,7 @@ export type CrmCatalogMeta = {
 export type CrmCatalogListItem = {
   id: number
   sku: string
+  slug: string
   name: string
   price: number
   discountPercent: number
@@ -22,6 +23,7 @@ export type CrmCatalogListItem = {
 export type CrmCatalogProductDetail = {
   id: number
   sku: string
+  slug: string
   name: string
   description: string
   price: number
@@ -85,6 +87,7 @@ export type CrmCatalogListResult = {
 export type CrmCatalogProductCreateBody = {
   sku: string
   name: string
+  slug?: string
   price: number
   description?: string
   discountPercent?: number

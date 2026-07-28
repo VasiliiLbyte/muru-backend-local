@@ -36,6 +36,7 @@ export type CrmCatalogMeta = {
 export type CrmCatalogListItem = {
   id: number
   sku: string
+  slug: string
   name: string
   price: number
   discountPercent: number
@@ -52,6 +53,7 @@ export type CrmCatalogListItem = {
 export type CrmCatalogProductDetail = {
   id: number
   sku: string
+  slug: string
   name: string
   description: string
   price: number
@@ -115,6 +117,7 @@ export type CrmCatalogListResult = {
 type ProductRow = {
   id: number
   sku: string
+  slug: string
   name: string
   description: string
   price: string
@@ -180,6 +183,7 @@ const toIsoOrNull = (value: Date | string | null | undefined): string | null => 
 const mapListRow = (row: ProductRow): CrmCatalogListItem => ({
   id: row.id,
   sku: row.sku,
+  slug: row.slug,
   name: row.name,
   price: Number(row.price),
   discountPercent: Number(row.discount_percent) || 0,
@@ -196,6 +200,7 @@ const mapListRow = (row: ProductRow): CrmCatalogListItem => ({
 const mapDetailRow = (row: ProductRow): CrmCatalogProductDetail => ({
   id: row.id,
   sku: row.sku,
+  slug: row.slug,
   name: row.name,
   description: row.description,
   price: Number(row.price),
@@ -234,6 +239,7 @@ const mapDetailRow = (row: ProductRow): CrmCatalogProductDetail => ({
 const PRODUCT_SELECT = `
   p.id,
   p.sku,
+  p.slug,
   p.name,
   p.description,
   p.price::text,
@@ -530,6 +536,15 @@ export const createCrmCatalogProduct = async (
     throw conflictError(`Product with sku ${sku} already exists`)
   }
 
+  const productSlug = (input.slug?.trim() || slugify(input.name)).toLowerCase()
+  if (!/^[a-z0-9-]+$/.test(productSlug)) {
+    throw conflictError('Invalid product slug')
+  }
+  const slugTaken = await pool.query('SELECT id FROM products WHERE slug = $1', [productSlug])
+  if (slugTaken.rows.length > 0) {
+    throw conflictError(`Product with slug ${productSlug} already exists`)
+  }
+
   if (input.categoryId != null) {
     await assertNotVirtualSaleCategory(input.categoryId)
   }
@@ -551,7 +566,7 @@ export const createCrmCatalogProduct = async (
 
     const result = await client.query<{ id: number }>(
       `INSERT INTO products (
-         sku, name, description, price, discount_percent, in_stock, specs,
+         sku, slug, name, description, price, discount_percent, in_stock, specs,
          image_url_1, image_url_2, image_urls, category_id,
          color, size, color_tags, dimensions_label,
          weight_grams, dim_length_cm, dim_width_cm, dim_height_cm,
@@ -560,17 +575,18 @@ export const createCrmCatalogProduct = async (
          subcategory, subcategory_slug,
          is_gift_guide, is_new_arrival, new_arrival_at, is_archived, updated_at
        ) VALUES (
-         $1, $2, $3, $4, $5, $6, $7::jsonb,
-         $8, $9, $10::jsonb, $11,
-         $12, $13, $14, $15,
-         $16, $17, $18, $19,
-         $20, $21,
-         $22, $23,
-         $24, $25,
-         $26, $27, $28, FALSE, NOW()
+         $1, $2, $3, $4, $5, $6, $7, $8::jsonb,
+         $9, $10, $11::jsonb, $12,
+         $13, $14, $15, $16,
+         $17, $18, $19, $20,
+         $21, $22,
+         $23, $24,
+         $25, $26,
+         $27, $28, $29, FALSE, NOW()
        ) RETURNING id`,
       [
         sku,
+        productSlug,
         input.name.trim(),
         input.description?.trim() ?? '',
         input.price,
@@ -640,6 +656,21 @@ export const updateCrmCatalogProduct = async (
   if (input.name !== undefined) {
     params.push(input.name.trim())
     sets.push(`name = $${params.length}`)
+  }
+  if (input.slug !== undefined) {
+    const nextSlug = input.slug.trim().toLowerCase()
+    if (!/^[a-z0-9-]+$/.test(nextSlug)) {
+      throw conflictError('Invalid product slug')
+    }
+    const clash = await pool.query('SELECT id FROM products WHERE slug = $1 AND id <> $2', [
+      nextSlug,
+      id,
+    ])
+    if (clash.rows.length > 0) {
+      throw conflictError(`Product with slug ${nextSlug} already exists`)
+    }
+    params.push(nextSlug)
+    sets.push(`slug = $${params.length}`)
   }
   if (input.description !== undefined) {
     params.push(input.description)

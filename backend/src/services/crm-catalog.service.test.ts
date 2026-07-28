@@ -38,6 +38,7 @@ import {
 const productDetailRow = {
   id: 42,
   sku: 'MU0042',
+  slug: 'test',
   name: 'Test',
   description: '',
   price: 100,
@@ -201,7 +202,8 @@ describe('crm-catalog.service', () => {
   it('createCrmCatalogProduct returns 409 when assigning virtual Sale category', async () => {
     mockEnv.catalogSource = 'crm'
     mockQuery
-      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] }) // sku unique
+      .mockResolvedValueOnce({ rows: [] }) // slug unique
       .mockResolvedValueOnce({ rows: [{ name: 'Распродажа' }] })
 
     await expect(
@@ -215,7 +217,7 @@ describe('crm-catalog.service', () => {
       message: 'Cannot assign a product directly to the virtual Sale category',
       statusCode: 409,
     })
-    expect(mockQuery).toHaveBeenCalledTimes(2)
+    expect(mockQuery).toHaveBeenCalledTimes(3)
   })
 
   it('updateCrmCatalogProduct returns 409 when assigning virtual Sale category', async () => {
@@ -234,7 +236,8 @@ describe('crm-catalog.service', () => {
   it('createCrmCatalogProduct write-throughs primary subcategory to denorm columns', async () => {
     mockEnv.catalogSource = 'crm'
     mockQuery
-      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] }) // sku
+      .mockResolvedValueOnce({ rows: [] }) // slug
       .mockResolvedValueOnce({ rows: [{ id: 7 }] })
       .mockResolvedValueOnce({ rows: [{ name: 'Bags', slug: 'bags' }] })
     mockClientQuery
@@ -255,8 +258,8 @@ describe('crm-catalog.service', () => {
     })
 
     const insertParams = mockClientQuery.mock.calls[1][1] as unknown[]
-    expect(insertParams[21]).toBe('Bags')
-    expect(insertParams[22]).toBe('bags')
+    expect(insertParams[22]).toBe('Bags')
+    expect(insertParams[23]).toBe('bags')
     expect(String(mockClientQuery.mock.calls[2][0])).toContain('DELETE FROM product_subcategories')
     expect(product.subcategoryIds).toEqual([7])
   })
@@ -319,7 +322,8 @@ describe('crm-catalog.service', () => {
   it('createCrmCatalogProduct writes is_gift_guide when provided', async () => {
     mockEnv.catalogSource = 'crm'
     mockQuery
-      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] }) // sku
+      .mockResolvedValueOnce({ rows: [] }) // slug
       .mockResolvedValueOnce({ rows: [{ ...productDetailRow, is_gift_guide: true }] })
       .mockResolvedValueOnce({ rows: [] })
     mockClientQuery
@@ -335,7 +339,7 @@ describe('crm-catalog.service', () => {
     })
 
     const insertParams = mockClientQuery.mock.calls[1][1] as unknown[]
-    expect(insertParams[25]).toBe(true)
+    expect(insertParams[26]).toBe(true)
     expect(product.isGiftGuide).toBe(true)
   })
 

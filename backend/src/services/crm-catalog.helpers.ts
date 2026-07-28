@@ -1,9 +1,7 @@
-export const slugify = (value: string) =>
-  value
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9а-яё-]/gi, '')
+import { slugifyLatin } from './slug-translit'
+
+/** Canonical latin slug generator (Bitrix CyrillicToLatin). */
+export const slugify = (value: string): string => slugifyLatin(value) || 'bez-kategorii'
 
 export const conflictError = (message: string): Error => {
   const err = new Error(message)

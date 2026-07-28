@@ -2,7 +2,12 @@ import type { NextFunction, Request, Response } from 'express'
 import { z } from 'zod'
 
 import { notifyRestockRequestByTelegram } from '../services/order-notifications.service'
-import { getCatalogProductBySku, getCatalogProducts, getCatalogTree } from '../services/catalog.service'
+import {
+  getCatalogProductBySku,
+  getCatalogProductBySlug,
+  getCatalogProducts,
+  getCatalogTree,
+} from '../services/catalog.service'
 import { fail, HttpError, ok, zodErrorMessage } from '../utils/api-response'
 
 const restockPayloadSchema = z.object({
@@ -73,6 +78,24 @@ export const getCatalogProductBySkuHandler = async (req: Request, res: Response,
 
     const channel = req.query.channel ? String(req.query.channel) : undefined
     const product = await getCatalogProductBySku(sku, channel)
+    if (!product) {
+      return fail(res, 404, 'Product not found', 'NOT_FOUND')
+    }
+    return ok(res, product)
+  } catch (error) {
+    next(error)
+  }
+}
+
+export const getCatalogProductBySlugHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const slug = String(req.params.slug || '').trim()
+    if (!slug) {
+      return fail(res, 400, 'slug is required', 'VALIDATION')
+    }
+
+    const channel = req.query.channel ? String(req.query.channel) : undefined
+    const product = await getCatalogProductBySlug(slug, channel)
     if (!product) {
       return fail(res, 404, 'Product not found', 'NOT_FOUND')
     }

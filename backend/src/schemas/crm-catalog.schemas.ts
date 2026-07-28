@@ -11,6 +11,10 @@ export const createCrmCatalogProductSchema = z
   .object({
     sku: z.string().min(1),
     name: z.string().min(1),
+    slug: z
+      .string()
+      .regex(/^[a-z0-9-]+$/, 'slug must be latin lowercase with hyphens')
+      .optional(),
     price: z.number().nonnegative(),
     description: z.string().optional(),
     discountPercent: z.number().min(0).max(100).optional(),

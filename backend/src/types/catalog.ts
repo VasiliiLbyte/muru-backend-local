@@ -107,6 +107,7 @@ export type WebCrossPlacementRef = {
 
 export type CatalogProductListItem = {
   sku: string
+  slug: string
   name: string
   price: number
   discountPercent: number

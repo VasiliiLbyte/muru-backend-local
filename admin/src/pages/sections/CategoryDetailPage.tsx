@@ -45,6 +45,7 @@ const PRODUCTS_PAGE_SIZE = 20
 type EditingSub = {
   subId: number
   name: string
+  slug: string
   coverUrl: string
 }
 
@@ -259,6 +260,7 @@ export const CategoryDetailPage = () => {
     try {
       await patchSubcategory(category.id, editingSub.subId, {
         name: editingSub.name.trim(),
+        slug: editingSub.slug.trim(),
         coverImageUrl: editingSub.coverUrl.trim() || null,
       })
       setEditingSub(null)
@@ -546,7 +548,16 @@ export const CategoryDetailPage = () => {
                         sub.name
                       )}
                     </TableCell>
-                    <TableCell>{sub.slug}</TableCell>
+                    <TableCell>
+                      {isEditing ? (
+                        <Input
+                          value={editingSub.slug}
+                          onChange={(e) => setEditingSub({ ...editingSub, slug: e.target.value })}
+                        />
+                      ) : (
+                        sub.slug
+                      )}
+                    </TableCell>
                     <TableCell numeric>{sub.productCount}</TableCell>
                     <TableCell>
                       {isEditing ? (
@@ -611,6 +622,7 @@ export const CategoryDetailPage = () => {
                                 setEditingSub({
                                   subId: sub.id,
                                   name: sub.name,
+                                  slug: sub.slug,
                                   coverUrl: sub.coverImageUrl ?? '',
                                 })
                               }

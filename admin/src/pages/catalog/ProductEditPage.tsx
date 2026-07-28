@@ -29,6 +29,7 @@ import {
   unarchiveProduct,
   updateProductStock,
 } from '../../lib/catalog-api'
+import { slugifyLatin } from '../../lib/slugify-latin'
 import { listCollections } from '../../lib/content-api'
 import {
   getProductCollections,
@@ -68,6 +69,9 @@ export const ProductEditPage = () => {
 
   const [sku, setSku] = useState('')
   const [name, setName] = useState('')
+  const [slug, setSlug] = useState('')
+  const [slugTouched, setSlugTouched] = useState(false)
+  const [originalSlug, setOriginalSlug] = useState<string | null>(null)
   const [description, setDescription] = useState('')
   const [price, setPrice] = useState('0')
   const [discountPercent, setDiscountPercent] = useState('0')
@@ -139,6 +143,9 @@ export const ProductEditPage = () => {
     const specs = data.specs ?? {}
     setSku(data.sku)
     setName(data.name)
+    setSlug(data.slug ?? '')
+    setSlugTouched(false)
+    setOriginalSlug(data.slug ?? null)
     setDescription(data.description ?? '')
     setPrice(String(data.price))
     setDiscountPercent(String(data.discountPercent))
@@ -243,6 +250,7 @@ export const ProductEditPage = () => {
     const trimmedSize = sizeField.trim()
     return {
       name: name.trim(),
+      slug: slug.trim() || undefined,
       description,
       price: Number(price) || 0,
       discountPercent: Number(discountPercent) || 0,
@@ -272,10 +280,11 @@ export const ProductEditPage = () => {
     setSaving(true)
     setError('')
     try {
+      const body = buildBody()
       if (isNew) {
         const created = await createProduct({
           sku: sku.trim(),
-          ...buildBody(),
+          ...body,
         })
         try {
           await putProductCollections(created.sku, collectionIds)
@@ -291,9 +300,14 @@ export const ProductEditPage = () => {
         return
       }
 
-      const updated = await patchProduct(productId!, buildBody())
+      const updated = await patchProduct(productId!, body)
       setProduct(updated)
       applyProductToForm(updated)
+      if (originalSlug && body.slug && body.slug !== originalSlug && !updated.isArchived) {
+        toast.error(
+          'Слаг изменён: старый URL перестанет работать, нужен редирект.',
+        )
+      }
       try {
         await putProductCollections(updated.sku || sku.trim(), collectionIds)
       } catch (membershipErr) {
@@ -424,10 +438,33 @@ export const ProductEditPage = () => {
             <Input
               id="product-name"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                const next = e.target.value
+                setName(next)
+                if (!slugTouched) setSlug(slugifyLatin(next))
+              }}
               disabled={readOnly}
               required
             />
+          </Field>
+
+          <Field label="Slug (URL)" htmlFor="product-slug">
+            <Input
+              id="product-slug"
+              value={slug}
+              onChange={(e) => {
+                setSlugTouched(true)
+                setSlug(e.target.value)
+              }}
+              disabled={readOnly}
+              required
+            />
+            {!isNew && originalSlug && slug && slug !== originalSlug ? (
+              <p className="muted-text" role="status">
+                Слаг изменён относительно «{originalSlug}»: старый URL перестанет работать, нужен
+                редирект.
+              </p>
+            ) : null}
           </Field>
 
           <Field label="Описание" htmlFor="product-description">
