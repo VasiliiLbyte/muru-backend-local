@@ -9,6 +9,7 @@ import {
   SALE_CATEGORY_SLUG,
 } from './catalog-sale.helpers'
 import { buildProductTextSearchCondition } from './catalog-product-search'
+import { slugify } from './crm-catalog.helpers'
 import { pool } from '../utils/db'
 import type {
   CatalogNode,
@@ -27,15 +28,9 @@ const parseCategoryPath = (value: string) =>
     .map((item) => item.trim())
     .filter(Boolean)
 
-const slugify = (value: string) =>
-  value
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9а-яё-]/gi, '')
-
 type ProductRow = {
   sku: string
+  slug: string | null
   name: string
   price: string
   discount_percent: string
@@ -47,6 +42,8 @@ type ProductRow = {
   image_url_2: string
   image_urls: string[] | null
   category_name: string | null
+  subcategory: string | null
+  subcategory_slug: string | null
   web_subcategory_name: string | null
   web_subcategory_slug: string | null
   cross_category_name: string | null
@@ -90,13 +87,15 @@ const mapSubcategorySlug = (raw: string | null | undefined): string | undefined 
   return trimmed || undefined
 }
 
-const buildCatalogTree = (categoryPaths: string[]) => {
+const buildCatalogTree = (categories: Array<{ name: string; slug: string }>) => {
+  const slugByName = new Map(categories.map((c) => [c.name, c.slug]))
   const rootMap = new Map<string, CatalogNode>()
   TOP_LEVEL_CATEGORIES.forEach((name) => {
-    rootMap.set(name, { name, slug: slugify(name), children: [] })
+    const slug = slugByName.get(name) ?? slugify(name)
+    rootMap.set(name, { name, slug, children: [] })
   })
 
-  for (const rawPath of categoryPaths) {
+  for (const { name: rawPath } of categories) {
     const parts = parseCategoryPath(rawPath)
     if (parts.length === 0) continue
     const [top, second, third] = parts
@@ -162,9 +161,8 @@ const attachProductSubcategories = async (nodes: CatalogNode[]): Promise<void> =
 }
 
 export const getCatalogTree = async (withSubcategories = false): Promise<CatalogNode[]> => {
-  const result = await pool.query<{ name: string }>('SELECT name FROM categories')
-  const categoryNames = result.rows.map((row) => row.name)
-  const fullTree = buildCatalogTree(categoryNames)
+  const result = await pool.query<{ name: string; slug: string }>('SELECT name, slug FROM categories')
+  const fullTree = buildCatalogTree(result.rows)
 
   const withProducts = await pool.query<{ slug: string }>(
     `SELECT DISTINCT c.slug
@@ -223,13 +221,23 @@ const mapWebCrossPlacement = (row: ProductRow): WebCrossPlacementRef | undefined
   return placement
 }
 
+/** Web channel: prefer web_* placement, fall back to CRM subcategory_* columns. */
+const resolveWebSubcategoryName = (row: ProductRow): string =>
+  row.web_subcategory_name?.trim() || row.subcategory?.trim() || ''
+
+const resolveWebSubcategorySlug = (row: ProductRow): string | undefined =>
+  mapSubcategorySlug(row.web_subcategory_slug ?? row.subcategory_slug)
+
 const attachWebFields = (
   item: CatalogProductListItem,
   row: ProductRow,
   web: boolean,
 ): void => {
   if (!web) return
-  const primary = mapWebPrimarySubcategory(row.web_subcategory_name, row.web_subcategory_slug)
+  const primary = mapWebPrimarySubcategory(
+    row.web_subcategory_name ?? row.subcategory,
+    row.web_subcategory_slug ?? row.subcategory_slug,
+  )
   if (primary) item.webPrimarySubcategory = primary
   const cross = mapWebCrossPlacement(row)
   if (cross) item.webCrossPlacement = cross
@@ -359,6 +367,8 @@ export const getCatalogProducts = async (params: {
       : 'ORDER BY p.updated_at DESC'
   const webSelect = web
     ? `,
+       p.subcategory,
+       p.subcategory_slug,
        p.web_subcategory_name,
        p.web_subcategory_slug,
        c_cross.name AS cross_category_name,
@@ -375,6 +385,7 @@ export const getCatalogProducts = async (params: {
   const result = await pool.query<ProductRow>(
     `SELECT
        p.sku,
+       p.slug,
        p.name,
        p.price::text,
        p.discount_percent::text,
@@ -405,6 +416,7 @@ export const getCatalogProducts = async (params: {
     if (!grouped.has(row.sku)) {
       const item: CatalogProductListItem = {
         sku: row.sku,
+        slug: row.slug ?? '',
         name: row.name,
         price: Number(row.price),
         discountPercent: Number(row.discount_percent) || 0,
@@ -413,7 +425,7 @@ export const getCatalogProducts = async (params: {
         colors: [],
         sizes: [],
         category: row.category_name ?? 'Без категории',
-        subcategory: web ? (row.web_subcategory_name?.trim() ?? '') : '',
+        subcategory: web ? resolveWebSubcategoryName(row) : '',
         giftGuide: row.is_gift_guide,
         newArrival: row.is_new_arrival,
         newArrivalAt:
@@ -422,7 +434,7 @@ export const getCatalogProducts = async (params: {
             : row.new_arrival_at,
       }
       if (web) {
-        const subSlug = mapSubcategorySlug(row.web_subcategory_slug)
+        const subSlug = resolveWebSubcategorySlug(row)
         if (subSlug) item.subcategorySlug = subSlug
       }
       if (row.product_color) {
@@ -464,6 +476,8 @@ export const getCatalogProductBySku = async (
   const web = isWebChannel(channel)
   const webSelect = web
     ? `,
+       p.subcategory,
+       p.subcategory_slug,
        p.web_subcategory_name,
        p.web_subcategory_slug,
        c_cross.name AS cross_category_name,
@@ -480,6 +494,7 @@ export const getCatalogProductBySku = async (
   const result = await pool.query<ProductDetailRow>(
     `SELECT
        p.sku,
+       p.slug,
        p.name,
        p.price::text,
        p.discount_percent::text,
@@ -536,6 +551,7 @@ export const getCatalogProductBySku = async (
 
   const detail: CatalogProductDetail = {
     sku: first.sku,
+    slug: first.slug ?? '',
     name: first.name,
     price: Number(first.price),
     discountPercent: Number(first.discount_percent) || 0,
@@ -544,7 +560,7 @@ export const getCatalogProductBySku = async (
     colors: dotColors,
     sizes: Array.from(sizes),
     category: first.category_name ?? 'Без категории',
-    subcategory: web ? (first.web_subcategory_name?.trim() ?? '') : '',
+    subcategory: web ? resolveWebSubcategoryName(first) : '',
     giftGuide: first.is_gift_guide,
     newArrival: first.is_new_arrival,
     newArrivalAt:
@@ -557,7 +573,7 @@ export const getCatalogProductBySku = async (
   }
 
   if (web) {
-    const subSlug = mapSubcategorySlug(first.web_subcategory_slug)
+    const subSlug = resolveWebSubcategorySlug(first)
     if (subSlug) detail.subcategorySlug = subSlug
   }
   if (first.product_color) detail.color = first.product_color
@@ -567,4 +583,19 @@ export const getCatalogProductBySku = async (
   attachWebFields(detail, first, web)
 
   return detail
+}
+
+export const getCatalogProductBySlug = async (
+  slugRaw: string,
+  channel?: string,
+): Promise<CatalogProductDetail | null> => {
+  const slug = slugRaw.trim().toLowerCase()
+  if (!slug) return null
+  const found = await pool.query<{ sku: string }>(
+    `SELECT sku FROM products WHERE slug = $1 AND is_archived = FALSE LIMIT 1`,
+    [slug],
+  )
+  const sku = found.rows[0]?.sku
+  if (!sku) return null
+  return getCatalogProductBySku(sku, channel)
 }
