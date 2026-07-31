@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  mapBannerRowToCrm,
+  mapBannerRowToPublic,
   mapCollectionRowToPublic,
   mapLookbookRowToCrm,
   mapLookbookRowToPublic,
@@ -8,6 +10,7 @@ import {
   mapPageRowToPublic,
   parseImageJson,
   parseSectionsJson,
+  parseVideoJson,
 } from './content.mapper'
 
 describe('content.mapper', () => {
@@ -22,6 +25,63 @@ describe('content.mapper', () => {
   it('parseImageJson rejects invalid payloads', () => {
     expect(parseImageJson(null)).toBeUndefined()
     expect(parseImageJson({ alt: 'no url' })).toBeUndefined()
+  })
+
+  it('parseVideoJson accepts video JSON and rejects invalid', () => {
+    expect(
+      parseVideoJson({
+        url: '/uploads/a.mp4',
+        width: 1920,
+        height: 1080,
+        durationSec: 12.5,
+        mime: 'video/mp4',
+      }),
+    ).toEqual({
+      url: '/uploads/a.mp4',
+      width: 1920,
+      height: 1080,
+      durationSec: 12.5,
+      mime: 'video/mp4',
+    })
+    expect(parseVideoJson(null)).toBeUndefined()
+    expect(parseVideoJson({ mime: 'video/mp4' })).toBeUndefined()
+  })
+
+  it('mapBannerRowToCrm/Public include optional video', () => {
+    const row = {
+      id: 7,
+      title: 'Hero',
+      subtitle: 'Sub',
+      href: '/catalog',
+      image: { url: '/uploads/poster.webp', width: 800, height: 800 },
+      video: { url: '/uploads/clip.mp4', mime: 'video/mp4', durationSec: 8 },
+      sort_order: 1,
+      is_active: true,
+      starts_at: null,
+      ends_at: null,
+      created_at: '2026-01-01T00:00:00.000Z',
+      updated_at: '2026-01-02T00:00:00.000Z',
+    }
+
+    expect(mapBannerRowToCrm(row)).toMatchObject({
+      id: '7',
+      image: { url: '/uploads/poster.webp' },
+      video: { url: '/uploads/clip.mp4', mime: 'video/mp4', durationSec: 8 },
+    })
+
+    expect(mapBannerRowToPublic(row)).toMatchObject({
+      id: '7',
+      image: { url: '/uploads/poster.webp' },
+      video: { url: '/uploads/clip.mp4' },
+    })
+
+    expect(
+      mapBannerRowToPublic({ ...row, video: null, subtitle: null, href: null, image: null }),
+    ).toEqual({
+      id: '7',
+      title: 'Hero',
+      sortOrder: 1,
+    })
   })
 
   it('mapPageRowToPublic matches storefront StaticPage shape', () => {

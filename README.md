@@ -14,6 +14,7 @@ shared/     Shared modules (reserved)
 
 - Node.js 20+
 - npm 10+
+- **ffmpeg + ffprobe** on `PATH` for CRM banner video upload (`POST /api/crm/content/upload-video`). Locally: `brew install ffmpeg`. On VPS: `sudo apt install ffmpeg`.
 
 ## Environment
 

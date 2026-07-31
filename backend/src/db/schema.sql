@@ -255,6 +255,7 @@ CREATE TABLE IF NOT EXISTS content_banners (
   subtitle TEXT,
   href TEXT,
   image JSONB,
+  video JSONB,
   sort_order INTEGER NOT NULL DEFAULT 0,
   is_active BOOLEAN NOT NULL DEFAULT true,
   starts_at TIMESTAMPTZ,

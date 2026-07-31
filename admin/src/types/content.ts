@@ -5,6 +5,14 @@ export type ContentImage = {
   height?: number
 }
 
+export type ContentVideo = {
+  url: string
+  width?: number
+  height?: number
+  durationSec?: number
+  mime?: string
+}
+
 export type CompanyPromoCardKey = 'vacancy' | 'contacts' | 'partners'
 
 export type CompanyPromoCard = {
@@ -157,6 +165,7 @@ export type CrmBannerDto = {
   subtitle: string | null
   href: string | null
   image: ContentImage | null
+  video: ContentVideo | null
   sortOrder: number
   isActive: boolean
   startsAt: string | null
@@ -239,6 +248,7 @@ export type BannerWriteInput = {
   subtitle?: string | null
   href?: string | null
   image?: ContentImage | null
+  video?: ContentVideo | null
   sortOrder?: number
   isActive?: boolean
   startsAt?: string | null

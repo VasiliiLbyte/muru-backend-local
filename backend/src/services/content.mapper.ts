@@ -3,6 +3,7 @@ import type {
   CompanySections,
   ContentImage,
   ContentSeo,
+  ContentVideo,
   CrmBannerDto,
   CrmCollectionDto,
   CrmLookbookDto,
@@ -30,6 +31,27 @@ export const parseImageJson = (value: unknown): ContentImage | undefined => {
     image.height = obj.height
   }
   return image
+}
+
+export const parseVideoJson = (value: unknown): ContentVideo | undefined => {
+  if (!value || typeof value !== 'object') return undefined
+  const obj = value as Record<string, unknown>
+  if (typeof obj.url !== 'string' || obj.url.length === 0) return undefined
+
+  const video: ContentVideo = { url: obj.url }
+  if (typeof obj.width === 'number' && Number.isInteger(obj.width) && obj.width > 0) {
+    video.width = obj.width
+  }
+  if (typeof obj.height === 'number' && Number.isInteger(obj.height) && obj.height > 0) {
+    video.height = obj.height
+  }
+  if (typeof obj.durationSec === 'number' && Number.isFinite(obj.durationSec) && obj.durationSec > 0) {
+    video.durationSec = obj.durationSec
+  }
+  if (typeof obj.mime === 'string' && obj.mime.length > 0) {
+    video.mime = obj.mime
+  }
+  return video
 }
 
 const parseNullableImage = (value: unknown): ContentImage | null => {
@@ -385,6 +407,7 @@ type BannerRow = {
   subtitle: string | null
   href: string | null
   image: unknown
+  video: unknown
   sort_order: number
   is_active: boolean
   starts_at: Date | string | null
@@ -399,6 +422,7 @@ export const mapBannerRowToCrm = (row: BannerRow): CrmBannerDto => ({
   subtitle: row.subtitle,
   href: row.href,
   image: parseImageJson(row.image) ?? null,
+  video: parseVideoJson(row.video) ?? null,
   sortOrder: row.sort_order,
   isActive: row.is_active,
   startsAt: toIsoString(row.starts_at) ?? null,
@@ -418,6 +442,8 @@ export const mapBannerRowToPublic = (row: BannerRow): PublicBannerDto => {
   if (row.href) dto.href = row.href
   const image = parseImageJson(row.image)
   if (image) dto.image = image
+  const video = parseVideoJson(row.video)
+  if (video) dto.video = video
 
   return dto
 }

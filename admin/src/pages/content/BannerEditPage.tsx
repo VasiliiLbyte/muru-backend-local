@@ -7,15 +7,21 @@ import {
   Card,
   Checkbox,
   Field,
+  FileDropzone,
   Input,
   PageHeader,
   SkeletonForm,
   useConfirm,
   useToast,
 } from '../../components/ui'
-import { createBanner, deleteBanner, getBanner, updateBanner } from '../../lib/content-api'
-import type { ContentImage } from '../../types/content'
+import { createBanner, deleteBanner, getBanner, updateBanner, uploadVideo } from '../../lib/content-api'
+import type { ContentImage, ContentVideo } from '../../types/content'
 import { datetimeLocalToIso, isoToDatetimeLocal } from '../../utils/datetime'
+
+const MAX_VIDEO_BYTES = 50 * 1024 * 1024
+const VIDEO_ACCEPT = 'video/mp4,video/quicktime,video/webm'
+
+type MediaMode = 'photo' | 'video'
 
 export const BannerEditPage = () => {
   const { id } = useParams()
@@ -28,13 +34,17 @@ export const BannerEditPage = () => {
   const [subtitle, setSubtitle] = useState('')
   const [href, setHref] = useState('')
   const [image, setImage] = useState<ContentImage | null>(null)
+  const [video, setVideo] = useState<ContentVideo | null>(null)
+  const [mediaMode, setMediaMode] = useState<MediaMode>('photo')
   const [sortOrder, setSortOrder] = useState(0)
   const [isActive, setIsActive] = useState(true)
   const [startsAt, setStartsAt] = useState('')
   const [endsAt, setEndsAt] = useState('')
   const [loading, setLoading] = useState(!isNew)
   const [saving, setSaving] = useState(false)
+  const [uploadingVideo, setUploadingVideo] = useState(false)
   const [error, setError] = useState('')
+  const [videoError, setVideoError] = useState('')
 
   useEffect(() => {
     if (isNew || !id) return
@@ -48,6 +58,8 @@ export const BannerEditPage = () => {
         setSubtitle(item.subtitle ?? '')
         setHref(item.href ?? '')
         setImage(item.image)
+        setVideo(item.video ?? null)
+        setMediaMode(item.video ? 'video' : 'photo')
         setSortOrder(item.sortOrder)
         setIsActive(item.isActive)
         setStartsAt(isoToDatetimeLocal(item.startsAt))
@@ -62,6 +74,34 @@ export const BannerEditPage = () => {
     void load()
   }, [id, isNew])
 
+  const onPhotoChange = (next: ContentImage | null) => {
+    setImage(next)
+    setVideo(null)
+  }
+
+  const onVideoFile = async (file: File) => {
+    setVideoError('')
+    if (file.size > MAX_VIDEO_BYTES) {
+      const message = 'Файл больше 50 МБ. Сожмите видео или уменьшите разрешение.'
+      setVideoError(message)
+      toast.error(message)
+      return
+    }
+
+    setUploadingVideo(true)
+    try {
+      const result = await uploadVideo(file)
+      setVideo(result.video)
+      setImage(result.image)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Не удалось загрузить видео'
+      setVideoError(message)
+      toast.error(message)
+    } finally {
+      setUploadingVideo(false)
+    }
+  }
+
   const onSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
     setSaving(true)
@@ -72,6 +112,7 @@ export const BannerEditPage = () => {
       subtitle: subtitle || null,
       href: href || null,
       image,
+      video,
       sortOrder,
       isActive,
       startsAt: datetimeLocalToIso(startsAt),
@@ -167,7 +208,64 @@ export const BannerEditPage = () => {
             />
           </Field>
 
-          <ImageUploadField label="Изображение" value={image} onChange={setImage} />
+          <div className="banner-media">
+            <span className="muru-field__label">Медиа</span>
+            <div className="banner-media__mode" role="group" aria-label="Тип медиа">
+              <Button
+                type="button"
+                variant={mediaMode === 'photo' ? 'primary' : 'secondary'}
+                onClick={() => setMediaMode('photo')}
+              >
+                Фото
+              </Button>
+              <Button
+                type="button"
+                variant={mediaMode === 'video' ? 'primary' : 'secondary'}
+                onClick={() => setMediaMode('video')}
+              >
+                Видео
+              </Button>
+            </div>
+
+            {mediaMode === 'photo' ? (
+              <ImageUploadField label="Изображение" value={image} onChange={onPhotoChange} />
+            ) : (
+              <div className="banner-media__video">
+                <p className="muted-text">до 50 МБ, до 30 с · MP4, MOV или WebM</p>
+                <FileDropzone
+                  label="Видеофайл"
+                  accept={VIDEO_ACCEPT}
+                  fileName={video?.url ? video.url.split('/').pop() : null}
+                  disabled={uploadingVideo}
+                  onFileSelect={(file) => void onVideoFile(file)}
+                />
+                {uploadingVideo ? <p className="muted-text">Загрузка и сжатие…</p> : null}
+                {videoError ? <p className="error-text">{videoError}</p> : null}
+                {video ? (
+                  <>
+                    <video
+                      className="banner-media__preview"
+                      src={video.url}
+                      poster={image?.url}
+                      muted
+                      controls
+                      playsInline
+                    />
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => {
+                        setVideo(null)
+                        setVideoError('')
+                      }}
+                    >
+                      Убрать видео (постер останется)
+                    </Button>
+                  </>
+                ) : null}
+              </div>
+            )}
+          </div>
 
           <Field label="Начало показа" htmlFor="startsAt">
             <Input

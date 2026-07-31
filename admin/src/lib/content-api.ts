@@ -4,6 +4,7 @@ import type {
   CollectionWriteInput,
   CompanyPageWriteInput,
   ContentImage,
+  ContentVideo,
   CrmBannerDto,
   CrmCollectionDto,
   CrmLookbookDto,
@@ -164,6 +165,32 @@ export const uploadImage = async (file: File): Promise<ContentImage> => {
   })
 
   const body = await parseApiJson<ContentImage>(res)
+  if (!body.success) {
+    if (res.status === 401) {
+      window.location.assign('/admin/login')
+    }
+    throw new ApiError(body.error.message, res.status, body.error.code)
+  }
+
+  return body.data
+}
+
+export type ContentVideoUploadResult = {
+  video: ContentVideo
+  image: ContentImage
+}
+
+export const uploadVideo = async (file: File): Promise<ContentVideoUploadResult> => {
+  const form = new FormData()
+  form.append('file', file)
+
+  const res = await fetch(`${CRM_BASE}/upload-video`, {
+    method: 'POST',
+    credentials: 'include',
+    body: form,
+  })
+
+  const body = await parseApiJson<ContentVideoUploadResult>(res)
   if (!body.success) {
     if (res.status === 401) {
       window.location.assign('/admin/login')

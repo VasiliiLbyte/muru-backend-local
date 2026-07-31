@@ -174,3 +174,15 @@ describe('partnersSectionsSchema', () => {
     expect(result.success).toBe(false)
   })
 })
+
+describe('bannerWriteSchema', () => {
+  it('accepts optional video alongside image', async () => {
+    const { bannerWriteSchema } = await import('./content.schemas')
+    const result = bannerWriteSchema.safeParse({
+      title: 'Home',
+      image: { url: '/uploads/a.webp' },
+      video: { url: '/uploads/a.mp4', mime: 'video/mp4', durationSec: 4 },
+    })
+    expect(result.success).toBe(true)
+  })
+})

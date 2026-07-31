@@ -1182,6 +1182,34 @@
   max-width: 900px;
 }
 
+.banner-media {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.banner-media__mode {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.banner-media__video {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.banner-media__preview {
+  width: 100%;
+  max-width: 480px;
+  max-height: 320px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--muru-border);
+  background: var(--muru-surface-muted);
+  object-fit: contain;
+}
+
 .form-actions-row {
   display: flex;
   gap: 10px;

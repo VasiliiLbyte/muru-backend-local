@@ -7,6 +7,14 @@ export const imageJsonSchema = z.object({
   height: z.number().int().positive().optional(),
 })
 
+export const videoJsonSchema = z.object({
+  url: z.string().min(1),
+  width: z.number().int().positive().optional(),
+  height: z.number().int().positive().optional(),
+  durationSec: z.number().positive().optional(),
+  mime: z.string().min(1).optional(),
+})
+
 const nullableImageSchema = imageJsonSchema.nullable()
 
 export const companyPromoCardKeySchema = z.enum(['vacancy', 'contacts', 'partners'])
@@ -224,6 +232,7 @@ export const bannerWriteSchema = z.object({
   subtitle: z.string().nullable().optional(),
   href: z.string().nullable().optional(),
   image: imageJsonSchema.nullable().optional(),
+  video: videoJsonSchema.nullable().optional(),
   sortOrder: z.number().int().optional(),
   isActive: z.boolean().optional(),
   startsAt: z.string().datetime().nullable().optional(),

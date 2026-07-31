@@ -22,6 +22,7 @@ import type {
   CollectionDto,
   CompanySections,
   ContentImage,
+  ContentVideo,
   CrmBannerDto,
   CrmCollectionDto,
   CrmLookbookDto,
@@ -928,7 +929,7 @@ export const setLookbookImages = async (
 
 export const listCrmBanners = async (): Promise<CrmBannerDto[]> => {
   const result = await pool.query(
-    `SELECT id, title, subtitle, href, image, sort_order, is_active, starts_at, ends_at, created_at, updated_at
+    `SELECT id, title, subtitle, href, image, video, sort_order, is_active, starts_at, ends_at, created_at, updated_at
      FROM content_banners
      ORDER BY sort_order ASC, id ASC`,
   )
@@ -938,7 +939,7 @@ export const listCrmBanners = async (): Promise<CrmBannerDto[]> => {
 export const getCrmBannerById = async (id: number): Promise<CrmBannerDto> => {
   const bannerId = assertPositiveIntId(id)
   const result = await pool.query(
-    `SELECT id, title, subtitle, href, image, sort_order, is_active, starts_at, ends_at, created_at, updated_at
+    `SELECT id, title, subtitle, href, image, video, sort_order, is_active, starts_at, ends_at, created_at, updated_at
      FROM content_banners WHERE id = $1`,
     [bannerId],
   )
@@ -949,7 +950,7 @@ export const getCrmBannerById = async (id: number): Promise<CrmBannerDto> => {
 
 export const listPublicBanners = async (): Promise<PublicBannerDto[]> => {
   const result = await pool.query(
-    `SELECT id, title, subtitle, href, image, sort_order, is_active, starts_at, ends_at, created_at, updated_at
+    `SELECT id, title, subtitle, href, image, video, sort_order, is_active, starts_at, ends_at, created_at, updated_at
      FROM content_banners
      WHERE is_active = true
        AND (starts_at IS NULL OR starts_at <= NOW())
@@ -964,6 +965,7 @@ export type UpsertBannerInput = {
   subtitle?: string | null
   href?: string | null
   image?: ContentImage | null
+  video?: ContentVideo | null
   sortOrder?: number
   isActive?: boolean
   startsAt?: string | null
@@ -973,14 +975,15 @@ export type UpsertBannerInput = {
 export const createBanner = async (input: UpsertBannerInput): Promise<CrmBannerDto> => {
   const result = await pool.query(
     `INSERT INTO content_banners
-       (title, subtitle, href, image, sort_order, is_active, starts_at, ends_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-     RETURNING id, title, subtitle, href, image, sort_order, is_active, starts_at, ends_at, created_at, updated_at`,
+       (title, subtitle, href, image, video, sort_order, is_active, starts_at, ends_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+     RETURNING id, title, subtitle, href, image, video, sort_order, is_active, starts_at, ends_at, created_at, updated_at`,
     [
       input.title,
       input.subtitle ?? null,
       input.href ?? null,
       input.image ? JSON.stringify(input.image) : null,
+      input.video ? JSON.stringify(input.video) : null,
       input.sortOrder ?? 0,
       input.isActive ?? true,
       input.startsAt ?? null,
@@ -994,16 +997,17 @@ export const updateBanner = async (id: number, input: UpsertBannerInput): Promis
   const bannerId = assertPositiveIntId(id)
   const result = await pool.query(
     `UPDATE content_banners
-     SET title = $2, subtitle = $3, href = $4, image = $5, sort_order = $6,
-         is_active = $7, starts_at = $8, ends_at = $9, updated_at = NOW()
+     SET title = $2, subtitle = $3, href = $4, image = $5, video = $6, sort_order = $7,
+         is_active = $8, starts_at = $9, ends_at = $10, updated_at = NOW()
      WHERE id = $1
-     RETURNING id, title, subtitle, href, image, sort_order, is_active, starts_at, ends_at, created_at, updated_at`,
+     RETURNING id, title, subtitle, href, image, video, sort_order, is_active, starts_at, ends_at, created_at, updated_at`,
     [
       bannerId,
       input.title,
       input.subtitle ?? null,
       input.href ?? null,
       input.image ? JSON.stringify(input.image) : null,
+      input.video ? JSON.stringify(input.video) : null,
       input.sortOrder ?? 0,
       input.isActive ?? true,
       input.startsAt ?? null,
