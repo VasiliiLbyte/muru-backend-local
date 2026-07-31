@@ -7,11 +7,11 @@ import type { AuthenticatedRequest } from './auth.middleware'
 export const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
   const telegramId = (req as AuthenticatedRequest).auth?.telegramId
   if (!telegramId) {
-    return fail(res, 403, 'Forbidden: admin access required', 'FORBIDDEN')
+    return fail(res, 403, 'Недостаточно прав. Требуется доступ администратора.', 'FORBIDDEN')
   }
 
   if (!env.adminTelegramIds.includes(telegramId)) {
-    return fail(res, 403, 'Forbidden: admin access required', 'FORBIDDEN')
+    return fail(res, 403, 'Недостаточно прав. Требуется доступ администратора.', 'FORBIDDEN')
   }
 
   req.headers['x-telegram-user-id'] = String(telegramId)

@@ -7,11 +7,11 @@ import {
 } from '../services/content-upload.service'
 import { fail, ok } from '../utils/api-response'
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024
+export const MAX_IMAGE_UPLOAD_BYTES = 15 * 1024 * 1024
 
 const multerUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: MAX_FILE_SIZE },
+  limits: { fileSize: MAX_IMAGE_UPLOAD_BYTES },
   fileFilter: (_req, file, cb) => {
     if (ALLOWED_UPLOAD_MIMES.includes(file.mimetype as (typeof ALLOWED_UPLOAD_MIMES)[number])) {
       cb(null, true)
@@ -24,10 +24,15 @@ const multerUpload = multer({
 export const uploadMiddleware = (req: Request, res: Response, next: NextFunction) => {
   multerUpload(req, res, (err: unknown) => {
     if (err instanceof MulterError && err.code === 'LIMIT_FILE_SIZE') {
-      return fail(res, 413, 'File exceeds 10MB limit', 'VALIDATION')
+      return fail(
+        res,
+        413,
+        'Файл больше 15 МБ. Сожмите изображение или уменьшите разрешение.',
+        'VALIDATION',
+      )
     }
     if (err instanceof Error && err.message === 'INVALID_MIME') {
-      return fail(res, 400, 'Only JPEG, PNG, and WebP images are allowed', 'VALIDATION')
+      return fail(res, 400, 'Можно загружать только JPEG, PNG или WebP.', 'VALIDATION')
     }
     if (err) return next(err)
     return next()
@@ -37,7 +42,7 @@ export const uploadMiddleware = (req: Request, res: Response, next: NextFunction
 export const uploadHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
     if (!req.file) {
-      return fail(res, 400, 'File is required', 'VALIDATION')
+      return fail(res, 400, 'Выберите файл изображения.', 'VALIDATION')
     }
 
     const image = await processAndSaveUpload(req.file.buffer, req.file.mimetype)

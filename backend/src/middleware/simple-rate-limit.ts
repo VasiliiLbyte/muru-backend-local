@@ -97,7 +97,7 @@ export const createRateLimiter =
     }
     entry.count += 1
     if (entry.count > options.max) {
-      return fail(res, 429, 'Too many requests', 'RATE_LIMITED')
+      return fail(res, 429, 'Слишком много запросов. Подождите немного.', 'RATE_LIMITED')
     }
     return next()
   }

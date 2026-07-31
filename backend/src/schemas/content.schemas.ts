@@ -54,7 +54,7 @@ export const companySectionsSchema = z
     if (actualKeys.join(',') !== expectedKeys.join(',')) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'promo.cards keys must be vacancy, contacts, partners in that order',
+        message: 'Ошибка структуры блоков промо на странице «О нас».',
         path: ['promo', 'cards'],
       })
     }
@@ -213,7 +213,7 @@ export const hotspotWriteSchema = z.object({
 export const hotspotPatchSchema = hotspotWriteSchema
   .partial()
   .refine((value) => Object.keys(value).length > 0, {
-    message: 'At least one field required',
+    message: 'Укажите хотя бы одно поле.',
   })
 
 export type HotspotWriteInput = z.infer<typeof hotspotWriteSchema>

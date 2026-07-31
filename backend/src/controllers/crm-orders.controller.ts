@@ -17,7 +17,7 @@ import { fail, HttpError, ok, zodErrorMessage } from '../utils/api-response'
 const parseOrderId = (req: Request, res: Response): number | null => {
   const parsed = Number(req.params.id)
   if (!Number.isInteger(parsed) || parsed <= 0) {
-    fail(res, 400, 'Invalid order id', 'VALIDATION')
+    fail(res, 400, 'Некорректный номер заказа.', 'VALIDATION')
     return null
   }
   return parsed
@@ -60,7 +60,7 @@ export const getCrmOrderByIdHandler = async (req: Request, res: Response, next: 
 
     const order = await getCrmOrderById(orderId)
     if (!order) {
-      return fail(res, 404, 'Order not found', 'NOT_FOUND')
+      return fail(res, 404, 'Заказ не найден.', 'NOT_FOUND')
     }
     return ok(res, order)
   } catch (error) {
@@ -83,11 +83,11 @@ export const patchCrmOrderHandler = async (req: Request, res: Response, next: Ne
       parsed.data.adminComment === undefined &&
       parsed.data.deliveryEta === undefined
     ) {
-      return fail(res, 400, 'No fields to update', 'VALIDATION')
+      return fail(res, 400, 'Нет полей для сохранения.', 'VALIDATION')
     }
 
     if (parsed.data.status !== undefined && !isValidOrderStatus(parsed.data.status)) {
-      return fail(res, 400, `Invalid order status: ${parsed.data.status}`, 'VALIDATION')
+      return fail(res, 400, `Некорректный статус заказа: ${parsed.data.status}`, 'VALIDATION')
     }
 
     const result = await updateCrmOrder(orderId, {
@@ -97,7 +97,7 @@ export const patchCrmOrderHandler = async (req: Request, res: Response, next: Ne
     })
 
     if (!result) {
-      return fail(res, 404, 'Order not found', 'NOT_FOUND')
+      return fail(res, 404, 'Заказ не найден.', 'NOT_FOUND')
     }
 
     const newStatus = parsed.data.status ?? result.order.status
@@ -115,7 +115,7 @@ export const patchCrmOrderHandler = async (req: Request, res: Response, next: Ne
 
     return ok(res, result.order)
   } catch (error) {
-    if (error instanceof Error && error.message.startsWith('Invalid order status')) {
+    if (error instanceof Error && error.message.startsWith('Некорректный статус заказа')) {
       return fail(res, 400, error.message, 'VALIDATION')
     }
     next(error)
@@ -138,7 +138,7 @@ export const cancelCrmOrderHandler = async (req: Request, res: Response, next: N
       return fail(
         res,
         409,
-        error instanceof Error ? error.message : 'Conflict',
+        error instanceof Error ? error.message : 'Конфликт данных.',
         'CONFLICT',
       )
     }

@@ -18,7 +18,8 @@ import type {
   CrmSubcategoryItem,
   CrmSubcategoryPatchBody,
 } from '../types/catalog'
-import { ApiError, apiFetch, type ApiResponse } from './api'
+import { ApiError, apiFetch } from './api'
+import { parseApiJson } from './parse-api-json'
 
 const CRM_BASE = '/api/crm/catalog'
 
@@ -144,7 +145,7 @@ export const uploadCatalogImage = async (file: File): Promise<CrmCatalogImageUpl
     body: form,
   })
 
-  const body = (await res.json()) as ApiResponse<CrmCatalogImageUpload>
+  const body = await parseApiJson<CrmCatalogImageUpload>(res)
   if (!body.success) {
     if (res.status === 401) {
       window.location.assign('/admin/login')
@@ -168,7 +169,7 @@ export const importCatalog = async (
     body: form,
   })
 
-  const body = (await res.json()) as ApiResponse<CrmCatalogImportResult>
+  const body = await parseApiJson<CrmCatalogImportResult>(res)
   if (!body.success) {
     if (res.status === 401) {
       window.location.assign('/admin/login')
@@ -189,17 +190,18 @@ export const downloadExport = async (
   if (!res.ok) {
     if (res.status === 401) {
       window.location.assign('/admin/login')
-      throw new ApiError('Unauthorized', 401)
+      throw new ApiError('Нужна авторизация. Войдите снова.', 401)
     }
     try {
-      const body = (await res.json()) as ApiResponse<unknown>
+      const body = await parseApiJson<unknown>(res)
       if (!body.success) {
         throw new ApiError(body.error.message, res.status, body.error.code)
       }
-    } catch {
-      throw new ApiError('Export failed', res.status)
+    } catch (err) {
+      if (err instanceof ApiError) throw err
+      throw new ApiError('Не удалось экспортировать каталог', res.status)
     }
-    throw new ApiError('Export failed', res.status)
+    throw new ApiError('Не удалось экспортировать каталог', res.status)
   }
 
   const blob = await res.blob()

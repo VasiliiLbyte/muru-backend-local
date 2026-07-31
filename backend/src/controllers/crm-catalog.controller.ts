@@ -46,7 +46,7 @@ import { fail, HttpError, ok, zodErrorMessage } from '../utils/api-response'
 const parseProductId = (req: Request, res: Response): number | null => {
   const parsed = Number(req.params.id)
   if (!Number.isInteger(parsed) || parsed <= 0) {
-    fail(res, 400, 'Invalid product id', 'VALIDATION')
+    fail(res, 400, 'Некорректный идентификатор товара.', 'VALIDATION')
     return null
   }
   return parsed
@@ -55,7 +55,7 @@ const parseProductId = (req: Request, res: Response): number | null => {
 const parseEntityId = (req: Request, res: Response, label: string, param = 'id'): number | null => {
   const parsed = Number(req.params[param])
   if (!Number.isInteger(parsed) || parsed <= 0) {
-    fail(res, 400, `Invalid ${label} id`, 'VALIDATION')
+    fail(res, 400, `Некорректный идентификатор (${label}).`, 'VALIDATION')
     return null
   }
   return parsed
@@ -103,11 +103,11 @@ const parseSortDir = (value: unknown): CrmCatalogSortDir | undefined => {
 const parseCollectionIdQuery = (value: unknown): number | undefined => {
   if (value === undefined || value === null || value === '') return undefined
   if (typeof value !== 'string' && typeof value !== 'number') {
-    throw new HttpError(400, 'Invalid collectionId', 'VALIDATION')
+    throw new HttpError(400, 'Некорректный id коллекции.', 'VALIDATION')
   }
   const parsed = Number(value)
   if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw new HttpError(400, 'Invalid collectionId', 'VALIDATION')
+    throw new HttpError(400, 'Некорректный id коллекции.', 'VALIDATION')
   }
   return parsed
 }
@@ -121,17 +121,17 @@ const handleServiceError = (error: unknown, res: Response, next: NextFunction) =
       ? 409
       : undefined
   if (statusCode === 409) {
-    return fail(res, 409, error instanceof Error ? error.message : 'Conflict', 'CONFLICT')
+    return fail(res, 409, error instanceof Error ? error.message : 'Конфликт данных.', 'CONFLICT')
   }
   const badRequest =
     error instanceof Error && (error as Error & { statusCode?: number }).statusCode === 400
   if (badRequest) {
-    return fail(res, 400, error instanceof Error ? error.message : 'Validation error', 'VALIDATION')
+    return fail(res, 400, error instanceof Error ? error.message : 'Ошибка проверки данных.', 'VALIDATION')
   }
   if (error instanceof Error && error.message.startsWith('All dimension fields')) {
     return fail(res, 400, error.message, 'VALIDATION')
   }
-  if (error instanceof Error && error.message === 'No fields to update') {
+  if (error instanceof Error && error.message === 'Нет полей для сохранения.') {
     return fail(res, 400, error.message, 'VALIDATION')
   }
   return next(error)
@@ -182,7 +182,7 @@ export const getCrmCatalogProductByIdHandler = async (
 
     const product = await getCrmCatalogProductById(id)
     if (!product) {
-      return fail(res, 404, 'Product not found', 'NOT_FOUND')
+      return fail(res, 404, 'Товар не найден.', 'NOT_FOUND')
     }
     return ok(res, product)
   } catch (error) {
@@ -224,7 +224,7 @@ export const patchCrmCatalogProductHandler = async (
 
     const product = await updateCrmCatalogProduct(id, parsed.data)
     if (!product) {
-      return fail(res, 404, 'Product not found', 'NOT_FOUND')
+      return fail(res, 404, 'Товар не найден.', 'NOT_FOUND')
     }
     return ok(res, product)
   } catch (error) {
@@ -243,7 +243,7 @@ export const archiveCrmCatalogProductHandler = async (
 
     const product = await setCrmCatalogProductArchived(id, true)
     if (!product) {
-      return fail(res, 404, 'Product not found', 'NOT_FOUND')
+      return fail(res, 404, 'Товар не найден.', 'NOT_FOUND')
     }
     return ok(res, product)
   } catch (error) {
@@ -262,7 +262,7 @@ export const unarchiveCrmCatalogProductHandler = async (
 
     const product = await setCrmCatalogProductArchived(id, false)
     if (!product) {
-      return fail(res, 404, 'Product not found', 'NOT_FOUND')
+      return fail(res, 404, 'Товар не найден.', 'NOT_FOUND')
     }
     return ok(res, product)
   } catch (error) {
@@ -286,7 +286,7 @@ export const updateCrmCatalogProductStockHandler = async (
 
     const product = await updateCrmCatalogProductStock(id, parsed.data.inStock)
     if (!product) {
-      return fail(res, 404, 'Product not found', 'NOT_FOUND')
+      return fail(res, 404, 'Товар не найден.', 'NOT_FOUND')
     }
     return ok(res, product)
   } catch (error) {
@@ -337,7 +337,7 @@ export const patchCrmCategoryHandler = async (
 
     const category = await updateCrmCategory(id, parsed.data)
     if (!category) {
-      return fail(res, 404, 'Category not found', 'NOT_FOUND')
+      return fail(res, 404, 'Категория не найдена.', 'NOT_FOUND')
     }
     return ok(res, category)
   } catch (error) {
@@ -356,7 +356,7 @@ export const deleteCrmCategoryHandler = async (
 
     const deleted = await deleteCrmCategory(id)
     if (!deleted) {
-      return fail(res, 404, 'Category not found', 'NOT_FOUND')
+      return fail(res, 404, 'Категория не найдена.', 'NOT_FOUND')
     }
     return ok(res, { deleted: true })
   } catch (error) {
@@ -438,7 +438,7 @@ export const patchCrmSubcategoryHandler = async (
 
     const item = await updateCrmSubcategory(categoryId, subId, parsed.data)
     if (!item) {
-      return fail(res, 404, 'Subcategory not found', 'NOT_FOUND')
+      return fail(res, 404, 'Подкатегория не найдена.', 'NOT_FOUND')
     }
     return ok(res, item)
   } catch (error) {
@@ -460,7 +460,7 @@ export const deleteCrmSubcategoryHandler = async (
 
     const deleted = await deleteCrmSubcategory(categoryId, subId)
     if (!deleted) {
-      return fail(res, 404, 'Subcategory not found', 'NOT_FOUND')
+      return fail(res, 404, 'Подкатегория не найдена.', 'NOT_FOUND')
     }
     return ok(res, { deleted: true })
   } catch (error) {
@@ -515,7 +515,7 @@ export const patchCrmCharacteristicHandler = async (
 
     const characteristic = await updateCrmCharacteristic(id, parsed.data)
     if (!characteristic) {
-      return fail(res, 404, 'Characteristic not found', 'NOT_FOUND')
+      return fail(res, 404, 'Характеристика не найдена.', 'NOT_FOUND')
     }
     return ok(res, characteristic)
   } catch (error) {

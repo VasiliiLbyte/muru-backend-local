@@ -503,7 +503,7 @@ const validateDimsOrThrow = (input: CreateCrmCatalogProductInput | PatchCrmCatal
   if (!hasDimsInput(input)) return
   const dims = extractDimsInput(input)
   if (!dims) {
-    throw new Error('All dimension fields are required when updating dimensions')
+    throw new Error('При изменении габаритов заполните все поля размеров.')
   }
   const validation = validateProductDimsUpdate(dims)
   if (!validation.ok) {
@@ -520,7 +520,7 @@ const assertNotVirtualSaleCategory = async (
     [categoryId],
   )
   if (rows[0]?.name === SALE_CATEGORY_NAME) {
-    throw conflictError('Cannot assign a product directly to the virtual Sale category')
+    throw conflictError('Нельзя назначить товар напрямую в виртуальную категорию «Распродажа».')
   }
 }
 
@@ -533,16 +533,16 @@ export const createCrmCatalogProduct = async (
   const sku = input.sku.trim().toUpperCase()
   const existing = await pool.query('SELECT id FROM products WHERE sku = $1', [sku])
   if (existing.rows.length > 0) {
-    throw conflictError(`Product with sku ${sku} already exists`)
+    throw conflictError(`Товар с артикулом ${sku} уже существует.`)
   }
 
   const productSlug = (input.slug?.trim() || slugify(input.name)).toLowerCase()
   if (!/^[a-z0-9-]+$/.test(productSlug)) {
-    throw conflictError('Invalid product slug')
+    throw conflictError('Некорректный slug товара.')
   }
   const slugTaken = await pool.query('SELECT id FROM products WHERE slug = $1', [productSlug])
   if (slugTaken.rows.length > 0) {
-    throw conflictError(`Product with slug ${productSlug} already exists`)
+    throw conflictError(`Товар со slug ${productSlug} уже существует.`)
   }
 
   if (input.categoryId != null) {
@@ -625,7 +625,7 @@ export const createCrmCatalogProduct = async (
     await client.query('COMMIT')
 
     const product = await getCrmCatalogProductById(productId)
-    if (!product) throw new Error('Product not found after create')
+    if (!product) throw new Error('Не удалось создать товар.')
     return product
   } catch (error) {
     await client.query('ROLLBACK')
@@ -660,14 +660,14 @@ export const updateCrmCatalogProduct = async (
   if (input.slug !== undefined) {
     const nextSlug = input.slug.trim().toLowerCase()
     if (!/^[a-z0-9-]+$/.test(nextSlug)) {
-      throw conflictError('Invalid product slug')
+      throw conflictError('Некорректный slug товара.')
     }
     const clash = await pool.query('SELECT id FROM products WHERE slug = $1 AND id <> $2', [
       nextSlug,
       id,
     ])
     if (clash.rows.length > 0) {
-      throw conflictError(`Product with slug ${nextSlug} already exists`)
+      throw conflictError(`Товар со slug ${nextSlug} уже существует.`)
     }
     params.push(nextSlug)
     sets.push(`slug = $${params.length}`)
@@ -768,7 +768,7 @@ export const updateCrmCatalogProduct = async (
 
   const hasSubcategorySync = input.subcategoryIds !== undefined
   if (sets.length === 1 && !hasSubcategorySync) {
-    throw new Error('No fields to update')
+    throw new Error('Нет полей для сохранения.')
   }
 
   const client = await pool.connect()

@@ -22,7 +22,7 @@ const apiFetchNoContent = async (path: string, init?: RequestInit): Promise<void
   if (!text) {
     if (!res.ok) {
       if (res.status === 401) window.location.assign('/admin/login')
-      throw new ApiError('Request failed', res.status)
+      throw new ApiError('Запрос не выполнен', res.status)
     }
     return
   }

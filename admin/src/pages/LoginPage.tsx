@@ -21,7 +21,7 @@ export const LoginPage = () => {
       await login(email, password)
       navigate('/', { replace: true })
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Login failed'
+      const message = err instanceof Error ? err.message : 'Не удалось войти'
       setError(message)
     } finally {
       setSubmitting(false)

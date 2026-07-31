@@ -99,7 +99,7 @@ describe('crm-users.service', () => {
 
     await expect(
       createCrmUser({ email: 'dup@example.com', password: 'password12345', role: 'manager' }),
-    ).rejects.toMatchObject({ status: 409, code: 'CONFLICT', message: 'Email already exists' })
+    ).rejects.toMatchObject({ status: 409, code: 'CONFLICT', message: 'Пользователь с таким email уже есть.' })
     hashSpy.mockRestore()
   })
 
@@ -111,7 +111,7 @@ describe('crm-users.service', () => {
     await expect(patchCrmUser(1, { role: 'manager' }, 99)).rejects.toMatchObject({
       status: 409,
       code: 'CONFLICT',
-      message: 'Cannot demote the last active owner',
+      message: 'Нельзя понизить последнего активного владельца.',
     })
   })
 
@@ -123,7 +123,7 @@ describe('crm-users.service', () => {
     await expect(patchCrmUser(1, { is_active: false }, 99)).rejects.toMatchObject({
       status: 409,
       code: 'CONFLICT',
-      message: 'Cannot deactivate the last active owner',
+      message: 'Нельзя деактивировать последнего активного владельца.',
     })
   })
 
@@ -133,7 +133,7 @@ describe('crm-users.service', () => {
     await expect(patchCrmUser(1, { role: 'manager' }, 1)).rejects.toMatchObject({
       status: 409,
       code: 'CONFLICT',
-      message: 'Cannot demote yourself',
+      message: 'Нельзя понизить самого себя.',
     })
   })
 
@@ -143,7 +143,7 @@ describe('crm-users.service', () => {
     await expect(patchCrmUser(1, { is_active: false }, 1)).rejects.toMatchObject({
       status: 409,
       code: 'CONFLICT',
-      message: 'Cannot deactivate yourself',
+      message: 'Нельзя деактивировать самого себя.',
     })
   })
 
@@ -196,7 +196,7 @@ describe('crm-users.service', () => {
     await expect(deleteCrmUser(1, 99)).rejects.toMatchObject({
       status: 409,
       code: 'CONFLICT',
-      message: 'Cannot delete the last active owner',
+      message: 'Нельзя удалить последнего активного владельца.',
     })
   })
 
@@ -206,7 +206,7 @@ describe('crm-users.service', () => {
     await expect(deleteCrmUser(1, 1)).rejects.toMatchObject({
       status: 409,
       code: 'CONFLICT',
-      message: 'Cannot delete yourself',
+      message: 'Нельзя удалить самого себя.',
     })
   })
 

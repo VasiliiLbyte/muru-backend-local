@@ -2,6 +2,8 @@ import cors from 'cors'
 import dotenv from 'dotenv'
 import express from 'express'
 import cookieParser from 'cookie-parser'
+import { z } from 'zod'
+import { ru } from 'zod/locales'
 
 import { adminRouter } from './routes/admin'
 import { adminAuthRouter } from './routes/admin-auth.routes'
@@ -32,6 +34,7 @@ import { fail, ok } from './utils/api-response'
 import { env } from './utils/env'
 
 dotenv.config()
+z.config(ru())
 
 const app = express()
 app.set('trust proxy', 1)

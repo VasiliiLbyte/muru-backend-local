@@ -37,7 +37,7 @@ export const loginHandler = async (req: Request, res: Response, next: NextFuncti
 
     const authResult = await login(parsed.data.email, parsed.data.password)
     if (!authResult) {
-      return fail(res, 401, 'Invalid credentials', 'UNAUTHORIZED')
+      return fail(res, 401, 'Неверный email или пароль.', 'UNAUTHORIZED')
     }
 
     res.cookie(LOGIN_COOKIE_NAME, authResult.token, COOKIE_OPTS)
@@ -56,17 +56,17 @@ export const meHandler = async (req: Request, res: Response, next: NextFunction)
   try {
     const token = req.cookies?.admin_token
     if (typeof token !== 'string' || token.length === 0) {
-      return fail(res, 401, 'Unauthorized', 'UNAUTHORIZED')
+      return fail(res, 401, 'Нужна авторизация. Войдите снова.', 'UNAUTHORIZED')
     }
 
     const payload = verifyAdminJwt(token)
     if (!payload) {
-      return fail(res, 401, 'Unauthorized', 'UNAUTHORIZED')
+      return fail(res, 401, 'Нужна авторизация. Войдите снова.', 'UNAUTHORIZED')
     }
 
     const admin = await findAdminById(payload.adminId)
     if (!admin || !admin.isActive) {
-      return fail(res, 401, 'Unauthorized', 'UNAUTHORIZED')
+      return fail(res, 401, 'Нужна авторизация. Войдите снова.', 'UNAUTHORIZED')
     }
 
     return ok(res, { email: admin.email, role: admin.role })

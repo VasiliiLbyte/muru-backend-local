@@ -6,7 +6,7 @@ import { uploadCrmCatalogImage } from '../services/crm-catalog-image-upload.serv
 import { ALLOWED_UPLOAD_MIMES } from '../services/content-upload.service'
 import { fail, ok } from '../utils/api-response'
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024
+const MAX_FILE_SIZE = 15 * 1024 * 1024
 
 const multerUpload = multer({
   storage: multer.memoryStorage(),
@@ -23,10 +23,15 @@ const multerUpload = multer({
 export const crmCatalogUploadMiddleware = (req: Request, res: Response, next: NextFunction) => {
   multerUpload(req, res, (err: unknown) => {
     if (err instanceof MulterError && err.code === 'LIMIT_FILE_SIZE') {
-      return fail(res, 413, 'File exceeds 10MB limit', 'VALIDATION')
+      return fail(
+        res,
+        413,
+        'Файл больше 15 МБ. Сожмите изображение или уменьшите разрешение.',
+        'VALIDATION',
+      )
     }
     if (err instanceof Error && err.message === 'INVALID_MIME') {
-      return fail(res, 400, 'Only JPEG, PNG, and WebP images are allowed', 'VALIDATION')
+      return fail(res, 400, 'Можно загружать только JPEG, PNG или WebP.', 'VALIDATION')
     }
     if (err) return next(err)
     return next()
@@ -40,7 +45,7 @@ export const uploadCrmCatalogImageHandler = async (
 ) => {
   try {
     if (!req.file) {
-      return fail(res, 400, 'File is required', 'VALIDATION')
+      return fail(res, 400, 'Выберите файл изображения.', 'VALIDATION')
     }
 
     const result = await uploadCrmCatalogImage(req.file.buffer, req.file.mimetype)

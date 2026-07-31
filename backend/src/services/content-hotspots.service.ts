@@ -103,7 +103,7 @@ const assertLookbookExists = async (lookbookId: number): Promise<void> => {
     [lookbookId],
   )
   if (result.rows.length === 0) {
-    throw new HttpError(404, 'Lookbook not found', 'NOT_FOUND')
+    throw new HttpError(404, 'Лукбук не найден.', 'NOT_FOUND')
   }
 }
 
@@ -113,7 +113,7 @@ const assertActiveProductExists = async (productId: number): Promise<void> => {
     [productId],
   )
   if (result.rows.length === 0) {
-    throw new HttpError(404, 'Product not found or archived', 'NOT_FOUND')
+    throw new HttpError(404, 'Товар не найден или в архиве.', 'NOT_FOUND')
   }
 }
 
@@ -190,7 +190,7 @@ export const updateLookbookHotspot = async (
   )
 
   if (result.rows.length === 0) {
-    throw new HttpError(404, 'Hotspot not found', 'NOT_FOUND')
+    throw new HttpError(404, 'Точка не найдена.', 'NOT_FOUND')
   }
 
   return mapCrmRow(result.rows[0])
@@ -208,7 +208,7 @@ export const deleteLookbookHotspot = async (
   )
 
   if ((result.rowCount ?? 0) === 0) {
-    throw new HttpError(404, 'Hotspot not found', 'NOT_FOUND')
+    throw new HttpError(404, 'Точка не найдена.', 'NOT_FOUND')
   }
 }
 

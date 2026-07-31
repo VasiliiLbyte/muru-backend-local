@@ -69,7 +69,7 @@ export const createCrmSubcategory = async (
     [categoryId],
   )
   if (cat.rows[0]?.name === SALE_CATEGORY_NAME) {
-    throw conflictError('Sale category is virtual and cannot have subcategories')
+    throw conflictError('У виртуальной «Распродажи» не бывает подкатегорий.')
   }
 
   const name = input.name.trim()
@@ -84,11 +84,11 @@ export const createCrmSubcategory = async (
     )
     const items = await listCrmSubcategories(categoryId)
     const created = items.find((item) => item.id === result.rows[0].id)
-    if (!created) throw new Error('Subcategory not found after create')
+    if (!created) throw new Error('Не удалось создать подкатегорию.')
     return created
   } catch (error) {
     if (isUniqueViolation(error)) {
-      throw conflictError('Subcategory with this slug already exists in category')
+      throw conflictError('Подкатегория с таким slug уже есть в этой категории.')
     }
     throw error
   }
@@ -127,7 +127,7 @@ export const updateCrmSubcategory = async (
   }
 
   if (sets.length === 0) {
-    throw new Error('No fields to update')
+    throw new Error('Нет полей для сохранения.')
   }
 
   params.push(subcategoryId, categoryId)
@@ -144,7 +144,7 @@ export const updateCrmSubcategory = async (
     return items.find((item) => item.id === subcategoryId) ?? null
   } catch (error) {
     if (isUniqueViolation(error)) {
-      throw conflictError('Subcategory with this slug already exists in category')
+      throw conflictError('Подкатегория с таким slug уже есть в этой категории.')
     }
     throw error
   }
@@ -165,7 +165,7 @@ export const deleteCrmSubcategory = async (
   )
   const activeCount = Number(countResult.rows[0]?.count ?? 0)
   if (activeCount > 0) {
-    throw conflictError('Subcategory has active products')
+    throw conflictError('В подкатегории есть активные товары.')
   }
 
   const result = await pool.query(
@@ -194,7 +194,7 @@ export const validateSubcategoryIdsExist = async (ids: number[]): Promise<void> 
   if (result.rows.length !== ids.length) {
     const found = new Set(result.rows.map((row) => row.id))
     const missing = ids.filter((id) => !found.has(id))
-    const err = new Error(`Unknown subcategory id(s): ${missing.join(', ')}`)
+    const err = new Error(`Неизвестная подкатегория: ${missing.join(', ')}`)
     ;(err as Error & { statusCode?: number }).statusCode = 400
     throw err
   }

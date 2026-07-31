@@ -58,7 +58,7 @@ const assertPasswordLength = (password: string): void => {
   if (password.length < PASSWORD_MIN_LENGTH) {
     throw new HttpError(
       422,
-      `Password must be at least ${PASSWORD_MIN_LENGTH} characters`,
+      `Пароль не короче ${PASSWORD_MIN_LENGTH} символов.`,
       'VALIDATION',
     )
   }
@@ -91,9 +91,9 @@ const assertNotSelfDestructive = (
 ): void => {
   if (actorId !== target.id) return
   const messages = {
-    demote: 'Cannot demote yourself',
-    deactivate: 'Cannot deactivate yourself',
-    delete: 'Cannot delete yourself',
+    demote: 'Нельзя понизить самого себя.',
+    deactivate: 'Нельзя деактивировать самого себя.',
+    delete: 'Нельзя удалить самого себя.',
   } as const
   throw new HttpError(409, messages[action], 'CONFLICT')
 }
@@ -106,9 +106,9 @@ const assertNotLastActiveOwner = async (
   const activeOwners = await countActiveOwners()
   if (activeOwners !== 1) return
   const messages = {
-    demote: 'Cannot demote the last active owner',
-    deactivate: 'Cannot deactivate the last active owner',
-    delete: 'Cannot delete the last active owner',
+    demote: 'Нельзя понизить последнего активного владельца.',
+    deactivate: 'Нельзя деактивировать последнего активного владельца.',
+    delete: 'Нельзя удалить последнего активного владельца.',
   } as const
   throw new HttpError(409, messages[action], 'CONFLICT')
 }
@@ -136,12 +136,12 @@ export const createCrmUser = async (input: CreateCrmUserInput): Promise<CrmUserD
     )
     const row = result.rows[0]
     if (!row) {
-      throw new HttpError(500, 'Failed to create user', 'INTERNAL')
+      throw new HttpError(500, 'Не удалось создать пользователя.', 'INTERNAL')
     }
     return toDto(row)
   } catch (err) {
     if (isUniqueViolation(err)) {
-      throw new HttpError(409, 'Email already exists', 'CONFLICT')
+      throw new HttpError(409, 'Пользователь с таким email уже есть.', 'CONFLICT')
     }
     throw err
   }
@@ -154,7 +154,7 @@ export const patchCrmUser = async (
 ): Promise<CrmUserDto> => {
   const target = await findCrmUserRowById(id)
   if (!target) {
-    throw new HttpError(404, 'User not found', 'NOT_FOUND')
+    throw new HttpError(404, 'Пользователь не найден.', 'NOT_FOUND')
   }
 
   const nextRole = input.role ?? target.role
@@ -180,7 +180,7 @@ export const patchCrmUser = async (
   )
   const row = result.rows[0]
   if (!row) {
-    throw new HttpError(404, 'User not found', 'NOT_FOUND')
+    throw new HttpError(404, 'Пользователь не найден.', 'NOT_FOUND')
   }
   return toDto(row)
 }
@@ -189,7 +189,7 @@ export const resetCrmUserPassword = async (id: number, password: string): Promis
   assertPasswordLength(password)
   const target = await findCrmUserRowById(id)
   if (!target) {
-    throw new HttpError(404, 'User not found', 'NOT_FOUND')
+    throw new HttpError(404, 'Пользователь не найден.', 'NOT_FOUND')
   }
   const passwordHash = await hashAdminPassword(password)
   await pool.query(`UPDATE admin_users SET password_hash = $2 WHERE id = $1`, [id, passwordHash])
@@ -198,7 +198,7 @@ export const resetCrmUserPassword = async (id: number, password: string): Promis
 export const deleteCrmUser = async (id: number, actorId: number): Promise<void> => {
   const target = await findCrmUserRowById(id)
   if (!target) {
-    throw new HttpError(404, 'User not found', 'NOT_FOUND')
+    throw new HttpError(404, 'Пользователь не найден.', 'NOT_FOUND')
   }
   assertNotSelfDestructive(actorId, target, 'delete')
   await assertNotLastActiveOwner(target, 'delete')

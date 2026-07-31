@@ -23,7 +23,7 @@ import { fail, ok, zodErrorMessage } from '../utils/api-response'
 const parseId = (req: Request, res: Response): number | null => {
   const id = parsePositiveIntParam(req.params.id)
   if (!id) {
-    fail(res, 400, 'Invalid id', 'VALIDATION')
+    fail(res, 400, 'Некорректный идентификатор.', 'VALIDATION')
     return null
   }
   return id
@@ -32,7 +32,7 @@ const parseId = (req: Request, res: Response): number | null => {
 const parseHotspotId = (req: Request, res: Response): number | null => {
   const id = parsePositiveIntParam(req.params.hotspotId)
   if (!id) {
-    fail(res, 400, 'Invalid hotspot id', 'VALIDATION')
+    fail(res, 400, 'Некорректный id точки.', 'VALIDATION')
     return null
   }
   return id
@@ -62,7 +62,7 @@ export const getPageBySlugHandler = async (req: Request, res: Response, next: Ne
   try {
     const slug = parseRouteParam(req.params.slug)
     if (!slug) {
-      return fail(res, 400, 'Invalid slug', 'VALIDATION')
+      return fail(res, 400, 'Некорректный slug.', 'VALIDATION')
     }
     return ok(res, await contentService.getCrmPageBySlug(slug))
   } catch (error) {
@@ -74,7 +74,7 @@ export const upsertPageBySlugHandler = async (req: Request, res: Response, next:
   try {
     const slug = parseRouteParam(req.params.slug)
     if (!slug) {
-      return fail(res, 400, 'Invalid slug', 'VALIDATION')
+      return fail(res, 400, 'Некорректный slug.', 'VALIDATION')
     }
     if (slug === 'company') {
       const parsed = companyPageWriteSchema.safeParse(req.body)

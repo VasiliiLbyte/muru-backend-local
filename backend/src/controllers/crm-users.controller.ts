@@ -27,7 +27,7 @@ const patchBodySchema = z
   })
   .strict()
   .refine((body) => body.role !== undefined || body.is_active !== undefined, {
-    message: 'At least one of role or is_active is required',
+    message: 'Укажите роль или статус активности.',
   })
 
 const passwordBodySchema = z
@@ -39,7 +39,7 @@ const passwordBodySchema = z
 const parseUserId = (req: CrmRequest, res: Response): number | null => {
   const parsed = Number(req.params.id)
   if (!Number.isInteger(parsed) || parsed <= 0) {
-    fail(res, 400, 'Invalid user id', 'VALIDATION')
+    fail(res, 400, 'Некорректный id пользователя.', 'VALIDATION')
     return null
   }
   return parsed
@@ -48,7 +48,7 @@ const parseUserId = (req: CrmRequest, res: Response): number | null => {
 const requireActorId = (req: CrmRequest, res: Response): number | null => {
   const adminId = req.crmAdmin?.adminId
   if (typeof adminId !== 'number' || !Number.isInteger(adminId)) {
-    fail(res, 401, 'Unauthorized', 'UNAUTHORIZED')
+    fail(res, 401, 'Нужна авторизация. Войдите снова.', 'UNAUTHORIZED')
     return null
   }
   return adminId

@@ -17,7 +17,7 @@ const parseSkuParam = (req: Request, res: Response): string | null => {
   const raw = typeof req.params.sku === 'string' ? req.params.sku : ''
   const sku = raw.trim()
   if (!sku) {
-    fail(res, 400, 'Invalid SKU', 'VALIDATION')
+    fail(res, 400, 'Некорректный артикул (SKU).', 'VALIDATION')
     return null
   }
   return sku

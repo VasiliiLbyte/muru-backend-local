@@ -50,7 +50,7 @@ describe('crm-catalog-import.service', () => {
   it('throws when parse returns no rows', async () => {
     await expect(importCrmCatalogFromBuffer(Buffer.from('x'), true)).rejects.toMatchObject({
       status: 400,
-      message: 'No catalog rows or missing SKU header',
+      message: 'В файле нет строк каталога или отсутствует заголовок SKU.',
     })
   })
 

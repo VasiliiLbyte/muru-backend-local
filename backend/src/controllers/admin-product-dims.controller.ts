@@ -22,7 +22,7 @@ const parseTelegramUserId = (req: Request): number | null => {
 const assertAdmin = (req: Request, res: Response): boolean => {
   const telegramUserId = parseTelegramUserId(req)
   if (!telegramUserId || !env.adminTelegramIds.includes(telegramUserId)) {
-    fail(res, 403, 'Forbidden: admin access required', 'FORBIDDEN')
+    fail(res, 403, 'Недостаточно прав. Требуется доступ администратора.', 'FORBIDDEN')
     return false
   }
   return true

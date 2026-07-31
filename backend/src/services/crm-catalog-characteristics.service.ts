@@ -50,7 +50,7 @@ export const createCrmCharacteristic = async (
     return mapRow(result.rows[0])
   } catch (error) {
     if (isUniqueViolation(error)) {
-      throw conflictError(`Characteristic with name "${name}" already exists`)
+      throw conflictError(`Характеристика «${name}» уже существует.`)
     }
     throw error
   }
@@ -75,7 +75,7 @@ export const updateCrmCharacteristic = async (
   }
 
   if (sets.length === 0) {
-    throw new Error('No fields to update')
+    throw new Error('Нет полей для сохранения.')
   }
 
   params.push(id)
@@ -90,7 +90,7 @@ export const updateCrmCharacteristic = async (
     return mapRow(result.rows[0])
   } catch (error) {
     if (isUniqueViolation(error)) {
-      throw conflictError('Characteristic with this name already exists')
+      throw conflictError('Характеристика с таким названием уже существует.')
     }
     throw error
   }

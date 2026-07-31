@@ -39,7 +39,7 @@ describe('content-hotspots.service', () => {
       createLookbookHotspot(9, { productId: 1, xPercent: 10, yPercent: 20 }),
     ).rejects.toMatchObject({
       status: 404,
-      message: 'Lookbook not found',
+      message: 'Лукбук не найден.',
     })
   })
 
@@ -52,7 +52,7 @@ describe('content-hotspots.service', () => {
       createLookbookHotspot(1, { productId: 99, xPercent: 10, yPercent: 20 }),
     ).rejects.toMatchObject({
       status: 404,
-      message: 'Product not found or archived',
+      message: 'Товар не найден или в архиве.',
     })
   })
 

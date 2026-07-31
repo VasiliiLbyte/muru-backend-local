@@ -24,7 +24,7 @@ export const uploadCrmCatalogImage = async (
   assertCatalogCrmWritable()
 
   if (!ALLOWED_UPLOAD_MIMES.includes(mime as (typeof ALLOWED_UPLOAD_MIMES)[number])) {
-    throw new HttpError(400, 'Only JPEG, PNG, and WebP images are allowed', 'VALIDATION')
+    throw new HttpError(400, 'Можно загружать только JPEG, PNG или WebP.', 'VALIDATION')
   }
 
   const processed = await sharp(buffer)

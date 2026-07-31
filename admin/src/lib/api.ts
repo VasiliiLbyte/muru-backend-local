@@ -1,23 +1,8 @@
-export type ApiOk<T> = { success: true; data: T; error: null }
+import { ApiError } from './api-error'
+import { parseApiJson } from './parse-api-json'
 
-export type ApiErr = {
-  success: false
-  data: null
-  error: { message: string; code?: string; details?: unknown }
-}
-
-export type ApiResponse<T> = ApiOk<T> | ApiErr
-
-export class ApiError extends Error {
-  status: number
-  code?: string
-
-  constructor(message: string, status: number, code?: string) {
-    super(message)
-    this.status = status
-    this.code = code
-  }
-}
+export type { ApiOk, ApiErr, ApiResponse } from './api-error'
+export { ApiError }
 
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers)
@@ -31,7 +16,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
     headers,
   })
 
-  const body = (await res.json()) as ApiResponse<T>
+  const body = await parseApiJson<T>(res)
   if (!body.success) {
     if (res.status === 401 && !path.endsWith('/me')) {
       window.location.assign('/admin/login')

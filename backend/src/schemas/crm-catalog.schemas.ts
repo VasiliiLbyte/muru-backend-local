@@ -13,7 +13,7 @@ export const createCrmCatalogProductSchema = z
     name: z.string().min(1),
     slug: z
       .string()
-      .regex(/^[a-z0-9-]+$/, 'slug must be latin lowercase with hyphens')
+      .regex(/^[a-z0-9-]+$/, 'Slug: только латиница в нижнем регистре и дефисы.')
       .optional(),
     price: z.number().nonnegative(),
     description: z.string().optional(),
@@ -65,7 +65,7 @@ export const patchCrmCategorySchema = z
     coverImageUrl: z.union([z.string().url(), z.null()]).optional(),
   })
   .strict()
-  .refine((data) => Object.keys(data).length > 0, { message: 'At least one field is required' })
+  .refine((data) => Object.keys(data).length > 0, { message: 'Укажите хотя бы одно поле.' })
 
 export const renameCrmSubcategorySchema = z
   .object({
@@ -90,7 +90,7 @@ export const patchCrmSubcategorySchema = z
     sortOrder: z.number().int().optional(),
   })
   .strict()
-  .refine((data) => Object.keys(data).length > 0, { message: 'At least one field is required' })
+  .refine((data) => Object.keys(data).length > 0, { message: 'Укажите хотя бы одно поле.' })
 
 export const createCrmCharacteristicSchema = z
   .object({
@@ -105,7 +105,7 @@ export const patchCrmCharacteristicSchema = z
     sortOrder: z.number().int().optional(),
   })
   .strict()
-  .refine((data) => Object.keys(data).length > 0, { message: 'At least one field is required' })
+  .refine((data) => Object.keys(data).length > 0, { message: 'Укажите хотя бы одно поле.' })
 
 export type CreateCrmCatalogProductInput = z.infer<typeof createCrmCatalogProductSchema>
 export type PatchCrmCatalogProductInput = z.infer<typeof patchCrmCatalogProductSchema>

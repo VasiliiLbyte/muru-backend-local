@@ -214,7 +214,7 @@ describe('crm-catalog.service', () => {
         categoryId: 7,
       }),
     ).rejects.toMatchObject({
-      message: 'Cannot assign a product directly to the virtual Sale category',
+      message: 'Нельзя назначить товар напрямую в виртуальную категорию «Распродажа».',
       statusCode: 409,
     })
     expect(mockQuery).toHaveBeenCalledTimes(3)
@@ -227,7 +227,7 @@ describe('crm-catalog.service', () => {
     await expect(
       updateCrmCatalogProduct(1, { categoryId: 7 }),
     ).rejects.toMatchObject({
-      message: 'Cannot assign a product directly to the virtual Sale category',
+      message: 'Нельзя назначить товар напрямую в виртуальную категорию «Распродажа».',
       statusCode: 409,
     })
     expect(mockQuery).toHaveBeenCalledTimes(1)
@@ -291,7 +291,7 @@ describe('crm-catalog.service', () => {
     mockQuery.mockResolvedValueOnce({ rows: [{ id: 7 }] })
 
     await expect(updateCrmCatalogProduct(42, { subcategoryIds: [7, 99] })).rejects.toMatchObject({
-      message: 'Unknown subcategory id(s): 99',
+      message: 'Неизвестная подкатегория: 99',
       statusCode: 400,
     })
   })

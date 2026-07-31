@@ -484,7 +484,7 @@ export const updateCrmOrder = async (
   const previousStatus = existing.rows[0].status
 
   if (patch.status !== undefined && !isValidOrderStatus(patch.status)) {
-    throw new Error(`Invalid order status: ${patch.status}`)
+    throw new Error(`Некорректный статус заказа: ${patch.status}`)
   }
 
   const sets: string[] = ['updated_at = NOW()']
@@ -530,11 +530,11 @@ export const cancelCrmOrder = async (orderId: number): Promise<CrmOrderDetail> =
       [orderId],
     )
     if (orderResult.rows.length === 0) {
-      throw new Error('Order not found')
+      throw new Error('Заказ не найден.')
     }
 
     if (orderResult.rows[0].status === ORDER_STATUS_CANCELLED) {
-      const err = new Error('Order is already cancelled')
+      const err = new Error('Заказ уже отменён.')
       ;(err as Error & { statusCode?: number }).statusCode = 409
       throw err
     }
@@ -565,6 +565,6 @@ export const cancelCrmOrder = async (orderId: number): Promise<CrmOrderDetail> =
   }
 
   const order = await getCrmOrderById(orderId)
-  if (!order) throw new Error('Order not found after cancel')
+  if (!order) throw new Error('Не удалось отменить заказ.')
   return order
 }

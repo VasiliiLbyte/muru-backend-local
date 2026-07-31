@@ -64,7 +64,7 @@ const isAdminRequest = (req: { header: (name: string) => string | undefined; bod
 }
 
 const adminForbidden = (res: Response) =>
-  fail(res, 403, 'Forbidden: admin access required', 'FORBIDDEN')
+  fail(res, 403, 'Недостаточно прав. Требуется доступ администратора.', 'FORBIDDEN')
 
 adminRouter.get('/me', requireAuth, (req, res) => {
   const telegramId = (req as AuthenticatedRequest).auth?.telegramId

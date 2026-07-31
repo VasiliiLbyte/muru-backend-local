@@ -12,7 +12,7 @@ export const importCrmCatalogFromBuffer = async (
 
   const { rows } = parseXlsxBufferToCatalog(buffer, env.googleCatalogXlsxSheetName || '')
   if (rows.length === 0) {
-    throw new HttpError(400, 'No catalog rows or missing SKU header', 'VALIDATION')
+    throw new HttpError(400, 'В файле нет строк каталога или отсутствует заголовок SKU.', 'VALIDATION')
   }
 
   return importCatalogProductsFromRows(rows, { dryRun })

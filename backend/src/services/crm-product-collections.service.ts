@@ -13,7 +13,7 @@ const assertProductExists = async (sku: string): Promise<void> => {
     [sku],
   )
   if (!result.rows[0]?.exists) {
-    throw new HttpError(404, `Unknown SKU: ${sku}`, 'NOT_FOUND')
+    throw new HttpError(404, `Неизвестный артикул: ${sku}`, 'NOT_FOUND')
   }
 }
 
@@ -49,14 +49,14 @@ const assertCollectionsExist = async (collectionIds: number[]): Promise<void> =>
   const found = new Set(result.rows.map((row) => row.id))
   const missing = collectionIds.filter((id) => !found.has(id))
   if (missing.length > 0) {
-    throw new HttpError(422, `Unknown collection id: ${missing.join(', ')}`, 'VALIDATION')
+    throw new HttpError(422, `Неизвестная коллекция: ${missing.join(', ')}`, 'VALIDATION')
   }
 }
 
 export const getProductCollectionIds = async (skuRaw: string): Promise<ProductCollectionsDto> => {
   const sku = normalizeSku(skuRaw)
   if (!sku) {
-    throw new HttpError(400, 'Invalid SKU', 'VALIDATION')
+    throw new HttpError(400, 'Некорректный артикул (SKU).', 'VALIDATION')
   }
   await assertProductExists(sku)
   return { collectionIds: await fetchCollectionIdsForSku(sku) }
@@ -68,7 +68,7 @@ export const setProductCollections = async (
 ): Promise<ProductCollectionsDto> => {
   const sku = normalizeSku(skuRaw)
   if (!sku) {
-    throw new HttpError(400, 'Invalid SKU', 'VALIDATION')
+    throw new HttpError(400, 'Некорректный артикул (SKU).', 'VALIDATION')
   }
   await assertProductExists(sku)
 

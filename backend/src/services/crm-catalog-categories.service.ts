@@ -162,11 +162,11 @@ export const createCrmCategory = async (input: CreateCrmCategoryInput): Promise<
     )
     const categories = await listCrmCategories()
     const created = categories.find((c) => c.id === result.rows[0].id)
-    if (!created) throw new Error('Category not found after create')
+    if (!created) throw new Error('Не удалось создать категорию.')
     return created
   } catch (error) {
     if (isUniqueViolation(error)) {
-      throw conflictError(`Category with name or slug already exists`)
+      throw conflictError(`Категория с таким названием или slug уже существует.`)
     }
     throw error
   }
@@ -185,10 +185,10 @@ export const updateCrmCategory = async (
   const row = current.rows[0]
   if (row?.name === SALE_CATEGORY_NAME) {
     if (input.name !== undefined && input.name.trim() !== SALE_CATEGORY_NAME) {
-      throw conflictError('Sale category name cannot be changed')
+      throw conflictError('Название виртуальной «Распродажи» менять нельзя.')
     }
     if (input.slug !== undefined && input.slug.trim() !== row.slug) {
-      throw conflictError('Sale category slug cannot be changed')
+      throw conflictError('Slug виртуальной «Распродажи» менять нельзя.')
     }
   }
 
@@ -215,7 +215,7 @@ export const updateCrmCategory = async (
   }
 
   if (sets.length === 0) {
-    throw new Error('No fields to update')
+    throw new Error('Нет полей для сохранения.')
   }
 
   params.push(id)
@@ -231,7 +231,7 @@ export const updateCrmCategory = async (
     return categories.find((c) => c.id === id) ?? null
   } catch (error) {
     if (isUniqueViolation(error)) {
-      throw conflictError(`Category with name or slug already exists`)
+      throw conflictError(`Категория с таким названием или slug уже существует.`)
     }
     throw error
   }
@@ -245,7 +245,7 @@ export const deleteCrmCategory = async (id: number): Promise<boolean> => {
     [id],
   )
   if (nameRow.rows[0]?.name === SALE_CATEGORY_NAME) {
-    throw conflictError('Sale category is virtual and cannot be deleted')
+    throw conflictError('Виртуальную «Распродажу» удалить нельзя.')
   }
 
   const countResult = await pool.query<{ count: string }>(
@@ -264,7 +264,7 @@ export const deleteCrmCategory = async (id: number): Promise<boolean> => {
   )
   const activeCount = Number(countResult.rows[0]?.count ?? 0)
   if (activeCount > 0) {
-    throw conflictError('Category has active products')
+    throw conflictError('В категории есть активные товары.')
   }
 
   const crossResult = await pool.query<{ count: string }>(
@@ -276,7 +276,7 @@ export const deleteCrmCategory = async (id: number): Promise<boolean> => {
   )
   const crossCount = Number(crossResult.rows[0]?.count ?? 0)
   if (crossCount > 0) {
-    throw conflictError('Category is used in web cross placements')
+    throw conflictError('Категория используется в веб-кросс-размещениях.')
   }
 
   try {
@@ -284,7 +284,7 @@ export const deleteCrmCategory = async (id: number): Promise<boolean> => {
     return (result.rowCount ?? 0) > 0
   } catch (error) {
     if (isForeignKeyViolation(error)) {
-      throw conflictError('Category is referenced by other records')
+      throw conflictError('Категория связана с другими записями.')
     }
     throw error
   }

@@ -40,14 +40,14 @@ const isUniqueViolation = (err: unknown): boolean =>
 
 const wrapDbError = (err: unknown): never => {
   if (isUniqueViolation(err)) {
-    throw new HttpError(409, 'Slug already exists', 'CONFLICT')
+    throw new HttpError(409, 'Такой slug уже занят.', 'CONFLICT')
   }
   throw err
 }
 
 const assertPositiveIntId = (id: number, label = 'id'): number => {
   if (!Number.isInteger(id) || id <= 0) {
-    throw new HttpError(400, `Invalid ${label}`, 'VALIDATION')
+    throw new HttpError(400, `Некорректный ${label}.`, 'VALIDATION')
   }
   return id
 }
@@ -92,7 +92,7 @@ export const assertSkusExist = async (skus: string[]): Promise<void> => {
   if (result.rows.length !== uniqueSkus.length) {
     const found = new Set(result.rows.map((row) => row.sku))
     const missing = uniqueSkus.filter((sku) => !found.has(sku))
-    throw new HttpError(404, `Unknown SKU: ${missing.join(', ')}`, 'NOT_FOUND')
+    throw new HttpError(404, `Неизвестный артикул: ${missing.join(', ')}`, 'NOT_FOUND')
   }
 }
 
@@ -192,7 +192,7 @@ export const assertFixedPageSlug = (slug: string): FixedPageSlug => {
   if ((FIXED_PAGE_SLUGS as readonly string[]).includes(slug)) {
     return slug as FixedPageSlug
   }
-  throw new HttpError(400, 'Invalid page slug', 'VALIDATION')
+  throw new HttpError(400, 'Некорректный slug.', 'VALIDATION')
 }
 
 const PAGE_SELECT = `id, slug, title, body_html, hero_image, sections, seo_title, seo_description, is_visible, created_at, updated_at`
@@ -214,7 +214,7 @@ export const getCrmPageById = async (id: number): Promise<CrmPageDto> => {
     [pageId],
   )
   const row = result.rows[0]
-  if (!row) throw new HttpError(404, 'Page not found', 'NOT_FOUND')
+  if (!row) throw new HttpError(404, 'Страница не найдена.', 'NOT_FOUND')
   return mapPageRowToCrm(row)
 }
 
@@ -226,7 +226,7 @@ export const getCrmPageBySlug = async (slug: string): Promise<CrmPageDto> => {
     [fixedSlug],
   )
   const row = result.rows[0]
-  if (!row) throw new HttpError(404, 'Page not found', 'NOT_FOUND')
+  if (!row) throw new HttpError(404, 'Страница не найдена.', 'NOT_FOUND')
   return mapPageRowToCrm(row)
 }
 
@@ -237,7 +237,7 @@ export const getPublicPageBySlug = async (slug: string): Promise<StaticPageDto> 
     [slug],
   )
   const row = result.rows[0]
-  if (!row) throw new HttpError(404, 'Page not found', 'NOT_FOUND')
+  if (!row) throw new HttpError(404, 'Страница не найдена.', 'NOT_FOUND')
   return mapPageRowToPublic(row)
 }
 
@@ -311,7 +311,7 @@ export const updatePage = async (id: number, input: UpsertPageInput): Promise<Cr
       ],
     )
     const row = result.rows[0]
-    if (!row) throw new HttpError(404, 'Page not found', 'NOT_FOUND')
+    if (!row) throw new HttpError(404, 'Страница не найдена.', 'NOT_FOUND')
     return mapPageRowToCrm(row)
   } catch (err) {
     if (err instanceof HttpError) throw err
@@ -547,7 +547,7 @@ export const upsertPartnersPage = async (input: UpsertPartnersPageInput): Promis
 export const deletePage = async (id: number): Promise<void> => {
   const pageId = assertPositiveIntId(id)
   const result = await pool.query(`DELETE FROM content_pages WHERE id = $1 RETURNING id`, [pageId])
-  if (!result.rows[0]) throw new HttpError(404, 'Page not found', 'NOT_FOUND')
+  if (!result.rows[0]) throw new HttpError(404, 'Страница не найдена.', 'NOT_FOUND')
 }
 
 // --- Collections ---
@@ -577,7 +577,7 @@ export const getCrmCollectionById = async (id: number): Promise<CrmCollectionDto
     [collectionId],
   )
   const row = result.rows[0]
-  if (!row) throw new HttpError(404, 'Collection not found', 'NOT_FOUND')
+  if (!row) throw new HttpError(404, 'Коллекция не найдена.', 'NOT_FOUND')
   const productSlugs = await fetchCollectionProductSlugs(pool, row.id)
   return mapCollectionRowToCrm(row, productSlugs)
 }
@@ -606,7 +606,7 @@ export const getPublicCollectionBySlug = async (slug: string): Promise<Collectio
     [slug],
   )
   const row = result.rows[0]
-  if (!row) throw new HttpError(404, 'Collection not found', 'NOT_FOUND')
+  if (!row) throw new HttpError(404, 'Коллекция не найдена.', 'NOT_FOUND')
   const productSlugs = await fetchCollectionProductSlugs(pool, row.id)
   return mapCollectionRowToPublic(row, productSlugs)
 }
@@ -683,7 +683,7 @@ export const updateCollection = async (
       ],
     )
     const row = result.rows[0]
-    if (!row) throw new HttpError(404, 'Collection not found', 'NOT_FOUND')
+    if (!row) throw new HttpError(404, 'Коллекция не найдена.', 'NOT_FOUND')
     const productSlugs = await fetchCollectionProductSlugs(pool, row.id)
     return mapCollectionRowToCrm(row, productSlugs)
   } catch (err) {
@@ -697,7 +697,7 @@ export const deleteCollection = async (id: number): Promise<void> => {
   const result = await pool.query(`DELETE FROM content_collections WHERE id = $1 RETURNING id`, [
     collectionId,
   ])
-  if (!result.rows[0]) throw new HttpError(404, 'Collection not found', 'NOT_FOUND')
+  if (!result.rows[0]) throw new HttpError(404, 'Коллекция не найдена.', 'NOT_FOUND')
 }
 
 export type CollectionProductInput = { sku: string; sortOrder: number }
@@ -716,7 +716,7 @@ export const setCollectionProducts = async (
     const exists = await client.query(`SELECT id FROM content_collections WHERE id = $1`, [
       collectionId,
     ])
-    if (!exists.rows[0]) throw new HttpError(404, 'Collection not found', 'NOT_FOUND')
+    if (!exists.rows[0]) throw new HttpError(404, 'Коллекция не найдена.', 'NOT_FOUND')
 
     await client.query(`DELETE FROM content_collection_products WHERE collection_id = $1`, [
       collectionId,
@@ -767,7 +767,7 @@ export const getCrmLookbookById = async (id: number): Promise<CrmLookbookDto> =>
     [lookbookId],
   )
   const row = result.rows[0]
-  if (!row) throw new HttpError(404, 'Lookbook not found', 'NOT_FOUND')
+  if (!row) throw new HttpError(404, 'Лукбук не найден.', 'NOT_FOUND')
   const images = await fetchLookbookImages(pool, row.id)
   return mapLookbookRowToCrm(row, images)
 }
@@ -796,7 +796,7 @@ export const getPublicLookbookBySlug = async (slug: string): Promise<LookbookDto
     [slug],
   )
   const row = result.rows[0]
-  if (!row) throw new HttpError(404, 'Lookbook not found', 'NOT_FOUND')
+  if (!row) throw new HttpError(404, 'Лукбук не найден.', 'NOT_FOUND')
   const images = await fetchLookbookImages(pool, row.id)
   const dto = mapLookbookRowToPublic(row, images, { includeBanner: true })
   const hotspots = await listPublicHotspotsForLookbook(row.id)
@@ -873,7 +873,7 @@ export const updateLookbook = async (
       ],
     )
     const row = result.rows[0]
-    if (!row) throw new HttpError(404, 'Lookbook not found', 'NOT_FOUND')
+    if (!row) throw new HttpError(404, 'Лукбук не найден.', 'NOT_FOUND')
     const images = await fetchLookbookImages(pool, row.id)
     return mapLookbookRowToCrm(row, images)
   } catch (err) {
@@ -887,7 +887,7 @@ export const deleteLookbook = async (id: number): Promise<void> => {
   const result = await pool.query(`DELETE FROM content_lookbooks WHERE id = $1 RETURNING id`, [
     lookbookId,
   ])
-  if (!result.rows[0]) throw new HttpError(404, 'Lookbook not found', 'NOT_FOUND')
+  if (!result.rows[0]) throw new HttpError(404, 'Лукбук не найден.', 'NOT_FOUND')
 }
 
 export type LookbookImageInput = { image: ContentImage; sortOrder: number }
@@ -901,7 +901,7 @@ export const setLookbookImages = async (
   try {
     await client.query('BEGIN')
     const exists = await client.query(`SELECT id FROM content_lookbooks WHERE id = $1`, [lookbookId])
-    if (!exists.rows[0]) throw new HttpError(404, 'Lookbook not found', 'NOT_FOUND')
+    if (!exists.rows[0]) throw new HttpError(404, 'Лукбук не найден.', 'NOT_FOUND')
 
     await client.query(`DELETE FROM content_lookbook_images WHERE lookbook_id = $1`, [lookbookId])
 
@@ -943,7 +943,7 @@ export const getCrmBannerById = async (id: number): Promise<CrmBannerDto> => {
     [bannerId],
   )
   const row = result.rows[0]
-  if (!row) throw new HttpError(404, 'Banner not found', 'NOT_FOUND')
+  if (!row) throw new HttpError(404, 'Баннер не найден.', 'NOT_FOUND')
   return mapBannerRowToCrm(row)
 }
 
@@ -1011,7 +1011,7 @@ export const updateBanner = async (id: number, input: UpsertBannerInput): Promis
     ],
   )
   const row = result.rows[0]
-  if (!row) throw new HttpError(404, 'Banner not found', 'NOT_FOUND')
+  if (!row) throw new HttpError(404, 'Баннер не найден.', 'NOT_FOUND')
   return mapBannerRowToCrm(row)
 }
 
@@ -1020,5 +1020,5 @@ export const deleteBanner = async (id: number): Promise<void> => {
   const result = await pool.query(`DELETE FROM content_banners WHERE id = $1 RETURNING id`, [
     bannerId,
   ])
-  if (!result.rows[0]) throw new HttpError(404, 'Banner not found', 'NOT_FOUND')
+  if (!result.rows[0]) throw new HttpError(404, 'Баннер не найден.', 'NOT_FOUND')
 }

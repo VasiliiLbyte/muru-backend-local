@@ -5,7 +5,7 @@ export class CatalogLockedError extends Error {
 
   code = 'LOCKED' as const
 
-  constructor(message = 'Catalog is in sheets mode; mutations are locked') {
+  constructor(message = 'Каталог в режиме Google Sheets — изменения заблокированы.') {
     super(message)
     this.name = 'CatalogLockedError'
   }

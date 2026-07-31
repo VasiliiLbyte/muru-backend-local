@@ -62,7 +62,7 @@ describe('crm-catalog-subcategories.service', () => {
     mockQuery.mockResolvedValueOnce({ rows: [{ name: 'Распродажа' }] })
 
     await expect(createCrmSubcategory(7, { name: 'Bags' })).rejects.toMatchObject({
-      message: 'Sale category is virtual and cannot have subcategories',
+      message: 'У виртуальной «Распродажи» не бывает подкатегорий.',
       statusCode: 409,
     })
     expect(mockQuery).toHaveBeenCalledTimes(1)
@@ -74,7 +74,7 @@ describe('crm-catalog-subcategories.service', () => {
       .mockRejectedValueOnce(Object.assign(new Error('duplicate'), { code: '23505' }))
 
     await expect(createCrmSubcategory(5, { name: 'Bags' })).rejects.toMatchObject({
-      message: 'Subcategory with this slug already exists in category',
+      message: 'Подкатегория с таким slug уже есть в этой категории.',
       statusCode: 409,
     })
   })
@@ -83,7 +83,7 @@ describe('crm-catalog-subcategories.service', () => {
     mockQuery.mockResolvedValueOnce({ rows: [{ count: '3' }] })
 
     await expect(deleteCrmSubcategory(5, 9)).rejects.toMatchObject({
-      message: 'Subcategory has active products',
+      message: 'В подкатегории есть активные товары.',
       statusCode: 409,
     })
     expect(String(mockQuery.mock.calls[0][0])).toContain('product_subcategories')

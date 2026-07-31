@@ -16,7 +16,7 @@ export const syncCatalogHandler = async (req: Request, res: Response, next: Next
   try {
     const telegramUserId = parseTelegramUserId(req)
     if (!telegramUserId || !env.adminTelegramIds.includes(telegramUserId)) {
-      return fail(res, 403, 'Forbidden: admin access required', 'FORBIDDEN')
+      return fail(res, 403, 'Недостаточно прав. Требуется доступ администратора.', 'FORBIDDEN')
     }
 
     const result = await syncCatalogFromGoogle()

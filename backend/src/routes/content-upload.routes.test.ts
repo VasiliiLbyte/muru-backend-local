@@ -102,18 +102,18 @@ describe('content upload routes', () => {
     expect(mockProcessAndSaveUpload).not.toHaveBeenCalled()
   })
 
-  it('returns 413 when file exceeds 10MB', async () => {
+  it('returns 413 when file exceeds 15MB', async () => {
     mockVerifyAdminJwt.mockReturnValue({ adminId: 1, role: 'owner' })
 
     const app = buildApp()
-    const oversized = Buffer.alloc(10 * 1024 * 1024 + 1, 0)
+    const oversized = Buffer.alloc(15 * 1024 * 1024 + 1, 0)
     const res = await request(app)
       .post('/api/crm/content/upload')
       .set('Cookie', 'admin_token=valid')
       .attach('file', oversized, { filename: 'big.jpg', contentType: 'image/jpeg' })
 
     expect(res.status).toBe(413)
-    expect(res.body.error?.message).toContain('10MB')
+    expect(res.body.error?.message).toContain('15')
     expect(mockProcessAndSaveUpload).not.toHaveBeenCalled()
   })
 })

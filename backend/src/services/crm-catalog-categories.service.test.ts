@@ -166,7 +166,7 @@ describe('crm-catalog-categories.service', () => {
     mockQuery.mockResolvedValueOnce({ rows: [{ name: 'Распродажа' }] })
 
     await expect(deleteCrmCategory(7)).rejects.toMatchObject({
-      message: 'Sale category is virtual and cannot be deleted',
+      message: 'Виртуальную «Распродажу» удалить нельзя.',
       statusCode: 409,
     })
     expect(mockQuery).toHaveBeenCalledTimes(1)
@@ -178,7 +178,7 @@ describe('crm-catalog-categories.service', () => {
       .mockResolvedValueOnce({ rows: [{ count: '1' }] })
 
     await expect(deleteCrmCategory(5)).rejects.toMatchObject({
-      message: 'Category has active products',
+      message: 'В категории есть активные товары.',
       statusCode: 409,
     })
     expect(String(mockQuery.mock.calls[1][0])).toContain('product_subcategories')
@@ -190,7 +190,7 @@ describe('crm-catalog-categories.service', () => {
       .mockResolvedValueOnce({ rows: [{ count: '2' }] })
 
     await expect(deleteCrmCategory(5)).rejects.toMatchObject({
-      message: 'Category has active products',
+      message: 'В категории есть активные товары.',
       statusCode: 409,
     })
     expect(mockQuery).toHaveBeenCalledTimes(2)
@@ -203,7 +203,7 @@ describe('crm-catalog-categories.service', () => {
       .mockResolvedValueOnce({ rows: [{ count: '1' }] })
 
     await expect(deleteCrmCategory(7)).rejects.toMatchObject({
-      message: 'Category is used in web cross placements',
+      message: 'Категория используется в веб-кросс-размещениях.',
       statusCode: 409,
     })
     expect(String(mockQuery.mock.calls[2][0])).toContain('product_web_cross_placements')
@@ -230,7 +230,7 @@ describe('crm-catalog-categories.service', () => {
       .mockRejectedValueOnce(Object.assign(new Error('fk'), { code: '23503' }))
 
     await expect(deleteCrmCategory(11)).rejects.toMatchObject({
-      message: 'Category is referenced by other records',
+      message: 'Категория связана с другими записями.',
       statusCode: 409,
     })
   })
@@ -241,7 +241,7 @@ describe('crm-catalog-categories.service', () => {
     })
 
     await expect(updateCrmCategory(7, { name: 'Sale' })).rejects.toMatchObject({
-      message: 'Sale category name cannot be changed',
+      message: 'Название виртуальной «Распродажи» менять нельзя.',
       statusCode: 409,
     })
     expect(mockQuery).toHaveBeenCalledTimes(1)
@@ -253,7 +253,7 @@ describe('crm-catalog-categories.service', () => {
     })
 
     await expect(updateCrmCategory(7, { slug: 'sale' })).rejects.toMatchObject({
-      message: 'Sale category slug cannot be changed',
+      message: 'Slug виртуальной «Распродажи» менять нельзя.',
       statusCode: 409,
     })
   })

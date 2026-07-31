@@ -29,10 +29,10 @@ const multerUpload = multer({
 export const crmCatalogImportMiddleware = (req: Request, res: Response, next: NextFunction) => {
   multerUpload(req, res, (err: unknown) => {
     if (err instanceof MulterError && err.code === 'LIMIT_FILE_SIZE') {
-      return fail(res, 413, 'File exceeds 20MB limit', 'VALIDATION')
+      return fail(res, 413, 'Файл больше 20 МБ.', 'VALIDATION')
     }
     if (err instanceof Error && err.message === 'INVALID_MIME') {
-      return fail(res, 400, 'Only .xlsx files are allowed', 'VALIDATION')
+      return fail(res, 400, 'Можно загружать только файлы .xlsx.', 'VALIDATION')
     }
     if (err) return next(err)
     return next()
@@ -43,7 +43,7 @@ export const exportCrmCatalogHandler = async (req: Request, res: Response, next:
   try {
     const rawFormat = typeof req.query.format === 'string' ? req.query.format : 'xlsx'
     if (rawFormat !== 'xlsx' && rawFormat !== 'csv') {
-      return fail(res, 400, 'Invalid format; use xlsx or csv', 'VALIDATION')
+      return fail(res, 400, 'Неверный формат. Используйте xlsx или csv.', 'VALIDATION')
     }
     const format = rawFormat as CatalogExportFormat
 
@@ -63,7 +63,7 @@ export const importCrmCatalogHandler = async (
 ) => {
   try {
     if (!req.file) {
-      return fail(res, 400, 'File is required', 'VALIDATION')
+      return fail(res, 400, 'Выберите файл.', 'VALIDATION')
     }
 
     const dryRun = req.query.dryRun === 'true'

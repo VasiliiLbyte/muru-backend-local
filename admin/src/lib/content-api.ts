@@ -18,7 +18,8 @@ import type {
   PartnersPageWriteInput,
   VacancyPageWriteInput,
 } from '../types/content'
-import { ApiError, apiFetch, type ApiResponse } from './api'
+import { ApiError, apiFetch } from './api'
+import { parseApiJson } from './parse-api-json'
 
 const CRM_BASE = '/api/crm/content'
 
@@ -162,7 +163,7 @@ export const uploadImage = async (file: File): Promise<ContentImage> => {
     body: form,
   })
 
-  const body = (await res.json()) as ApiResponse<ContentImage>
+  const body = await parseApiJson<ContentImage>(res)
   if (!body.success) {
     if (res.status === 401) {
       window.location.assign('/admin/login')
