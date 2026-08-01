@@ -12,7 +12,30 @@ vi.mock('../../utils/env', () => ({
   env: {
     payments: { nativeEnabled: true },
     telegramProviderToken: 'test-provider-token',
-    yookassa: { vatCode: 1 },
+    cdek: {
+      env: 'test',
+      clientId: '',
+      clientSecret: '',
+      webhookSecret: '',
+      senderCityCode: 137,
+      senderPostalCode: '',
+      senderAddress: '',
+      senderName: '',
+      senderPhone: '',
+      tariffDoor: 139,
+      tariffPvz: 138,
+    },
+    yookassa: {
+      vatCode: 1,
+      verifyIp: true,
+      shopId: '',
+      secretKey: '',
+      webShopId: '',
+      webSecretKey: '',
+      returnUrl: '',
+      webReturnUrl: '',
+      enabled: false,
+    },
   },
 }))
 
