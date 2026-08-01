@@ -1,8 +1,33 @@
 import type { NextFunction, Request, Response } from 'express'
 
 import * as contentService from '../services/content.service'
+import { getPublicRequisites, getPublicSiteContacts } from '../services/site-settings.service'
 import { parseRouteParam } from '../schemas/content.schemas'
 import { ok } from '../utils/api-response'
+
+export const getSiteContactsHandler = async (
+  _req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    return ok(res, await getPublicSiteContacts())
+  } catch (error) {
+    return next(error)
+  }
+}
+
+export const getRequisitesHandler = async (
+  _req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    return ok(res, await getPublicRequisites())
+  } catch (error) {
+    return next(error)
+  }
+}
 
 export const getPageBySlugHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {

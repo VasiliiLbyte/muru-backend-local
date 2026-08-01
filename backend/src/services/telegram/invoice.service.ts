@@ -60,7 +60,7 @@ export const createInvoiceForCheckout = async (
   )
   const intentId = intent.rows[0].id
 
-  const providerData = buildProviderData({
+  const providerData = await buildProviderData({
     phone: snapshot.recipientPhone,
     productItems,
     deliveryKop,

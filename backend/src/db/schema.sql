@@ -325,6 +325,48 @@ INSERT INTO sync_schedule_settings (id, enabled, hour_msk)
 VALUES (1, FALSE, 4)
 ON CONFLICT (id) DO NOTHING;
 
+CREATE TABLE IF NOT EXISTS site_settings (
+  id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  contact_phone_display TEXT,
+  contact_phone_href TEXT,
+  contact_email TEXT,
+  contact_address TEXT,
+  contact_hours TEXT,
+  contact_map_lat DOUBLE PRECISION,
+  contact_map_lng DOUBLE PRECISION,
+  contact_map_zoom INT,
+  social_telegram TEXT,
+  social_whatsapp TEXT,
+  social_vk TEXT,
+  req_full_name TEXT,
+  req_short_name TEXT,
+  req_inn TEXT,
+  req_ogrnip TEXT,
+  req_legal_address TEXT,
+  req_actual_address TEXT,
+  req_phone TEXT,
+  req_email TEXT,
+  req_site TEXT,
+  req_bank_details TEXT,
+  cdek_env TEXT CHECK (cdek_env IS NULL OR cdek_env IN ('test', 'production')),
+  cdek_sender_city_code INT,
+  cdek_sender_postal_code TEXT,
+  cdek_sender_address TEXT,
+  cdek_sender_name TEXT,
+  cdek_sender_phone TEXT,
+  cdek_tariff_door INT,
+  cdek_tariff_pvz INT,
+  cdek_default_weight_grams INT,
+  cdek_default_length_cm INT,
+  cdek_default_width_cm INT,
+  cdek_default_height_cm INT,
+  yookassa_vat_code INT,
+  yookassa_verify_ip BOOLEAN
+);
+
+INSERT INTO site_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+
 CREATE TABLE IF NOT EXISTS payments (
   id SERIAL PRIMARY KEY,
   yookassa_payment_id TEXT UNIQUE,

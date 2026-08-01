@@ -1,16 +1,12 @@
-import {
-  PRODUCT_DEFAULT_DIM_HEIGHT_CM,
-  PRODUCT_DEFAULT_DIM_LENGTH_CM,
-  PRODUCT_DEFAULT_DIM_WIDTH_CM,
-  PRODUCT_DEFAULT_WEIGHT_GRAMS,
-} from '../../constants/product-shipping-defaults'
 import { pool } from '../../utils/db'
+import { getEffectiveConfig } from '../runtime-config.service'
 import type { CalcPackage } from './calc.service'
 
 export const buildPackagesFromCart = async (
   items: Array<{ sku: string; quantity: number }>,
 ): Promise<CalcPackage[]> => {
-  if (items.length === 0) return [{ weight: PRODUCT_DEFAULT_WEIGHT_GRAMS }]
+  const cfg = await getEffectiveConfig()
+  if (items.length === 0) return [{ weight: cfg.cdek.defaultWeightGrams }]
   const skus = items.map((i) => i.sku)
   const res = await pool.query<{
     sku: string
@@ -29,10 +25,10 @@ export const buildPackagesFromCart = async (
   let height = 0
   for (const item of items) {
     const row = map.get(item.sku)
-    const w = row?.weight_grams ?? PRODUCT_DEFAULT_WEIGHT_GRAMS
-    const l = row?.dim_length_cm ?? PRODUCT_DEFAULT_DIM_LENGTH_CM
-    const wd = row?.dim_width_cm ?? PRODUCT_DEFAULT_DIM_WIDTH_CM
-    const h = row?.dim_height_cm ?? PRODUCT_DEFAULT_DIM_HEIGHT_CM
+    const w = row?.weight_grams ?? cfg.cdek.defaultWeightGrams
+    const l = row?.dim_length_cm ?? cfg.cdek.defaultLengthCm
+    const wd = row?.dim_width_cm ?? cfg.cdek.defaultWidthCm
+    const h = row?.dim_height_cm ?? cfg.cdek.defaultHeightCm
     weight += w * item.quantity
     length = Math.max(length, l)
     width = Math.max(width, wd)

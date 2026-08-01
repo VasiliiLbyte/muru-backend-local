@@ -199,10 +199,20 @@ describe('content routes', () => {
     expect(mockGetCrmPageBySlug).toHaveBeenCalledWith('help')
   })
 
-  it('CRM upsert page by-slug returns 400 for invalid slug', async () => {
+  it('CRM upsert page by-slug saves privacy legal doc', async () => {
     mockVerifyAdminJwt.mockReturnValue({ adminId: 1, role: 'owner' })
-    const { HttpError } = await import('../utils/api-response')
-    mockUpsertFixedPage.mockRejectedValue(new HttpError(400, 'Invalid page slug', 'VALIDATION'))
+    mockUpsertFixedPage.mockResolvedValue({
+      id: '11',
+      slug: 'privacy',
+      title: 'Политика конфиденциальности',
+      bodyHtml: '<p>x</p>',
+      heroImage: null,
+      seoTitle: '',
+      seoDescription: '',
+      isVisible: true,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    })
 
     const app = buildApp()
     const res = await request(app)
@@ -210,8 +220,24 @@ describe('content routes', () => {
       .set('Cookie', 'admin_token=valid')
       .send({ bodyHtml: '<p>x</p>' })
 
-    expect(res.status).toBe(400)
+    expect(res.status).toBe(200)
+    expect(res.body.data.slug).toBe('privacy')
     expect(mockUpsertFixedPage).toHaveBeenCalledWith('privacy', { bodyHtml: '<p>x</p>' })
+  })
+
+  it('CRM upsert page by-slug returns 400 for invalid slug', async () => {
+    mockVerifyAdminJwt.mockReturnValue({ adminId: 1, role: 'owner' })
+    const { HttpError } = await import('../utils/api-response')
+    mockUpsertFixedPage.mockRejectedValue(new HttpError(400, 'Некорректный slug.', 'VALIDATION'))
+
+    const app = buildApp()
+    const res = await request(app)
+      .put('/api/crm/content/pages/by-slug/requisites')
+      .set('Cookie', 'admin_token=valid')
+      .send({ bodyHtml: '<p>x</p>' })
+
+    expect(res.status).toBe(400)
+    expect(mockUpsertFixedPage).toHaveBeenCalledWith('requisites', { bodyHtml: '<p>x</p>' })
   })
 
   it('CRM upsert page by-slug saves allowlisted page', async () => {

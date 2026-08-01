@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { mockEnv } = vi.hoisted(() => ({
-  mockEnv: { yookassa: { verifyIp: true } },
+const { mockGetEffectiveConfig } = vi.hoisted(() => ({
+  mockGetEffectiveConfig: vi.fn(async () => ({
+    yookassa: { verifyIp: true },
+  })),
 }))
 
-vi.mock('../utils/env', () => ({
-  env: mockEnv,
+vi.mock('../services/runtime-config.service', () => ({
+  getEffectiveConfig: (...args: unknown[]) => mockGetEffectiveConfig(...args),
 }))
 
 vi.mock('../services/yookassa/order-from-payment.service', () => ({
@@ -46,14 +48,14 @@ describe('yookassaIpGuard', () => {
   let warnSpy: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
-    mockEnv.yookassa.verifyIp = true
+    mockGetEffectiveConfig.mockResolvedValue({ yookassa: { verifyIp: true } })
     logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined)
     warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
   })
 
-  it('always logs incoming request before checks', () => {
+  it('always logs incoming request before checks', async () => {
     const next = vi.fn()
-    yookassaIpGuard(
+    await yookassaIpGuard(
       makeReq(
         '1.2.3.4',
         { event: 'payment.succeeded', object: { id: 'yk-99' } },
@@ -73,28 +75,28 @@ describe('yookassaIpGuard', () => {
     )
   })
 
-  it('calls next when verifyIp is false regardless of IP', () => {
-    mockEnv.yookassa.verifyIp = false
+  it('calls next when verifyIp is false regardless of IP', async () => {
+    mockGetEffectiveConfig.mockResolvedValue({ yookassa: { verifyIp: false } })
     const next = vi.fn()
-    yookassaIpGuard(makeReq('1.2.3.4'), makeRes(), next)
+    await yookassaIpGuard(makeReq('1.2.3.4'), makeRes(), next)
     expect(next).toHaveBeenCalled()
     expect(warnSpy).not.toHaveBeenCalled()
   })
 
-  it('returns 404 and warns when verifyIp is true and IP is not in allowlist', () => {
+  it('returns 404 and warns when verifyIp is true and IP is not in allowlist', async () => {
     const next = vi.fn()
     const res = makeRes()
-    yookassaIpGuard(makeReq('1.2.3.4'), res, next)
+    await yookassaIpGuard(makeReq('1.2.3.4'), res, next)
     expect(res.statusCode).toBe(404)
     expect(res.end).toHaveBeenCalled()
     expect(next).not.toHaveBeenCalled()
     expect(warnSpy).toHaveBeenCalledWith('[yk-webhook] IP blocked', { ip: '1.2.3.4' })
   })
 
-  it('calls next when verifyIp is true and IP is in allowlist', () => {
+  it('calls next when verifyIp is true and IP is in allowlist', async () => {
     const next = vi.fn()
     const res = makeRes()
-    yookassaIpGuard(makeReq('185.71.76.1'), res, next)
+    await yookassaIpGuard(makeReq('185.71.76.1'), res, next)
     expect(next).toHaveBeenCalled()
     expect(warnSpy).not.toHaveBeenCalled()
   })

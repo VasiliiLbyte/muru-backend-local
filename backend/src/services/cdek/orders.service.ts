@@ -1,12 +1,6 @@
-import {
-  PRODUCT_DEFAULT_DIM_HEIGHT_CM,
-  PRODUCT_DEFAULT_DIM_LENGTH_CM,
-  PRODUCT_DEFAULT_DIM_WIDTH_CM,
-  PRODUCT_DEFAULT_WEIGHT_GRAMS,
-} from '../../constants/product-shipping-defaults'
 import { pool } from '../../utils/db'
-import { env } from '../../utils/env'
 import { notifyAdminsCdekError } from '../order-notifications.service'
+import { getEffectiveConfig } from '../runtime-config.service'
 import { cdekFetch, CdekApiError } from './client'
 import { normalizeRussianPhone } from './phone'
 
@@ -14,11 +8,6 @@ const log = {
   warn: (payload: unknown, msg?: string) => console.warn('[cdek-orders]', msg ?? '', payload),
   info: (payload: unknown, msg?: string) => console.log('[cdek-orders]', msg ?? '', payload),
   error: (payload: unknown, msg?: string) => console.error('[cdek-orders]', msg ?? '', payload),
-}
-
-const normalizedSenderPhone = normalizeRussianPhone(env.cdek.senderPhone)
-if (env.cdek.senderPhone && !normalizedSenderPhone) {
-  console.warn('[cdek-orders] CDEK_SENDER_PHONE is invalid:', env.cdek.senderPhone)
 }
 
 type OrderRow = {
@@ -57,6 +46,7 @@ const markCdekError = async (
 }
 
 export const createCdekOrder = async (orderId: number): Promise<{ uuid: string } | null> => {
+  const cfg = await getEffectiveConfig()
   const r = await pool.query<OrderRow>(`SELECT * FROM orders WHERE id = $1 LIMIT 1`, [orderId])
   const order = r.rows[0]
   if (!order) return null
@@ -67,7 +57,7 @@ export const createCdekOrder = async (orderId: number): Promise<{ uuid: string }
     return null
   }
 
-  if (order.cdek_tariff_code === env.cdek.tariffPvz && !order.cdek_pvz_code) {
+  if (order.cdek_tariff_code === cfg.cdek.tariffPvz && !order.cdek_pvz_code) {
     log.warn({ orderId }, 'pvz tariff but pvz code missing')
     await markCdekError(orderId, 'missing pvz code')
     return null
@@ -89,9 +79,13 @@ export const createCdekOrder = async (orderId: number): Promise<{ uuid: string }
     return null
   }
 
-  const senderPhone = normalizedSenderPhone ?? env.cdek.senderPhone
+  const normalizedSenderPhone = normalizeRussianPhone(cfg.cdek.senderPhone)
+  if (cfg.cdek.senderPhone && !normalizedSenderPhone) {
+    log.warn({ orderId, phone: cfg.cdek.senderPhone }, 'sender phone invalid')
+  }
+  const senderPhone = normalizedSenderPhone ?? cfg.cdek.senderPhone
   if (!normalizeRussianPhone(senderPhone)) {
-    await markCdekError(orderId, 'sender phone invalid or missing in env')
+    await markCdekError(orderId, 'sender phone invalid or missing')
     return null
   }
 
@@ -119,16 +113,16 @@ export const createCdekOrder = async (orderId: number): Promise<{ uuid: string }
   const wMap = new Map(weights.rows.map((w) => [w.sku, w]))
 
   let totalWeight = 0
-  let length = PRODUCT_DEFAULT_DIM_LENGTH_CM
-  let width = PRODUCT_DEFAULT_DIM_WIDTH_CM
-  let height = PRODUCT_DEFAULT_DIM_HEIGHT_CM
+  let length = cfg.cdek.defaultLengthCm
+  let width = cfg.cdek.defaultWidthCm
+  let height = cfg.cdek.defaultHeightCm
   const cdekItems = items.rows.map((it) => {
     const w = wMap.get(it.product_sku)
-    const itemWeight = w?.weight_grams ?? PRODUCT_DEFAULT_WEIGHT_GRAMS
+    const itemWeight = w?.weight_grams ?? cfg.cdek.defaultWeightGrams
     totalWeight += itemWeight * it.quantity
-    length = Math.max(length, w?.dim_length_cm ?? PRODUCT_DEFAULT_DIM_LENGTH_CM)
-    width = Math.max(width, w?.dim_width_cm ?? PRODUCT_DEFAULT_DIM_WIDTH_CM)
-    height = Math.max(height, w?.dim_height_cm ?? PRODUCT_DEFAULT_DIM_HEIGHT_CM)
+    length = Math.max(length, w?.dim_length_cm ?? cfg.cdek.defaultLengthCm)
+    width = Math.max(width, w?.dim_width_cm ?? cfg.cdek.defaultWidthCm)
+    height = Math.max(height, w?.dim_height_cm ?? cfg.cdek.defaultHeightCm)
     return {
       name: it.product_name.slice(0, 100),
       ware_key: it.product_sku,
@@ -139,7 +133,7 @@ export const createCdekOrder = async (orderId: number): Promise<{ uuid: string }
     }
   })
 
-  const isPvzTariff = order.cdek_tariff_code === env.cdek.tariffPvz
+  const isPvzTariff = order.cdek_tariff_code === cfg.cdek.tariffPvz
 
   const body: Record<string, unknown> = {
     type: 1,
@@ -147,13 +141,13 @@ export const createCdekOrder = async (orderId: number): Promise<{ uuid: string }
     number: `MURU-${order.id}`,
     comment: order.comment || undefined,
     from_location: {
-      code: env.cdek.senderCityCode,
-      postal_code: env.cdek.senderPostalCode,
-      address: env.cdek.senderAddress,
+      code: cfg.cdek.senderCityCode,
+      postal_code: cfg.cdek.senderPostalCode,
+      address: cfg.cdek.senderAddress,
     },
     sender: {
-      name: env.cdek.senderName,
-      phones: [{ number: normalizedSenderPhone! }],
+      name: cfg.cdek.senderName,
+      phones: [{ number: normalizeRussianPhone(senderPhone)! }],
     },
     recipient: {
       name: recipientName,

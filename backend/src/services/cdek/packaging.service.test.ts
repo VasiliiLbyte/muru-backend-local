@@ -1,5 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+vi.mock('../runtime-config.service', () => ({
+  getEffectiveConfig: vi.fn(async () => ({
+    cdek: {
+      defaultWeightGrams: 3000,
+      defaultLengthCm: 22,
+      defaultWidthCm: 12,
+      defaultHeightCm: 18,
+    },
+  })),
+}))
+
 vi.mock('../../utils/db', () => ({
   pool: { query: vi.fn() },
 }))

@@ -1,9 +1,4 @@
-import {
-  PRODUCT_DEFAULT_DIM_HEIGHT_CM,
-  PRODUCT_DEFAULT_DIM_LENGTH_CM,
-  PRODUCT_DEFAULT_DIM_WIDTH_CM,
-} from '../../constants/product-shipping-defaults'
-import { env } from '../../utils/env'
+import { getEffectiveConfig } from '../runtime-config.service'
 import { cdekFetch, CdekApiError } from './client'
 
 export type CalcPackage = { weight: number; length?: number; width?: number; height?: number }
@@ -45,13 +40,15 @@ type CdekCalcResponse = {
   errors?: Array<{ code: string; message: string }>
 }
 
-const buildCalcPackages = (packages: CalcPackage[]) =>
-  packages.map((p) => ({
+const buildCalcPackages = async (packages: CalcPackage[]) => {
+  const cfg = await getEffectiveConfig()
+  return packages.map((p) => ({
     weight: Math.max(100, Math.round(p.weight)),
-    length: p.length ?? PRODUCT_DEFAULT_DIM_LENGTH_CM,
-    width: p.width ?? PRODUCT_DEFAULT_DIM_WIDTH_CM,
-    height: p.height ?? PRODUCT_DEFAULT_DIM_HEIGHT_CM,
+    length: p.length ?? cfg.cdek.defaultLengthCm,
+    width: p.width ?? cfg.cdek.defaultWidthCm,
+    height: p.height ?? cfg.cdek.defaultHeightCm,
   }))
+}
 
 const formatResultErrors = (errors?: Array<{ code?: string; message?: string }>) =>
   (errors ?? [])
@@ -72,12 +69,13 @@ export const formatCdekErrors = (e: unknown): string => {
 }
 
 export const calculateTariff = async (input: CalcInput): Promise<CalcResult> => {
+  const cfg = await getEffectiveConfig()
   const body = {
     type: 1,
     tariff_code: input.tariffCode,
-    from_location: { code: env.cdek.senderCityCode },
+    from_location: { code: cfg.cdek.senderCityCode },
     to_location: { code: input.toCityCode },
-    packages: buildCalcPackages(input.packages),
+    packages: await buildCalcPackages(input.packages),
   }
   const r = await cdekFetch<CdekCalcResponse>('/calculator/tariff', {
     method: 'POST',
@@ -101,9 +99,10 @@ export const calculateTariff = async (input: CalcInput): Promise<CalcResult> => 
 }
 
 export const calculateBothTariffs = async (toCityCode: number, packages: CalcPackage[]) => {
+  const cfg = await getEffectiveConfig()
   const [door, pvz] = await Promise.allSettled([
-    calculateTariff({ tariffCode: env.cdek.tariffDoor, toCityCode, packages }),
-    calculateTariff({ tariffCode: env.cdek.tariffPvz, toCityCode, packages }),
+    calculateTariff({ tariffCode: cfg.cdek.tariffDoor, toCityCode, packages }),
+    calculateTariff({ tariffCode: cfg.cdek.tariffPvz, toCityCode, packages }),
   ])
   return {
     door: door.status === 'fulfilled' ? door.value : null,
@@ -119,11 +118,12 @@ export const fetchAvailableTariffs = async (
   toCityCode: number,
   packages: CalcPackage[],
 ): Promise<TariffListItem[]> => {
+  const cfg = await getEffectiveConfig()
   const body = {
     type: 1,
-    from_location: { code: env.cdek.senderCityCode },
+    from_location: { code: cfg.cdek.senderCityCode },
     to_location: { code: toCityCode },
-    packages: buildCalcPackages(packages),
+    packages: await buildCalcPackages(packages),
   }
   const r = await cdekFetch<{
     tariff_codes?: Array<{

@@ -141,9 +141,17 @@ describe('content.service', () => {
     expect(page.heroImage).toBeNull()
   })
 
-  it('assertFixedPageSlug rejects unknown slug', () => {
+  it('assertFixedPageSlug accepts privacy legal doc', () => {
+    expect(assertFixedPageSlug('privacy')).toBe('privacy')
+  })
+
+  it('assertFixedPageSlug accepts offer legal doc', () => {
+    expect(assertFixedPageSlug('offer')).toBe('offer')
+  })
+
+  it('assertFixedPageSlug rejects requisites (not in allowlist)', () => {
     try {
-      assertFixedPageSlug('privacy')
+      assertFixedPageSlug('requisites')
       expect.fail('expected throw')
     } catch (err) {
       expect(err).toMatchObject({ status: 400, code: 'VALIDATION' })
@@ -239,9 +247,39 @@ describe('content.service', () => {
     expect(page.title).toBe('Новый заголовок')
   })
 
+  it('upsertFixedPage inserts privacy legal doc when row is missing', async () => {
+    mockPoolQuery
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: 11,
+            slug: 'privacy',
+            title: 'Политика конфиденциальности',
+            body_html: '<p>Privacy</p>',
+            hero_image: null,
+            seo_title: '',
+            seo_description: '',
+            is_visible: true,
+            created_at: '2026-01-01T00:00:00.000Z',
+            updated_at: '2026-01-01T00:00:00.000Z',
+          },
+        ],
+      })
+
+    const page = await upsertFixedPage('privacy', {
+      bodyHtml: '<p>Privacy</p>',
+    })
+
+    expect(String(mockPoolQuery.mock.calls[1]?.[0])).toContain('INSERT INTO content_pages')
+    expect(mockPoolQuery.mock.calls[1]?.[1]?.[0]).toBe('privacy')
+    expect(mockPoolQuery.mock.calls[1]?.[1]?.[1]).toBe('Политика конфиденциальности')
+    expect(page.slug).toBe('privacy')
+  })
+
   it('upsertFixedPage rejects slug outside allowlist', async () => {
     await expect(
-      upsertFixedPage('privacy', { bodyHtml: '<p>x</p>' }),
+      upsertFixedPage('requisites', { bodyHtml: '<p>x</p>' }),
     ).rejects.toMatchObject({ status: 400, code: 'VALIDATION' })
     expect(mockPoolQuery).not.toHaveBeenCalled()
   })

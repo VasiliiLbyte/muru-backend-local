@@ -176,6 +176,18 @@ export type CrmBannerDto = {
 
 export type FixedPageSlug = 'help' | 'contacts' | 'vacancy' | 'partners'
 
+export const LEGAL_DOC_SLUGS = [
+  'privacy',
+  'offer',
+  'delivery',
+  'refund',
+  'terms',
+  'consent',
+] as const
+export type LegalDocSlug = (typeof LEGAL_DOC_SLUGS)[number]
+
+export type UpsertablePageSlug = FixedPageSlug | LegalDocSlug
+
 export type FixedPageWriteInput = {
   title?: string
   bodyHtml: string

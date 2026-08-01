@@ -4,8 +4,10 @@ vi.mock('../../utils/db', () => ({
   pool: { query: vi.fn() },
 }))
 
-vi.mock('../../utils/env', () => ({
-  env: { cdek: { tariffDoor: 139, tariffPvz: 138 } },
+vi.mock('../runtime-config.service', () => ({
+  getEffectiveConfig: vi.fn(async () => ({
+    cdek: { tariffDoor: 139, tariffPvz: 138 },
+  })),
 }))
 
 vi.mock('../promo.service', () => ({

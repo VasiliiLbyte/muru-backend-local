@@ -1,14 +1,10 @@
 import { Link } from 'react-router-dom'
-import { Users } from 'lucide-react'
+import { Building2, CreditCard, FileText, Phone, Truck, Users } from 'lucide-react'
 
 import { Badge, Card, PageHeader } from '../../components/ui'
 
 const soonItems = [
-  { label: 'Реквизиты и контакты', hint: 'Сайт и документы магазина' },
-  { label: 'Доставка (СДЭК)', hint: 'Адрес отправителя, тарифы, габариты' },
-  { label: 'Оплата (ЮКасса / 54-ФЗ)', hint: 'Чек, НДС, параметры магазина' },
   { label: 'SEO-шаблоны', hint: 'Мета-теги товаров и категорий' },
-  { label: 'Юридические документы', hint: 'Оферта, политика, согласие 152-ФЗ' },
   { label: 'Уведомления', hint: 'Telegram, email, шаблоны' },
 ] as const
 
@@ -23,6 +19,41 @@ export const SettingsHubPage = () => (
             <Users size={16} aria-hidden /> Пользователи и роли
           </span>
           <span className="section-link-card__hint">Владельцы и менеджеры CRM</span>
+        </Link>
+
+        <Link className="section-link-card" to="/settings/contacts">
+          <span className="section-link-card__title">
+            <Phone size={16} aria-hidden /> Контакты
+          </span>
+          <span className="section-link-card__hint">Телефон, email, адрес, соцсети</span>
+        </Link>
+
+        <Link className="section-link-card" to="/settings/requisites">
+          <span className="section-link-card__title">
+            <Building2 size={16} aria-hidden /> Реквизиты
+          </span>
+          <span className="section-link-card__hint">Юрлицо, ИНН, банк</span>
+        </Link>
+
+        <Link className="section-link-card" to="/settings/documents">
+          <span className="section-link-card__title">
+            <FileText size={16} aria-hidden /> Юридические документы
+          </span>
+          <span className="section-link-card__hint">Оферта, политика, согласие 152-ФЗ</span>
+        </Link>
+
+        <Link className="section-link-card" to="/settings/cdek">
+          <span className="section-link-card__title">
+            <Truck size={16} aria-hidden /> Доставка (СДЭК)
+          </span>
+          <span className="section-link-card__hint">Адрес отправителя, тарифы, габариты</span>
+        </Link>
+
+        <Link className="section-link-card" to="/settings/yookassa">
+          <span className="section-link-card__title">
+            <CreditCard size={16} aria-hidden /> Оплата (ЮКасса / 54-ФЗ)
+          </span>
+          <span className="section-link-card__hint">Чек, НДС, параметры магазина</span>
         </Link>
 
         {soonItems.map((item) => (

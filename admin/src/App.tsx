@@ -23,7 +23,13 @@ import { DashboardPage } from './pages/DashboardPage'
 import { OrderDetailPage } from './pages/orders/OrderDetailPage'
 import { OrdersListPage } from './pages/orders/OrdersListPage'
 import { SettingsHubPage } from './pages/settings/SettingsHubPage'
+import { CdekSettingsPage } from './pages/settings/CdekSettingsPage'
+import { ContactsSettingsPage } from './pages/settings/ContactsSettingsPage'
+import { DocumentsSettingsPage } from './pages/settings/DocumentsSettingsPage'
+import { LegalDocEditRoute } from './pages/settings/LegalDocEditRoute'
+import { RequisitesSettingsPage } from './pages/settings/RequisitesSettingsPage'
 import { UsersSettingsPage } from './pages/settings/UsersSettingsPage'
+import { YookassaSettingsPage } from './pages/settings/YookassaSettingsPage'
 import { CharacteristicsPage } from './pages/catalog/CharacteristicsPage'
 import { ImportExportPage } from './pages/catalog/ImportExportPage'
 import { ProductEditPage } from './pages/catalog/ProductEditPage'
@@ -59,6 +65,12 @@ function App() {
           <Route path="settings" element={<RequireOwner />}>
             <Route index element={<SettingsHubPage />} />
             <Route path="users" element={<UsersSettingsPage />} />
+            <Route path="contacts" element={<ContactsSettingsPage />} />
+            <Route path="requisites" element={<RequisitesSettingsPage />} />
+            <Route path="documents" element={<DocumentsSettingsPage />} />
+            <Route path="documents/:slug" element={<LegalDocEditRoute />} />
+            <Route path="cdek" element={<CdekSettingsPage />} />
+            <Route path="yookassa" element={<YookassaSettingsPage />} />
           </Route>
           <Route path="catalog" element={<CatalogRootLayout />}>
             <Route element={<CatalogLayout />}>

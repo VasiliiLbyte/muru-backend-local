@@ -1,4 +1,7 @@
-import { env } from '../../utils/env'
+import {
+  getEffectiveConfig,
+  setRuntimeConfigInvalidateHook,
+} from '../runtime-config.service'
 import type { CdekTokenResponse } from './types'
 
 const log = console
@@ -10,17 +13,28 @@ const BASE_URLS = {
 
 const DEFAULT_TIMEOUT_MS = 15_000
 
-type Token = { access_token: string; expires_at: number }
+type Token = { access_token: string; expires_at: number; envMode: 'test' | 'production' }
 
 let tokenCache: Token | null = null
 let tokenPromise: Promise<Token> | null = null
 
+export const resetCdekTokenCacheForTests = () => {
+  tokenCache = null
+  tokenPromise = null
+}
+
+setRuntimeConfigInvalidateHook(() => {
+  tokenCache = null
+  tokenPromise = null
+})
+
 const fetchNewToken = async (): Promise<Token> => {
-  const url = `${BASE_URLS[env.cdek.env]}/oauth/token?parameters`
+  const cfg = await getEffectiveConfig()
+  const url = `${BASE_URLS[cfg.cdek.env]}/oauth/token?parameters`
   const body = new URLSearchParams({
     grant_type: 'client_credentials',
-    client_id: env.cdek.clientId,
-    client_secret: env.cdek.clientSecret,
+    client_id: cfg.cdek.clientId,
+    client_secret: cfg.cdek.clientSecret,
   })
   const r = await fetch(url, {
     method: 'POST',
@@ -34,11 +48,17 @@ const fetchNewToken = async (): Promise<Token> => {
   }
   const data = (await r.json()) as CdekTokenResponse
   const expires_at = Date.now() + (data.expires_in - 60) * 1000
-  return { access_token: data.access_token, expires_at }
+  return { access_token: data.access_token, expires_at, envMode: cfg.cdek.env }
 }
 
 const getToken = async (): Promise<string> => {
-  if (tokenCache && tokenCache.expires_at > Date.now()) return tokenCache.access_token
+  const cfg = await getEffectiveConfig()
+  if (tokenCache && tokenCache.expires_at > Date.now() && tokenCache.envMode === cfg.cdek.env) {
+    return tokenCache.access_token
+  }
+  if (tokenCache && tokenCache.envMode !== cfg.cdek.env) {
+    tokenCache = null
+  }
   if (tokenPromise) return (await tokenPromise).access_token
   tokenPromise = fetchNewToken()
     .then((t) => {
@@ -82,8 +102,9 @@ const safeJsonParse = (raw: string): unknown => {
 }
 
 export const cdekFetch = async <T>(path: string, init: CdekRequestInit = {}): Promise<T> => {
+  const cfg = await getEffectiveConfig()
   const token = await getToken()
-  const url = new URL(`${BASE_URLS[env.cdek.env]}${path}`)
+  const url = new URL(`${BASE_URLS[cfg.cdek.env]}${path}`)
   if (init.query) {
     for (const [k, v] of Object.entries(init.query)) {
       if (v !== undefined && v !== null) url.searchParams.set(k, String(v))
@@ -152,10 +173,4 @@ export const cdekFetch = async <T>(path: string, init: CdekRequestInit = {}): Pr
   }
 
   throw new CdekApiError(0, path, null, 'retry budget exhausted')
-}
-
-/** @internal Reset token cache between tests */
-export const resetCdekTokenCacheForTests = () => {
-  tokenCache = null
-  tokenPromise = null
 }

@@ -1,13 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('../../utils/env', () => ({
-  env: {
+vi.mock('../runtime-config.service', () => ({
+  getEffectiveConfig: vi.fn(async () => ({
     cdek: {
       senderCityCode: 137,
       tariffDoor: 139,
       tariffPvz: 138,
+      defaultWeightGrams: 3000,
+      defaultLengthCm: 22,
+      defaultWidthCm: 12,
+      defaultHeightCm: 18,
     },
-  },
+  })),
+  setRuntimeConfigInvalidateHook: vi.fn(),
+  invalidateRuntimeConfigCache: vi.fn(),
 }))
 
 vi.mock('./client', async (importOriginal) => {

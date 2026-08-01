@@ -102,12 +102,38 @@ export const assertSkusExist = async (skus: string[]): Promise<void> => {
 export const FIXED_PAGE_SLUGS = ['help', 'contacts', 'company', 'vacancy', 'partners'] as const
 export type FixedPageSlug = (typeof FIXED_PAGE_SLUGS)[number]
 
+export const LEGAL_DOC_SLUGS = [
+  'privacy',
+  'offer',
+  'delivery',
+  'refund',
+  'terms',
+  'consent',
+] as const
+export type LegalDocSlug = (typeof LEGAL_DOC_SLUGS)[number]
+
+export type AllowlistedPageSlug = FixedPageSlug | LegalDocSlug
+
 const FIXED_PAGE_DEFAULT_TITLES: Record<FixedPageSlug, string> = {
   help: 'Клиентам',
   contacts: 'Контакты',
   company: 'О нас',
   vacancy: 'Вакансии',
   partners: 'Стать партнёром',
+}
+
+const LEGAL_DOC_DEFAULT_TITLES: Record<LegalDocSlug, string> = {
+  privacy: 'Политика конфиденциальности',
+  offer: 'Публичная оферта',
+  delivery: 'Доставка',
+  refund: 'Возврат',
+  terms: 'Условия обслуживания',
+  consent: 'Согласие на обработку персональных данных',
+}
+
+const ALLOWLISTED_PAGE_DEFAULT_TITLES: Record<AllowlistedPageSlug, string> = {
+  ...FIXED_PAGE_DEFAULT_TITLES,
+  ...LEGAL_DOC_DEFAULT_TITLES,
 }
 
 const SECTIONS_NULL_SLUGS: FixedPageSlug[] = []
@@ -189,9 +215,12 @@ export const sanitizePartnersSections = (
   },
 })
 
-export const assertFixedPageSlug = (slug: string): FixedPageSlug => {
+export const assertFixedPageSlug = (slug: string): AllowlistedPageSlug => {
   if ((FIXED_PAGE_SLUGS as readonly string[]).includes(slug)) {
     return slug as FixedPageSlug
+  }
+  if ((LEGAL_DOC_SLUGS as readonly string[]).includes(slug)) {
+    return slug as LegalDocSlug
   }
   throw new HttpError(400, 'Некорректный slug.', 'VALIDATION')
 }
@@ -327,7 +356,7 @@ export const upsertFixedPage = async (
   const fixedSlug = assertFixedPageSlug(slug)
   const bodyHtml = sanitizeContentHtml(input.bodyHtml)
   const heroImageJson = input.heroImage ? JSON.stringify(input.heroImage) : null
-  const clearSections = SECTIONS_NULL_SLUGS.includes(fixedSlug)
+  const clearSections = (SECTIONS_NULL_SLUGS as readonly string[]).includes(fixedSlug)
 
   const existing = await pool.query<{ id: number; title: string }>(
     `SELECT id, title FROM content_pages WHERE slug = $1`,
@@ -363,10 +392,11 @@ export const upsertFixedPage = async (
     const insertValues = clearSections
       ? `($1, $2, $3, $4, NULL, $5, $6, $7)`
       : `($1, $2, $3, $4, $5, $6, $7)`
+    const defaultTitle = ALLOWLISTED_PAGE_DEFAULT_TITLES[fixedSlug]
     const insertParams = clearSections
       ? [
           fixedSlug,
-          input.title?.trim() || FIXED_PAGE_DEFAULT_TITLES[fixedSlug],
+          input.title?.trim() || defaultTitle,
           bodyHtml,
           heroImageJson,
           input.seoTitle ?? '',
@@ -375,7 +405,7 @@ export const upsertFixedPage = async (
         ]
       : [
           fixedSlug,
-          input.title?.trim() || FIXED_PAGE_DEFAULT_TITLES[fixedSlug],
+          input.title?.trim() || defaultTitle,
           bodyHtml,
           heroImageJson,
           input.seoTitle ?? '',
@@ -432,7 +462,7 @@ export const upsertCompanyPage = async (input: UpsertCompanyPageInput): Promise<
        RETURNING ${PAGE_SELECT}`,
       [
         fixedSlug,
-        input.title?.trim() || FIXED_PAGE_DEFAULT_TITLES[fixedSlug],
+        input.title?.trim() || ALLOWLISTED_PAGE_DEFAULT_TITLES[fixedSlug],
         sectionsJson,
         input.seoTitle ?? '',
         input.seoDescription ?? '',
@@ -482,7 +512,7 @@ export const upsertVacancyPage = async (input: UpsertVacancyPageInput): Promise<
        RETURNING ${PAGE_SELECT}`,
       [
         fixedSlug,
-        input.title?.trim() || FIXED_PAGE_DEFAULT_TITLES[fixedSlug],
+        input.title?.trim() || ALLOWLISTED_PAGE_DEFAULT_TITLES[fixedSlug],
         sectionsJson,
         input.seoTitle ?? '',
         input.seoDescription ?? '',
@@ -532,7 +562,7 @@ export const upsertPartnersPage = async (input: UpsertPartnersPageInput): Promis
        RETURNING ${PAGE_SELECT}`,
       [
         fixedSlug,
-        input.title?.trim() || FIXED_PAGE_DEFAULT_TITLES[fixedSlug],
+        input.title?.trim() || ALLOWLISTED_PAGE_DEFAULT_TITLES[fixedSlug],
         sectionsJson,
         input.seoTitle ?? '',
         input.seoDescription ?? '',

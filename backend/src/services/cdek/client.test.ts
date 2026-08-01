@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('../../utils/env', () => ({
-  env: {
+vi.mock('../runtime-config.service', () => ({
+  getEffectiveConfig: vi.fn(async () => ({
     cdek: {
       env: 'test' as const,
       clientId: 'test-id',
       clientSecret: 'test-secret',
+      webhookSecret: '',
       senderCityCode: 137,
       senderPostalCode: '192102',
       senderAddress: 'г. Санкт-Петербург, ул. Дубровская, 13',
@@ -13,9 +14,14 @@ vi.mock('../../utils/env', () => ({
       senderPhone: '',
       tariffDoor: 139,
       tariffPvz: 138,
-      webhookSecret: '',
+      defaultWeightGrams: 3000,
+      defaultLengthCm: 22,
+      defaultWidthCm: 12,
+      defaultHeightCm: 18,
     },
-  },
+  })),
+  setRuntimeConfigInvalidateHook: vi.fn(),
+  invalidateRuntimeConfigCache: vi.fn(),
 }))
 
 import { CdekApiError, cdekFetch, resetCdekTokenCacheForTests } from './client'

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('../../utils/env', () => ({
-  env: {
+vi.mock('../runtime-config.service', () => ({
+  getEffectiveConfig: vi.fn(async () => ({
     cdek: {
       senderCityCode: 137,
       senderPostalCode: '192102',
@@ -10,8 +10,12 @@ vi.mock('../../utils/env', () => ({
       senderPhone: '+79001112233',
       tariffDoor: 139,
       tariffPvz: 138,
+      defaultWeightGrams: 3000,
+      defaultLengthCm: 22,
+      defaultWidthCm: 12,
+      defaultHeightCm: 18,
     },
-  },
+  })),
 }))
 
 vi.mock('../../utils/db', () => ({

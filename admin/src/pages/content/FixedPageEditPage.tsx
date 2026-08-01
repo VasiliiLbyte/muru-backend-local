@@ -15,11 +15,10 @@ import {
 } from '../../components/ui'
 import { ApiError } from '../../lib/api'
 import { getPageBySlug, upsertPageBySlug } from '../../lib/content-api'
-import type { ContentImage } from '../../types/content'
+import { LEGAL_DOC_SECTION_META } from '../../constants/legal-docs'
+import type { ContentImage, UpsertablePageSlug } from '../../types/content'
 
-import type { FixedPageSlug } from '../../types/content'
-
-export type FixedPageSection = FixedPageSlug
+export type FixedPageSection = UpsertablePageSlug
 
 const SECTION_META: Record<
   FixedPageSection,
@@ -45,6 +44,7 @@ const SECTION_META: Record<
     hint: 'Страница /company/partners/ на витрине',
     defaultTitle: 'Стать партнёром',
   },
+  ...LEGAL_DOC_SECTION_META,
 }
 
 type FixedPageEditPageProps = {

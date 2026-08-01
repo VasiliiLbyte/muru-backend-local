@@ -11,6 +11,7 @@ import {
   markPaymentCanceled,
 } from './order-from-payment.service'
 import { buildReceipt, receiptTotalKop } from './receipt'
+import { getEffectiveConfig } from '../runtime-config.service'
 import type { OrderChannel } from '../../types/order'
 
 const log = console
@@ -124,12 +125,14 @@ export const createPayment = async (
   const intentId = intent.rows[0].id
 
   try {
+    const cfg = await getEffectiveConfig()
     const receipt = buildReceipt({
       phone: snapshot.recipientPhone,
       email: snapshot.email,
       productItems,
       deliveryKop,
       discountKop,
+      vatCode: cfg.yookassa.vatCode,
     })
 
     const body = {

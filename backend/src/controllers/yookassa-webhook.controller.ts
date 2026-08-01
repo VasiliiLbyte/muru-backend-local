@@ -5,7 +5,7 @@ import {
   fulfillPaidPayment,
   markPaymentCanceled,
 } from '../services/yookassa/order-from-payment.service'
-import { env } from '../utils/env'
+import { getEffectiveConfig } from '../services/runtime-config.service'
 
 const log = console
 
@@ -20,14 +20,15 @@ const YK_IP_ALLOWLIST = [
   '2a02:5180::/32',
 ]
 
-export const yookassaIpGuard = (req: Request, res: Response, next: NextFunction) => {
+export const yookassaIpGuard = async (req: Request, res: Response, next: NextFunction) => {
   log.log?.('[yk-webhook] incoming', {
     ip: req.ip,
     xff: req.headers['x-forwarded-for'],
     event: req.body?.event,
     paymentId: req.body?.object?.id,
   })
-  if (!env.yookassa.verifyIp) {
+  const cfg = await getEffectiveConfig()
+  if (!cfg.yookassa.verifyIp) {
     return next()
   }
   const ip = req.ip ?? ''

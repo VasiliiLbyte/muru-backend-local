@@ -1,8 +1,8 @@
 import { calculateTariff } from '../cdek/calc.service'
 import { buildPackagesFromCart } from '../cdek/packaging.service'
 import { PromoValidationError, validatePromoCode } from '../promo.service'
+import { getEffectiveConfig } from '../runtime-config.service'
 import { pool } from '../../utils/db'
-import { env } from '../../utils/env'
 
 export class PaymentPricingError extends Error {
   constructor(message: string) {
@@ -41,12 +41,13 @@ export type PricingInput = {
 
 const round2 = (n: number) => Math.max(0, Number(n.toFixed(2)))
 
-const allowedTariffCodes = () => new Set([env.cdek.tariffDoor, env.cdek.tariffPvz])
-
 export const computeTrustedPricing = async (input: PricingInput): Promise<TrustedPricing> => {
   if (input.items.length === 0) {
     throw new PaymentPricingError('Корзина пуста')
   }
+
+  const cfg = await getEffectiveConfig()
+  const allowedTariffCodes = () => new Set([cfg.cdek.tariffDoor, cfg.cdek.tariffPvz])
 
   const skus = input.items.map((i) => i.sku)
   const rows = await pool.query<{

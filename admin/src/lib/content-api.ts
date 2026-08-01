@@ -12,11 +12,13 @@ import type {
   CrmPageDto,
   FixedPageSlug,
   FixedPageWriteInput,
+  LegalDocSlug,
   LookbookHotspotPatchInput,
   LookbookHotspotWriteInput,
   LookbookImageInput,
   LookbookWriteInput,
   PartnersPageWriteInput,
+  UpsertablePageSlug,
   VacancyPageWriteInput,
 } from '../types/content'
 import { ApiError, apiFetch } from './api'
@@ -26,12 +28,12 @@ const CRM_BASE = '/api/crm/content'
 
 // Pages
 
-export type PageBySlug = FixedPageSlug | 'company'
+export type PageBySlug = FixedPageSlug | LegalDocSlug | 'company'
 
 export const getPageBySlug = (slug: PageBySlug) =>
   apiFetch<CrmPageDto>(`${CRM_BASE}/pages/by-slug/${slug}`)
 
-export const upsertPageBySlug = (slug: FixedPageSlug, input: FixedPageWriteInput) =>
+export const upsertPageBySlug = (slug: UpsertablePageSlug, input: FixedPageWriteInput) =>
   apiFetch<CrmPageDto>(`${CRM_BASE}/pages/by-slug/${slug}`, {
     method: 'PUT',
     body: JSON.stringify(input),

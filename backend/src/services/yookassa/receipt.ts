@@ -12,8 +12,9 @@ export const buildReceipt = (params: {
   productItems: ReceiptItemInput[]
   deliveryKop: number
   discountKop: number
+  vatCode?: number
 }) => {
-  const vat = env.yookassa.vatCode
+  const vat = params.vatCode ?? env.yookassa.vatCode
 
   const rawLines = params.productItems.map((it) => ({
     description: it.description.slice(0, 128),
