@@ -22,6 +22,7 @@ import { LoginPage } from './pages/LoginPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { OrderDetailPage } from './pages/orders/OrderDetailPage'
 import { OrdersListPage } from './pages/orders/OrdersListPage'
+import { StockMovementsPage } from './pages/stock/StockMovementsPage'
 import { SettingsHubPage } from './pages/settings/SettingsHubPage'
 import { CdekSettingsPage } from './pages/settings/CdekSettingsPage'
 import { ContactsSettingsPage } from './pages/settings/ContactsSettingsPage'
@@ -62,6 +63,7 @@ function App() {
           <Route index element={<DashboardPage />} />
           <Route path="orders" element={<OrdersListPage />} />
           <Route path="orders/:id" element={<OrderDetailPage />} />
+          <Route path="stock/movements" element={<StockMovementsPage />} />
           <Route path="settings" element={<RequireOwner />}>
             <Route index element={<SettingsHubPage />} />
             <Route path="users" element={<UsersSettingsPage />} />

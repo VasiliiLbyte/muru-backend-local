@@ -6,6 +6,7 @@ import {
   Package,
   Settings,
   ShoppingBag,
+  Warehouse,
 } from 'lucide-react'
 import { NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
@@ -80,6 +81,14 @@ export const ProtectedLayout = () => {
           >
             <ShoppingBag className="sidebar-link__icon" aria-hidden />
             Заказы
+          </NavLink>
+
+          <NavLink
+            to="/stock/movements"
+            className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}
+          >
+            <Warehouse className="sidebar-link__icon" aria-hidden />
+            Склад
           </NavLink>
 
           <NavLink
