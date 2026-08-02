@@ -2,6 +2,7 @@ import type { HotspotPatchInput, HotspotWriteInput } from '../schemas/content.sc
 import type { CrmLookbookHotspotDto, LookbookHotspotDto } from '../types/content'
 import { HttpError } from '../utils/api-response'
 import { pool } from '../utils/db'
+import { salePriceFromList } from './product-price-math'
 
 type HotspotRow = {
   id: number
@@ -82,7 +83,7 @@ const mapPublicRow = (row: PublicHotspotRow): LookbookHotspotDto => {
   }
 
   if (discountPercent > 0) {
-    product.salePrice = price
+    product.salePrice = salePriceFromList(price, discountPercent)
   }
   if (image) {
     product.image = image

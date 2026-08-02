@@ -449,6 +449,7 @@ const AppShell = () => {
           sku: product.sku,
           name: product.name,
           price: product.price,
+          discountPercent: product.discountPercent ?? 0,
           imageUrl: product.imageUrls[0],
           inStock: product.inStock,
         }).catch(() => undefined)

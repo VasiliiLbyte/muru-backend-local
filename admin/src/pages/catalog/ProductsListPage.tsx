@@ -28,6 +28,7 @@ import { isSaleCategorySlug } from '../../lib/sale-category'
 import type { CrmCatalogListResult, CrmCatalogSortBy, CrmCatalogSortDir, CrmCategoryItem } from '../../types/catalog'
 import type { CrmCollectionDto } from '../../types/content'
 import { formatMoney } from '../../utils/order-labels'
+import { salePriceFromList } from '../../utils/product-price'
 
 const PAGE_SIZE = 20
 
@@ -412,7 +413,7 @@ export const ProductsListPage = () => {
               <TableHead>Категория</TableHead>
               <TableHead>Подкатегория</TableHead>
               <TableHead numeric sortable sortKey="price" activeSort={sortBy} sortDir={sortDir} onSort={onSort}>
-                Цена
+                Цена к оплате
               </TableHead>
               <TableHead numeric sortable sortKey="inStock" activeSort={sortBy} sortDir={sortDir} onSort={onSort}>
                 Остаток
@@ -444,7 +445,22 @@ export const ProductsListPage = () => {
                 <TableCell>{item.name}</TableCell>
                 <TableCell>{item.categoryName ?? '—'}</TableCell>
                 <TableCell>{item.webSubcategoryName ?? '—'}</TableCell>
-                <TableCell numeric>{formatMoney(item.price)}</TableCell>
+                <TableCell numeric>
+                  {(() => {
+                    const sale = salePriceFromList(item.price, item.discountPercent ?? 0)
+                    const hasDiscount = (item.discountPercent ?? 0) > 0
+                    return (
+                      <>
+                        <div>{formatMoney(sale)}</div>
+                        {hasDiscount ? (
+                          <div className="muted-text">
+                            {formatMoney(item.price)} · −{item.discountPercent}%
+                          </div>
+                        ) : null}
+                      </>
+                    )
+                  })()}
+                </TableCell>
                 <TableCell numeric>{item.inStock}</TableCell>
                 <TableCell>
                   {item.isNewArrival ? formatNewArrivalDate(item.newArrivalAt) : '—'}

@@ -37,6 +37,7 @@ import {
 } from '../../lib/product-collections-api'
 import type { CrmCatalogProductDetail, CrmCategoryItem, ProductImageSlot } from '../../types/catalog'
 import type { CrmCollectionDto } from '../../types/content'
+import { salePriceFromList } from '../../utils/product-price'
 
 const MANAGED_SPEC_KEYS = [
   'Материал',
@@ -476,7 +477,7 @@ export const ProductEditPage = () => {
             />
           </Field>
 
-          <Field label="Цена" htmlFor="product-price">
+          <Field label="Цена без скидки" htmlFor="product-price">
             <Input
               id="product-price"
               type="number"
@@ -499,6 +500,12 @@ export const ProductEditPage = () => {
               disabled={readOnly}
             />
           </Field>
+
+          <p className="muted-text">
+            Цена со скидкой (на сайте):{' '}
+            {salePriceFromList(Number(price) || 0, Number(discountPercent) || 0).toLocaleString('ru-RU')}{' '}
+            ₽
+          </p>
 
           <Field label="Остаток" htmlFor="product-stock">
             <Input

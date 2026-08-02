@@ -6,10 +6,11 @@ export const getFavoritesByTelegramUserId = async (telegramUserId: number): Prom
     sku: string
     name: string
     price: string
+    discount_percent: string
     image_url_1: string
     in_stock: number
   }>(
-    `SELECT p.sku, p.name, p.price::text, p.image_url_1, p.in_stock
+    `SELECT p.sku, p.name, p.price::text, p.discount_percent::text, p.image_url_1, p.in_stock
      FROM favorites f
      JOIN products p ON p.sku = f.product_sku
      WHERE f.telegram_user_id = $1
@@ -21,6 +22,7 @@ export const getFavoritesByTelegramUserId = async (telegramUserId: number): Prom
     sku: row.sku,
     name: row.name,
     price: Number(row.price),
+    discountPercent: Number(row.discount_percent) || 0,
     imageUrl: row.image_url_1,
     inStock: row.in_stock,
   }))

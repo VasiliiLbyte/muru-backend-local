@@ -2,6 +2,7 @@ export type FavoriteItem = {
   sku: string
   name: string
   price: number
+  discountPercent?: number
   imageUrl: string
   inStock: number
 }

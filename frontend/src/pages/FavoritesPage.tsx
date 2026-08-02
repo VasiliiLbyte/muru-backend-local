@@ -69,7 +69,21 @@ export const FavoritesPage = ({
               <SmartImage src={item.imageUrl} alt={item.name} className="h-16 w-16 shrink-0 rounded-lg" />
               <div className="min-w-0 flex-1">
                 <h2 className="text-sm font-semibold leading-snug">{item.name}</h2>
-                <p className="text-sm">{formatPrice(item.price)}</p>
+                {(item.discountPercent ?? 0) > 0 ? (
+                  <p className="text-sm">
+                    <span className="font-medium">
+                      {formatPrice(
+                        Math.round(item.price * (1 - (item.discountPercent ?? 0) / 100) * 100) / 100,
+                      )}
+                    </span>{' '}
+                    <span className="text-[11px] leading-none line-through tabular-nums text-[#9a7a6a]">
+                      {formatPrice(item.price)}
+                    </span>
+                    <span className="ml-1 text-xs text-muru-olive">−{item.discountPercent}%</span>
+                  </p>
+                ) : (
+                  <p className="text-sm">{formatPrice(item.price)}</p>
+                )}
               </div>
             </button>
             {userId && onRemoveFavorite ? (

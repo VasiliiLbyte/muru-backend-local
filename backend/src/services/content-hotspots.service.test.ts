@@ -116,7 +116,7 @@ describe('content-hotspots.service', () => {
     expect(String(mockQuery.mock.calls[0][0])).toContain('p.is_archived = FALSE')
     expect(hotspots).toHaveLength(1)
     expect(hotspots[0].product.sku).toBe('MU0001')
-    expect(hotspots[0].product.salePrice).toBe(1000)
+    expect(hotspots[0].product.salePrice).toBe(900)
     expect(hotspots[0].product.slug).toBe('/catalog/interer/vazy/MU0001/')
   })
 
