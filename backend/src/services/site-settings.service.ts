@@ -92,10 +92,19 @@ export const yookassaSettingsInputSchema = z
   })
   .strict()
 
+export const catalogPlaceholderSettingsInputSchema = z
+  .object({
+    catalogPlaceholderImageUrl: softTextSchema,
+  })
+  .strict()
+
 export type ContactSettingsInput = z.output<typeof contactSettingsInputSchema>
 export type RequisitesSettingsInput = z.output<typeof requisitesSettingsInputSchema>
 export type CdekSettingsInput = z.output<typeof cdekSettingsInputSchema>
 export type YookassaSettingsInput = z.output<typeof yookassaSettingsInputSchema>
+export type CatalogPlaceholderSettingsInput = z.output<
+  typeof catalogPlaceholderSettingsInputSchema
+>
 
 export type SiteSettingsDto = {
   contactPhoneDisplay: string | null
@@ -133,6 +142,7 @@ export type SiteSettingsDto = {
   cdekDefaultHeightCm: number | null
   yookassaVatCode: number | null
   yookassaVerifyIp: boolean | null
+  catalogPlaceholderImageUrl: string | null
   updatedAt: string | null
 }
 
@@ -199,6 +209,7 @@ type SiteSettingsRow = {
   cdek_default_height_cm: number | null
   yookassa_vat_code: number | null
   yookassa_verify_ip: boolean | null
+  catalog_placeholder_image_url: string | null
   updated_at: Date | string | null
 }
 
@@ -238,6 +249,7 @@ const nullSettings = (): SiteSettingsDto => ({
   cdekDefaultHeightCm: null,
   yookassaVatCode: null,
   yookassaVerifyIp: null,
+  catalogPlaceholderImageUrl: null,
   updatedAt: null,
 })
 
@@ -288,6 +300,7 @@ const rowToDto = (row: SiteSettingsRow): SiteSettingsDto => ({
   cdekDefaultHeightCm: row.cdek_default_height_cm,
   yookassaVatCode: row.yookassa_vat_code,
   yookassaVerifyIp: row.yookassa_verify_ip,
+  catalogPlaceholderImageUrl: row.catalog_placeholder_image_url,
   updatedAt: toIso(row.updated_at),
 })
 
@@ -301,6 +314,7 @@ const SELECT_COLUMNS = `
   cdek_sender_name, cdek_sender_phone, cdek_tariff_door, cdek_tariff_pvz,
   cdek_default_weight_grams, cdek_default_length_cm, cdek_default_width_cm, cdek_default_height_cm,
   yookassa_vat_code, yookassa_verify_ip,
+  catalog_placeholder_image_url,
   updated_at
 `
 
@@ -483,6 +497,20 @@ export const updateYookassaSettings = async (
   )
 
   invalidateRuntimeConfigCache()
+  return getSiteSettings()
+}
+
+export const updateCatalogPlaceholderSettings = async (
+  input: CatalogPlaceholderSettingsInput,
+): Promise<SiteSettingsDto> => {
+  await pool.query(
+    `UPDATE site_settings SET
+      catalog_placeholder_image_url = $1,
+      updated_at = NOW()
+     WHERE id = $2`,
+    [input.catalogPlaceholderImageUrl ?? null, SETTINGS_ID],
+  )
+
   return getSiteSettings()
 }
 

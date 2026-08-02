@@ -7,6 +7,7 @@ const tabs = [
   { to: '/content/contacts', label: 'Контакты' },
   { to: '/content/company', label: 'О нас' },
   { to: '/content/banners', label: 'Баннеры' },
+  { to: '/content/placeholder', label: 'Плейсхолдер' },
 ] as const
 
 export const ContentLayout = () => (

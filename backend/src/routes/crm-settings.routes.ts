@@ -3,6 +3,7 @@ import { Router } from 'express'
 import {
   getIntegrationsStatusHandler,
   getSiteSettingsHandler,
+  updateCatalogPlaceholderSettingsHandler,
   updateCdekSettingsHandler,
   updateContactSettingsHandler,
   updateRequisitesSettingsHandler,
@@ -19,6 +20,7 @@ crmSettingsRouter.use(requireOwner)
 crmSettingsRouter.get('/site', getSiteSettingsHandler)
 crmSettingsRouter.put('/site/contacts', updateContactSettingsHandler)
 crmSettingsRouter.put('/site/requisites', updateRequisitesSettingsHandler)
+crmSettingsRouter.put('/site/catalog-placeholder', updateCatalogPlaceholderSettingsHandler)
 crmSettingsRouter.put('/cdek', updateCdekSettingsHandler)
 crmSettingsRouter.put('/yookassa', updateYookassaSettingsHandler)
 crmSettingsRouter.get('/integrations-status', getIntegrationsStatusHandler)

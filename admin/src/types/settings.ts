@@ -47,6 +47,10 @@ export type YookassaSettingsInput = {
   yookassaVerifyIp: boolean | null
 }
 
+export type CatalogPlaceholderSettingsInput = {
+  catalogPlaceholderImageUrl: string | null
+}
+
 export type IntegrationsStatus = {
   cdekConfigured: boolean
   yookassaConfigured: boolean
@@ -58,6 +62,7 @@ export type IntegrationsStatus = {
 export type SiteSettingsDto = ContactSettingsInput &
   RequisitesSettingsInput &
   CdekSettingsInput &
-  YookassaSettingsInput & {
+  YookassaSettingsInput &
+  CatalogPlaceholderSettingsInput & {
     updatedAt: string | null
   }

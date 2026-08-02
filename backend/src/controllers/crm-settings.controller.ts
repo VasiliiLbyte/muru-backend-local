@@ -2,11 +2,13 @@ import type { NextFunction, Response } from 'express'
 
 import type { CrmRequest } from '../middleware/require-crm-auth.middleware'
 import {
+  catalogPlaceholderSettingsInputSchema,
   cdekSettingsInputSchema,
   contactSettingsInputSchema,
   getIntegrationsStatus,
   getSiteSettings,
   requisitesSettingsInputSchema,
+  updateCatalogPlaceholderSettings,
   updateCdekSettings,
   updateContactSettings,
   updateRequisitesSettings,
@@ -89,6 +91,22 @@ export const updateYookassaSettingsHandler = async (
       return fail(res, 422, zodErrorMessage(parsed.error.issues), 'VALIDATION', parsed.error.issues)
     }
     return ok(res, await updateYookassaSettings(parsed.data))
+  } catch (error) {
+    return next(error)
+  }
+}
+
+export const updateCatalogPlaceholderSettingsHandler = async (
+  req: CrmRequest,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const parsed = catalogPlaceholderSettingsInputSchema.safeParse(req.body)
+    if (!parsed.success) {
+      return fail(res, 422, zodErrorMessage(parsed.error.issues), 'VALIDATION', parsed.error.issues)
+    }
+    return ok(res, await updateCatalogPlaceholderSettings(parsed.data))
   } catch (error) {
     return next(error)
   }

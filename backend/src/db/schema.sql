@@ -362,7 +362,8 @@ CREATE TABLE IF NOT EXISTS site_settings (
   cdek_default_width_cm INT,
   cdek_default_height_cm INT,
   yookassa_vat_code INT,
-  yookassa_verify_ip BOOLEAN
+  yookassa_verify_ip BOOLEAN,
+  catalog_placeholder_image_url TEXT
 );
 
 INSERT INTO site_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;

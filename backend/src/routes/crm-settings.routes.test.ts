@@ -9,6 +9,7 @@ const mockUpdateContactSettings = vi.fn()
 const mockUpdateRequisitesSettings = vi.fn()
 const mockUpdateCdekSettings = vi.fn()
 const mockUpdateYookassaSettings = vi.fn()
+const mockUpdateCatalogPlaceholderSettings = vi.fn()
 const mockGetIntegrationsStatus = vi.fn()
 
 vi.mock('../services/admin-auth.service', async (importOriginal) => {
@@ -28,6 +29,8 @@ vi.mock('../services/site-settings.service', async (importOriginal) => {
     updateRequisitesSettings: (...args: unknown[]) => mockUpdateRequisitesSettings(...args),
     updateCdekSettings: (...args: unknown[]) => mockUpdateCdekSettings(...args),
     updateYookassaSettings: (...args: unknown[]) => mockUpdateYookassaSettings(...args),
+    updateCatalogPlaceholderSettings: (...args: unknown[]) =>
+      mockUpdateCatalogPlaceholderSettings(...args),
     getIntegrationsStatus: (...args: unknown[]) => mockGetIntegrationsStatus(...args),
   }
 })
@@ -81,6 +84,7 @@ const sampleSettings = {
   cdekDefaultHeightCm: null,
   yookassaVatCode: null,
   yookassaVerifyIp: null,
+  catalogPlaceholderImageUrl: null,
   updatedAt: null,
 }
 
@@ -219,6 +223,22 @@ describe('crm-settings.routes', () => {
     expect(res.status).toBe(200)
     expect(res.body.data.yookassaVatCode).toBe(4)
     expect(mockUpdateYookassaSettings).toHaveBeenCalled()
+  })
+
+  it('owner PUT /site/catalog-placeholder → 200', async () => {
+    mockUpdateCatalogPlaceholderSettings.mockResolvedValueOnce({
+      ...sampleSettings,
+      catalogPlaceholderImageUrl: '/uploads/catalog-placeholder.webp',
+    })
+    const res = await request(buildApp())
+      .put('/api/crm/settings/site/catalog-placeholder')
+      .set('Cookie', 'admin_token=valid')
+      .send({ catalogPlaceholderImageUrl: '/uploads/catalog-placeholder.webp' })
+    expect(res.status).toBe(200)
+    expect(res.body.data.catalogPlaceholderImageUrl).toBe('/uploads/catalog-placeholder.webp')
+    expect(mockUpdateCatalogPlaceholderSettings).toHaveBeenCalledWith({
+      catalogPlaceholderImageUrl: '/uploads/catalog-placeholder.webp',
+    })
   })
 
   it('owner GET /integrations-status → 200 without secrets', async () => {

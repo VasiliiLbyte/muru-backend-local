@@ -18,6 +18,23 @@ vi.mock('../utils/db', () => ({
   },
 }))
 
+vi.mock('./catalog-placeholder.service', () => ({
+  FALLBACK_CATALOG_PLACEHOLDER: '/uploads/catalog-placeholder.webp',
+  LEGACY_PLACEHOLD_CO: 'https://placehold.co/1200x1200?text=MURU',
+  getCatalogPlaceholderImageUrl: vi.fn(async () => '/uploads/catalog-placeholder.webp'),
+  isGenericPlaceholderUrl: (url: string | null | undefined) => {
+    const t = (url ?? '').trim()
+    return !t || t.includes('placehold.co')
+  },
+  applyPlaceholderToImageUrls: (urls: string[], placeholder: string) => {
+    const cleaned = urls.map((u) => u.trim()).filter(Boolean)
+    if (cleaned.length === 0) return [placeholder]
+    if (cleaned.every((u) => !u || u.includes('placehold.co'))) return [placeholder]
+    if (!cleaned[0] || cleaned[0].includes('placehold.co')) return [placeholder]
+    return cleaned.filter((u) => u && !u.includes('placehold.co'))
+  },
+}))
+
 mockConnect.mockImplementation(async () => ({
   query: (...args: unknown[]) => mockClientQuery(...args),
   release: vi.fn(),

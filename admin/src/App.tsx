@@ -10,6 +10,7 @@ import { ConfirmProvider, PromptProvider, ToastProvider } from './components/ui'
 import { AuthProvider } from './context/AuthContext'
 import { BannerEditPage } from './pages/content/BannerEditPage'
 import { BannersListPage } from './pages/content/BannersListPage'
+import { CatalogPlaceholderPage } from './pages/content/CatalogPlaceholderPage'
 import { CollectionEditPage } from './pages/content/CollectionEditPage'
 import { CollectionsListPage } from './pages/content/CollectionsListPage'
 import { CompanyPageEditPage } from './pages/content/CompanyPageEditPage'
@@ -111,6 +112,7 @@ function App() {
             <Route path="banners" element={<BannersListPage />} />
             <Route path="banners/new" element={<BannerEditPage />} />
             <Route path="banners/:id" element={<BannerEditPage />} />
+            <Route path="placeholder" element={<CatalogPlaceholderPage />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

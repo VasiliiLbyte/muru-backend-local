@@ -1,4 +1,5 @@
 import type {
+  CatalogPlaceholderSettingsInput,
   CdekSettingsInput,
   ContactSettingsInput,
   IntegrationsStatus,
@@ -20,6 +21,12 @@ export const updateContactSettings = (body: ContactSettingsInput) =>
 
 export const updateRequisitesSettings = (body: RequisitesSettingsInput) =>
   apiFetch<SiteSettingsDto>(`${CRM_BASE}/site/requisites`, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  })
+
+export const updateCatalogPlaceholderSettings = (body: CatalogPlaceholderSettingsInput) =>
+  apiFetch<SiteSettingsDto>(`${CRM_BASE}/site/catalog-placeholder`, {
     method: 'PUT',
     body: JSON.stringify(body),
   })

@@ -26,8 +26,10 @@ import {
 import { conflictError, slugify } from './crm-catalog.helpers'
 import { validateProductDimsUpdate } from './admin-product-dims.validation'
 import { applyStockDelta, type StockActor } from './stock-movements.service'
-
-const DEFAULT_IMAGE_URL = 'https://placehold.co/1200x1200?text=MURU'
+import {
+  applyPlaceholderToImageUrls,
+  getCatalogPlaceholderImageUrl,
+} from './catalog-placeholder.service'
 
 export type CrmCatalogMeta = {
   catalogSource: 'sheets' | 'crm'
@@ -156,23 +158,30 @@ const listMeta = () => ({
   readOnly: env.catalogSource !== 'crm',
 })
 
-const pickImageUrl = (row: Pick<ProductRow, 'image_urls' | 'image_url_1'>): string | null => {
-  if (Array.isArray(row.image_urls) && typeof row.image_urls[0] === 'string') {
-    return row.image_urls[0]
-  }
-  return row.image_url_1?.trim() || null
+const pickImageUrl = (
+  row: Pick<ProductRow, 'image_urls' | 'image_url_1'>,
+  placeholder: string,
+): string => {
+  const raw = Array.isArray(row.image_urls)
+    ? row.image_urls.filter((u): u is string => Boolean(u))
+    : [row.image_url_1].filter((u): u is string => Boolean(u?.trim()))
+  return applyPlaceholderToImageUrls(raw, placeholder)[0] ?? placeholder
 }
 
 const normalizeImageUrls = (
   imageUrls: string[] | undefined,
   imageUrl1: string | undefined,
   imageUrl2: string | undefined,
+  placeholder: string,
 ): { imageUrl1: string; imageUrl2: string; imageUrls: string[] } => {
   const urls = imageUrls?.filter(Boolean) ?? []
-  const first = urls[0] ?? imageUrl1?.trim() ?? DEFAULT_IMAGE_URL
+  const first = urls[0] ?? imageUrl1?.trim() ?? placeholder
   const second = urls[1] ?? imageUrl2?.trim() ?? first
   const normalized = urls.length > 0 ? urls.slice(0, 3) : [first]
-  return { imageUrl1: first, imageUrl2: second, imageUrls: normalized }
+  const applied = applyPlaceholderToImageUrls(normalized, placeholder)
+  const outFirst = applied[0] ?? placeholder
+  const outSecond = applied[1] ?? outFirst
+  return { imageUrl1: outFirst, imageUrl2: outSecond, imageUrls: applied }
 }
 
 const toIsoOrNull = (value: Date | string | null | undefined): string | null => {
@@ -181,7 +190,7 @@ const toIsoOrNull = (value: Date | string | null | undefined): string | null => 
   return value
 }
 
-const mapListRow = (row: ProductRow): CrmCatalogListItem => ({
+const mapListRow = (row: ProductRow, placeholder: string): CrmCatalogListItem => ({
   id: row.id,
   sku: row.sku,
   slug: row.slug,
@@ -195,10 +204,15 @@ const mapListRow = (row: ProductRow): CrmCatalogListItem => ({
   newArrivalAt: toIsoOrNull(row.new_arrival_at),
   categoryName: row.category_name,
   webSubcategoryName: row.web_subcategory_name,
-  imageUrl: pickImageUrl(row),
+  imageUrl: pickImageUrl(row, placeholder),
 })
 
-const mapDetailRow = (row: ProductRow): CrmCatalogProductDetail => ({
+const mapDetailRow = (row: ProductRow, placeholder: string): CrmCatalogProductDetail => {
+  const rawUrls = Array.isArray(row.image_urls)
+    ? row.image_urls.filter(Boolean)
+    : [row.image_url_1, row.image_url_2].filter(Boolean)
+  const imageUrls = applyPlaceholderToImageUrls(rawUrls, placeholder)
+  return {
   id: row.id,
   sku: row.sku,
   slug: row.slug,
@@ -212,11 +226,9 @@ const mapDetailRow = (row: ProductRow): CrmCatalogProductDetail => ({
   isNewArrival: row.is_new_arrival,
   newArrivalAt: toIsoOrNull(row.new_arrival_at),
   specs: row.specs ?? {},
-  imageUrls: Array.isArray(row.image_urls)
-    ? row.image_urls.filter(Boolean)
-    : [row.image_url_1, row.image_url_2].filter(Boolean),
-  imageUrl1: row.image_url_1,
-  imageUrl2: row.image_url_2,
+  imageUrls,
+  imageUrl1: imageUrls[0] ?? placeholder,
+  imageUrl2: imageUrls[1] ?? imageUrls[0] ?? placeholder,
   categoryId: row.category_id,
   categoryName: row.category_name,
   webSubcategoryName: row.web_subcategory_name,
@@ -235,7 +247,8 @@ const mapDetailRow = (row: ProductRow): CrmCatalogProductDetail => ({
   dimsSource: row.dims_source,
   weightSource: row.weight_source,
   updatedAt: row.updated_at,
-})
+}
+}
 
 const PRODUCT_SELECT = `
   p.id,
@@ -414,8 +427,10 @@ export const listCrmCatalogProducts = async (
     listParams,
   )
 
+  const placeholder = await getCatalogPlaceholderImageUrl()
+
   return {
-    items: listResult.rows.map(mapListRow),
+    items: listResult.rows.map((row) => mapListRow(row, placeholder)),
     total,
     page,
     pageSize,
@@ -439,7 +454,7 @@ export const getCrmCatalogProductById = async (id: number): Promise<CrmCatalogPr
     [id],
   )
 
-  const product = mapDetailRow(result.rows[0])
+  const product = mapDetailRow(result.rows[0], await getCatalogPlaceholderImageUrl())
   product.subcategoryIds = subIdsResult.rows.map((row) => row.subcategory_id)
   return product
 }
@@ -554,7 +569,12 @@ export const createCrmCatalogProduct = async (
     await validateSubcategoryIdsExist(input.subcategoryIds)
   }
 
-  const images = normalizeImageUrls(input.imageUrls, input.imageUrl1, input.imageUrl2)
+  const images = normalizeImageUrls(
+    input.imageUrls,
+    input.imageUrl1,
+    input.imageUrl2,
+    await getCatalogPlaceholderImageUrl(),
+  )
   const dims = extractDimsInput(input)
   const denorm =
     input.subcategoryIds !== undefined
@@ -730,7 +750,12 @@ export const updateCrmCatalogProduct = async (
     sets.push(`specs = $${params.length}::jsonb`)
   }
   if (input.imageUrls !== undefined || input.imageUrl1 !== undefined || input.imageUrl2 !== undefined) {
-    const images = normalizeImageUrls(input.imageUrls, input.imageUrl1, input.imageUrl2)
+    const images = normalizeImageUrls(
+      input.imageUrls,
+      input.imageUrl1,
+      input.imageUrl2,
+      await getCatalogPlaceholderImageUrl(),
+    )
     params.push(images.imageUrl1)
     sets.push(`image_url_1 = $${params.length}`)
     params.push(images.imageUrl2)

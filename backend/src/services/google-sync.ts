@@ -45,6 +45,7 @@ import {
 import { PRODUCT_UPSERT_VALUES_SQL } from './google-sync-upsert-sql'
 import { extractDriveFileId } from '../utils/drive-file-id'
 import { CATALOG_SPEC_MAPPING } from './crm-catalog-sheet-map'
+import { getCatalogPlaceholderImageUrl } from './catalog-placeholder.service'
 
 type SyncProduct = Product & {
   webSubcategoryName: string | null
@@ -64,7 +65,6 @@ const rowSchema = z.object({
   variants: z.string().default(''),
 })
 
-const DEFAULT_IMAGE_URL = 'https://placehold.co/1200x1200?text=MURU'
 const DB_CHUNK_SIZE = 40
 const DB_PROGRESS_EVERY = 10
 
@@ -243,9 +243,12 @@ const upsertProductWithClient = async (
   product: SyncProduct,
   categoryId: number,
   categoryCache: Map<string, number>,
+  placeholderUrl: string,
 ): Promise<void> => {
-  const imageUrl1 = product.imageUrls[0] ?? DEFAULT_IMAGE_URL
-  const imageUrl2 = product.imageUrls[1] ?? imageUrl1
+  const imageUrls =
+    product.imageUrls.length > 0 ? product.imageUrls.slice(0, 3) : [placeholderUrl]
+  const imageUrl1 = imageUrls[0] ?? placeholderUrl
+  const imageUrl2 = imageUrls[1] ?? imageUrl1
   const productResult = await client.query<{ id: number }>(
     `INSERT INTO products (sku, name, description, price, discount_percent, in_stock, specs, image_url_1, image_url_2, image_urls, category_id, color, color_tags, size, dimensions_label, web_subcategory_name, web_subcategory_slug, slug, updated_at)
      VALUES ${PRODUCT_UPSERT_VALUES_SQL}
@@ -280,7 +283,7 @@ const upsertProductWithClient = async (
       JSON.stringify(product.specs),
       imageUrl1,
       imageUrl2,
-      JSON.stringify(product.imageUrls),
+      JSON.stringify(imageUrls),
       categoryId,
       product.color ?? null,
       product.colorTags ?? [],
@@ -311,14 +314,17 @@ const upsertProductWithClient = async (
   }
 }
 
-const upsertOneProductIsolated = async (product: SyncProduct): Promise<void> => {
+const upsertOneProductIsolated = async (
+  product: SyncProduct,
+  placeholderUrl: string,
+): Promise<void> => {
   const client = await pool.connect()
   try {
     await client.query('BEGIN')
     const primaryCategory = mapSheetSectionToTopLevel(product.categoryNames[0] ?? '')
     const categoryId = await ensureCategoryId(client, new Map(), primaryCategory)
     const categoryCache = new Map<string, number>()
-    await upsertProductWithClient(client, product, categoryId, categoryCache)
+    await upsertProductWithClient(client, product, categoryId, categoryCache, placeholderUrl)
     await client.query('COMMIT')
   } catch (error) {
     await client.query('ROLLBACK')
@@ -337,6 +343,7 @@ const upsertProductsBatched = async (
   const total = products.length
   const client = await pool.connect()
   const categoryCache = new Map<string, number>()
+  const placeholderUrl = await getCatalogPlaceholderImageUrl()
 
   try {
     for (let offset = 0; offset < products.length; offset += DB_CHUNK_SIZE) {
@@ -346,7 +353,13 @@ const upsertProductsBatched = async (
         for (const product of chunk) {
           const primaryCategory = mapSheetSectionToTopLevel(product.categoryNames[0] ?? '')
           const categoryId = await ensureCategoryId(client, categoryCache, primaryCategory)
-          await upsertProductWithClient(client, product, categoryId, categoryCache)
+          await upsertProductWithClient(
+            client,
+            product,
+            categoryId,
+            categoryCache,
+            placeholderUrl,
+          )
         }
         await client.query('COMMIT')
         synced += chunk.length
@@ -354,7 +367,7 @@ const upsertProductsBatched = async (
         await client.query('ROLLBACK')
         for (const product of chunk) {
           try {
-            await upsertOneProductIsolated(product)
+            await upsertOneProductIsolated(product, placeholderUrl)
             synced += 1
           } catch (error) {
             const dbReason = error instanceof Error ? error.message : 'Unknown DB error'

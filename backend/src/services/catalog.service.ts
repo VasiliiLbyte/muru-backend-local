@@ -10,6 +10,10 @@ import {
 } from './catalog-sale.helpers'
 import { buildProductTextSearchCondition } from './catalog-product-search'
 import { slugify } from './crm-catalog.helpers'
+import {
+  applyPlaceholderToImageUrls,
+  getCatalogPlaceholderImageUrl,
+} from './catalog-placeholder.service'
 import { pool } from '../utils/db'
 import type {
   CatalogNode,
@@ -411,6 +415,7 @@ export const getCatalogProducts = async (params: {
     values,
   )
 
+  const placeholder = await getCatalogPlaceholderImageUrl()
   const grouped = new Map<string, CatalogProductListItem>()
   for (const row of result.rows) {
     if (!grouped.has(row.sku)) {
@@ -421,7 +426,10 @@ export const getCatalogProducts = async (params: {
         price: Number(row.price),
         discountPercent: Number(row.discount_percent) || 0,
         inStock: row.in_stock,
-        imageUrls: normalizeImageUrls(row.image_urls, row.image_url_1, row.image_url_2),
+        imageUrls: applyPlaceholderToImageUrls(
+          normalizeImageUrls(row.image_urls, row.image_url_1, row.image_url_2),
+          placeholder,
+        ),
         colors: [],
         sizes: [],
         category: row.category_name ?? 'Без категории',
@@ -556,7 +564,10 @@ export const getCatalogProductBySku = async (
     price: Number(first.price),
     discountPercent: Number(first.discount_percent) || 0,
     inStock: first.in_stock,
-    imageUrls: normalizeImageUrls(first.image_urls, first.image_url_1, first.image_url_2),
+    imageUrls: applyPlaceholderToImageUrls(
+      normalizeImageUrls(first.image_urls, first.image_url_1, first.image_url_2),
+      await getCatalogPlaceholderImageUrl(),
+    ),
     colors: dotColors,
     sizes: Array.from(sizes),
     category: first.category_name ?? 'Без категории',

@@ -6,6 +6,14 @@ vi.mock('../utils/db', () => ({
   pool: { query: (...args: unknown[]) => queryMock(...args) },
 }))
 
+vi.mock('./catalog-placeholder.service', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./catalog-placeholder.service')>()
+  return {
+    ...actual,
+    getCatalogPlaceholderImageUrl: vi.fn(async () => '/uploads/catalog-placeholder.webp'),
+  }
+})
+
 import {
   getCatalogProductBySku,
   getCatalogProducts,

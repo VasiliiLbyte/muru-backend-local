@@ -42,6 +42,7 @@ import {
   updateContactSettings,
   updateRequisitesSettings,
   updateYookassaSettings,
+  updateCatalogPlaceholderSettings,
 } from './site-settings.service'
 import { invalidateRuntimeConfigCache } from './runtime-config.service'
 
@@ -81,6 +82,7 @@ const fullRow = {
   cdek_default_height_cm: null,
   yookassa_vat_code: null,
   yookassa_verify_ip: null,
+  catalog_placeholder_image_url: null,
   updated_at: new Date('2026-08-01T00:00:00.000Z'),
 }
 
@@ -99,6 +101,7 @@ const nullCdekYk = {
   cdekDefaultHeightCm: null,
   yookassaVatCode: null,
   yookassaVerifyIp: null,
+  catalogPlaceholderImageUrl: null,
 }
 
 describe('site-settings.service', () => {
@@ -333,6 +336,25 @@ describe('site-settings.service', () => {
     expect(result.yookassaVatCode).toBe(4)
     expect(result.yookassaVerifyIp).toBe(false)
     expect(invalidateRuntimeConfigCache).toHaveBeenCalled()
+  })
+
+  it('updateCatalogPlaceholderSettings persists URL and returns DTO', async () => {
+    mockPoolQuery
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            ...fullRow,
+            catalog_placeholder_image_url: '/uploads/catalog-placeholder.webp',
+          },
+        ],
+      })
+
+    const result = await updateCatalogPlaceholderSettings({
+      catalogPlaceholderImageUrl: '/uploads/catalog-placeholder.webp',
+    })
+    expect(result.catalogPlaceholderImageUrl).toBe('/uploads/catalog-placeholder.webp')
+    expect(String(mockPoolQuery.mock.calls[0][0])).toContain('catalog_placeholder_image_url')
   })
 
   it('getIntegrationsStatus returns booleans + shop ids, never secrets', () => {
