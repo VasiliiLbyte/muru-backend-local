@@ -1,6 +1,5 @@
 import type { OrderDraft } from '../types/order'
 import { callTelegramApi } from './telegram-http.service'
-import { sendEmail } from './email.service'
 import { env } from '../utils/env'
 
 const formatOrderSummary = (order: OrderDraft) =>
@@ -22,36 +21,6 @@ export const notifyAdminsByTelegram = async (order: OrderDraft): Promise<void> =
       text: summary,
     })
   }
-}
-
-export const notifyByEmail = async (order: OrderDraft): Promise<void> => {
-  const itemsHtml = order.items
-    .map(
-      (item) => `<tr>
-      <td>${item.name}</td>
-      <td>${item.quantity} шт.</td>
-      <td>${item.price.toFixed(2)} ₽</td>
-    </tr>`,
-    )
-    .join('')
-
-  await sendEmail({
-    to: env.orderNotifyEmail || 'Muru_online@mail.ru',
-    subject: `Новый заказ MURU #${order.id}`,
-    html: `
-      <h2>Новый заказ #${order.id}</h2>
-      <p><strong>Telegram ID:</strong> ${order.telegramUserId}</p>
-      <p><strong>Доставка:</strong> ${order.deliveryMode === 'pickup' ? 'Самовывоз' : (order.deliveryOption ?? 'Доставка')}</p>
-      <p><strong>Адрес:</strong> ${order.address || '—'}</p>
-      <p><strong>Комментарий:</strong> ${order.comment || '—'}</p>
-      <table border="1" cellpadding="6" style="border-collapse:collapse">
-        <thead><tr><th>Товар</th><th>Количество</th><th>Цена</th></tr></thead>
-        <tbody>${itemsHtml}</tbody>
-      </table>
-      <p><strong>Итого: ${order.total.toFixed(2)} ₽</strong></p>
-      <p>Дата: ${new Date().toLocaleString('ru-RU')}</p>
-    `,
-  })
 }
 
 export const notifyClientStatusChange = async (

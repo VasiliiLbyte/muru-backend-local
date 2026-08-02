@@ -39,6 +39,8 @@ export const sendEmail = async (options: {
   to: string
   subject: string
   html: string
+  from?: string
+  replyTo?: string
 }): Promise<void> => {
   const transport = createTransport()
 
@@ -56,12 +58,15 @@ export const sendEmail = async (options: {
     return
   }
 
+  const from = options.from ?? `"${env.emailFromName}" <${env.smtpUser}>`
+
   try {
     await transport.sendMail({
-      from: `"MURU Home Design" <${env.smtpUser}>`,
+      from,
       to: options.to,
       subject: options.subject,
       html: options.html,
+      ...(options.replyTo ? { replyTo: options.replyTo } : {}),
     })
   } catch (error) {
     console.error('[email] sendMail failed:', error)

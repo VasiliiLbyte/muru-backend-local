@@ -221,9 +221,103 @@ export const getPaymentStatusForUser = async (
   return { status: row.status, orderId: row.order_id }
 }
 
+export type WebPaymentOrderSummary = {
+  id: number
+  items: Array<{
+    name: string
+    quantity: number
+    price: number
+    color?: string | null
+    size?: string | null
+  }>
+  subtotal: number
+  deliveryPrice: number
+  total: number
+  deliveryMode: string
+  deliveryOption?: string | null
+  cdekPvzAddress?: string | null
+  address?: string | null
+  recipientName?: string | null
+  deliveryEta?: string | null
+}
+
+export type WebPaymentStatus = {
+  status: string
+  orderId: number | null
+  order?: WebPaymentOrderSummary
+}
+
+const loadWebOrderSummary = async (orderId: number): Promise<WebPaymentOrderSummary | null> => {
+  const orderRes = await pool.query<{
+    id: number
+    subtotal: string
+    delivery_price: string
+    total: string
+    delivery_mode: string
+    delivery_option: string | null
+    cdek_pvz_address: string | null
+    address: string | null
+    cdek_recipient_name: string | null
+    delivery_eta: string | null
+  }>(
+    `SELECT id, subtotal::text, delivery_price::text, total::text, delivery_mode, delivery_option,
+            cdek_pvz_address, address, cdek_recipient_name, delivery_eta
+     FROM orders WHERE id=$1`,
+    [orderId],
+  )
+  const orderRow = orderRes.rows[0]
+  if (!orderRow) return null
+
+  const itemsRes = await pool.query<{
+    product_name: string
+    quantity: number
+    price: string
+    color: string | null
+    size: string | null
+  }>(
+    `SELECT product_name, quantity, price::text, color, size
+     FROM order_items WHERE order_id=$1 ORDER BY id ASC`,
+    [orderId],
+  )
+
+  return {
+    id: orderRow.id,
+    items: itemsRes.rows.map((item) => ({
+      name: item.product_name,
+      quantity: Number(item.quantity),
+      price: Number(item.price),
+      color: item.color,
+      size: item.size,
+    })),
+    subtotal: Number(orderRow.subtotal),
+    deliveryPrice: Number(orderRow.delivery_price),
+    total: Number(orderRow.total),
+    deliveryMode: orderRow.delivery_mode,
+    deliveryOption: orderRow.delivery_option,
+    cdekPvzAddress: orderRow.cdek_pvz_address,
+    address: orderRow.address,
+    recipientName: orderRow.cdek_recipient_name,
+    deliveryEta: orderRow.delivery_eta,
+  }
+}
+
+const withOptionalOrder = async (
+  status: string,
+  orderId: number | null,
+): Promise<WebPaymentStatus> => {
+  const result: WebPaymentStatus = { status, orderId }
+  if (status === 'succeeded' && orderId != null) {
+    const order = await loadWebOrderSummary(orderId)
+    if (order) {
+      result.order = order
+    }
+  }
+  return result
+}
+
 export const getWebPaymentStatus = async (
   yookassaPaymentId: string,
-): Promise<{ status: string; orderId: number | null } | null> => {
+): Promise<WebPaymentStatus | null> => {
   const r = await pool.query<{
     status: string
     order_id: number | null
@@ -235,7 +329,7 @@ export const getWebPaymentStatus = async (
   if (!row) return null
 
   if (row.status === 'succeeded' || row.order_id) {
-    return { status: row.status, orderId: row.order_id }
+    return withOptionalOrder(row.status, row.order_id)
   }
 
   const isPending = row.status === 'pending' || row.status === 'waiting_for_capture'
@@ -249,7 +343,7 @@ export const getWebPaymentStatus = async (
       if (orderId) {
         log.log?.('[yk-web-status] self-heal succeeded', { paymentId: yookassaPaymentId, orderId })
       }
-      return { status: 'succeeded', orderId: orderId ?? row.order_id }
+      return withOptionalOrder('succeeded', orderId ?? row.order_id)
     }
     if (yk?.status === 'canceled') {
       await markPaymentCanceled(yookassaPaymentId).catch(() => undefined)
@@ -257,7 +351,7 @@ export const getWebPaymentStatus = async (
     }
   }
 
-  return { status: row.status, orderId: row.order_id }
+  return withOptionalOrder(row.status, row.order_id)
 }
 
 export const getPaymentIntentStatusForUser = async (

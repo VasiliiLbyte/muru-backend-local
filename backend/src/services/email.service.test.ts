@@ -19,6 +19,7 @@ const envState = {
   smtpUser: '',
   smtpPass: '',
   smtpPort: 0,
+  emailFromName: 'MURU',
   storefrontPublicUrl: 'http://localhost:3000',
 }
 
@@ -94,5 +95,50 @@ describe('email.service', () => {
     expect(errSpy).toHaveBeenCalled()
     exitSpy.mockRestore()
     errSpy.mockRestore()
+  })
+
+  it('sendEmail uses env from name and optional replyTo', async () => {
+    envState.smtpHost = 'smtp.example.com'
+    envState.smtpUser = 'noreply@muru.ru'
+    envState.smtpPass = 'p'
+    envState.emailFromName = 'MURU'
+    mockSendMail.mockResolvedValueOnce({})
+
+    const { sendEmail } = await import('./email.service')
+    await sendEmail({
+      to: 'buyer@example.com',
+      subject: 'Hello',
+      html: '<p>Hi</p>',
+      replyTo: 'info@muru.ru',
+    })
+
+    expect(mockSendMail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        from: '"MURU" <noreply@muru.ru>',
+        to: 'buyer@example.com',
+        subject: 'Hello',
+        html: '<p>Hi</p>',
+        replyTo: 'info@muru.ru',
+      }),
+    )
+  })
+
+  it('sendEmail omits replyTo when not provided', async () => {
+    envState.smtpHost = 'smtp.example.com'
+    envState.smtpUser = 'noreply@muru.ru'
+    envState.smtpPass = 'p'
+    envState.emailFromName = 'MURU'
+    mockSendMail.mockResolvedValueOnce({})
+
+    const { sendEmail } = await import('./email.service')
+    await sendEmail({
+      to: 'buyer@example.com',
+      subject: 'Hello',
+      html: '<p>Hi</p>',
+    })
+
+    const payload = mockSendMail.mock.calls[0][0] as Record<string, unknown>
+    expect(payload.from).toBe('"MURU" <noreply@muru.ru>')
+    expect(payload).not.toHaveProperty('replyTo')
   })
 })

@@ -22,6 +22,11 @@ vi.mock('../order-notifications.service', () => ({
   notifyClientPaymentReceived: vi.fn().mockResolvedValue(undefined),
 }))
 
+const mockSendOrderEmails = vi.fn().mockResolvedValue(undefined)
+vi.mock('../order-email.service', () => ({
+  sendOrderEmails: (...args: unknown[]) => mockSendOrderEmails(...args),
+}))
+
 vi.mock('../../utils/env', () => ({
   env: { enableSheetsStockWrite: false, yookassa: { enabled: true } },
 }))
@@ -64,6 +69,7 @@ const snap = {
 describe('fulfillPaidPayment', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockSendOrderEmails.mockResolvedValue(undefined)
     mockPoolQuery.mockImplementation(async (sql: string) => {
       if (sql.includes('SELECT channel FROM payments')) {
         return { rows: [{ channel: 'telegram' }] }
@@ -138,6 +144,36 @@ describe('fulfillPaidPayment', () => {
       expect.stringContaining('order_id IS NULL RETURNING'),
       [99, 1],
     )
+    expect(mockSendOrderEmails).toHaveBeenCalledOnce()
+  })
+
+  it('still returns orderId when sendOrderEmails rejects', async () => {
+    const client = {
+      query: vi.fn().mockImplementation(async (sql: string) => {
+        if (sql === 'BEGIN' || sql === 'COMMIT' || sql === 'ROLLBACK') return { rows: [] }
+        if (sql.includes('FOR UPDATE')) {
+          return { rows: [{ id: 1, order_id: null, status: 'pending', checkout_snapshot: snap }] }
+        }
+        if (sql.includes("status='succeeded'")) return { rows: [] }
+        return { rows: [] }
+      }),
+      release: vi.fn(),
+    }
+    mockPoolConnect.mockResolvedValue(client)
+    mockPoolQuery.mockImplementation(async (sql: string) => {
+      if (sql.includes('SELECT channel FROM payments')) {
+        return { rows: [{ channel: 'telegram' }] }
+      }
+      if (sql.includes('order_id IS NULL RETURNING')) {
+        return { rows: [{ id: 1 }] }
+      }
+      return { rows: [] }
+    })
+    mockSendOrderEmails.mockRejectedValue(new Error('smtp down'))
+
+    const result = await fulfillPaidPayment('yk-email-fail')
+    expect(result).toBe(99)
+    expect(mockCreateOrder).toHaveBeenCalledOnce()
   })
 
   it('ignores duplicate fulfill when payment already linked', async () => {

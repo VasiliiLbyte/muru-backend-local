@@ -8,6 +8,7 @@ import {
   notifyAdminsPaymentReceived,
   notifyClientPaymentReceived,
 } from '../order-notifications.service'
+import { sendOrderEmails } from '../order-email.service'
 import type { DeliveryMode, OrderChannel } from '../../types/order'
 
 import { getYkPayment } from './client'
@@ -105,6 +106,11 @@ const completeOrderAfterPayment = async (
   void notifyClientPaymentReceived(order).catch((err) => {
     console.error(`[${logTag}:notify-client]`, err)
   })
+  void sendOrderEmails(order, {
+    email: snapshot.email ?? undefined,
+    recipientName: snapshot.recipientName ?? undefined,
+    phone: snapshot.recipientPhone ?? undefined,
+  }).catch((err) => console.error('[order-email]', err))
 
   log.log?.(`[${logTag}] order created from payment`, {
     orderId: order.id,
