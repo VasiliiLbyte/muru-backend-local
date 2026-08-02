@@ -88,6 +88,32 @@ export const notifyAdminsPaymentReceived = async (order: OrderDraft): Promise<vo
   }
 }
 
+const notifyAdminsText = async (text: string): Promise<void> => {
+  const targetIds = env.orderNotifyTelegramIds.length > 0 ? env.orderNotifyTelegramIds : env.adminTelegramIds
+  for (const chatId of targetIds) {
+    await callTelegramApi('sendMessage', {
+      chat_id: chatId,
+      text,
+    }).catch((error) => {
+      console.error('[notify-admins-refund:error]', error)
+    })
+  }
+}
+
+export const notifyAdminsRefundFull = async (orderId: number): Promise<void> => {
+  await notifyAdminsText(`↩️ Рефанд по заказу #${orderId} — товар возвращён на склад`)
+}
+
+export const notifyAdminsRefundPartial = async (
+  orderId: number,
+  refundAmount: number,
+  orderTotal: number,
+): Promise<void> => {
+  await notifyAdminsText(
+    `Частичный рефанд по #${orderId} — проверьте вручную (рефанд ${refundAmount.toFixed(2)} ₽ из ${orderTotal.toFixed(2)} ₽)`,
+  )
+}
+
 export const notifyClientPaymentReceived = async (order: OrderDraft): Promise<void> => {
   if (order.telegramUserId == null) return
   if (!env.telegramBotToken) return

@@ -6,16 +6,24 @@ const { mockGetEffectiveConfig } = vi.hoisted(() => ({
   })),
 }))
 
+const mockFulfill = vi.fn()
+const mockCancel = vi.fn()
+const mockHandleRefund = vi.fn()
+
 vi.mock('../services/runtime-config.service', () => ({
   getEffectiveConfig: (...args: unknown[]) => mockGetEffectiveConfig(...args),
 }))
 
 vi.mock('../services/yookassa/order-from-payment.service', () => ({
-  fulfillPaidPayment: vi.fn(),
-  markPaymentCanceled: vi.fn(),
+  fulfillPaidPayment: (...args: unknown[]) => mockFulfill(...args),
+  markPaymentCanceled: (...args: unknown[]) => mockCancel(...args),
 }))
 
-import { yookassaIpGuard } from './yookassa-webhook.controller'
+vi.mock('../services/yookassa/refund-webhook.service', () => ({
+  handleRefundSucceeded: (...args: unknown[]) => mockHandleRefund(...args),
+}))
+
+import { yookassaIpGuard, yookassaWebhookHandler } from './yookassa-webhook.controller'
 
 const makeReq = (
   ip: string,
@@ -36,10 +44,12 @@ const makeRes = () => {
       return this
     },
     end: vi.fn(),
+    json: vi.fn().mockReturnThis(),
   }
   return res as unknown as Parameters<typeof yookassaIpGuard>[1] & {
     statusCode: number
     end: ReturnType<typeof vi.fn>
+    json: ReturnType<typeof vi.fn>
   }
 }
 
@@ -75,6 +85,26 @@ describe('yookassaIpGuard', () => {
     )
   })
 
+  it('logs payment_id for refund.succeeded incoming', async () => {
+    const next = vi.fn()
+    await yookassaIpGuard(
+      makeReq('185.71.76.1', {
+        event: 'refund.succeeded',
+        object: { id: 'rf-1', payment_id: 'yk-pay-1' },
+      }),
+      makeRes(),
+      next,
+    )
+    expect(logSpy).toHaveBeenCalledWith(
+      '[yk-webhook] incoming',
+      expect.objectContaining({
+        event: 'refund.succeeded',
+        paymentId: 'yk-pay-1',
+        refundId: 'rf-1',
+      }),
+    )
+  })
+
   it('calls next when verifyIp is false regardless of IP', async () => {
     mockGetEffectiveConfig.mockResolvedValue({ yookassa: { verifyIp: false } })
     const next = vi.fn()
@@ -99,5 +129,70 @@ describe('yookassaIpGuard', () => {
     await yookassaIpGuard(makeReq('185.71.76.1'), res, next)
     expect(next).toHaveBeenCalled()
     expect(warnSpy).not.toHaveBeenCalled()
+  })
+})
+
+describe('yookassaWebhookHandler', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockFulfill.mockResolvedValue(99)
+    mockCancel.mockResolvedValue(undefined)
+    mockHandleRefund.mockResolvedValue(undefined)
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+  })
+
+  it('acks 200 and fulfills payment.succeeded with object.id', async () => {
+    const res = makeRes()
+    await yookassaWebhookHandler(
+      makeReq('185.71.76.1', {
+        event: 'payment.succeeded',
+        object: { id: 'yk-pay-ok' },
+      }),
+      res,
+      vi.fn(),
+    )
+    expect(res.statusCode).toBe(200)
+    expect(res.json).toHaveBeenCalledWith({ ok: true })
+    expect(mockFulfill).toHaveBeenCalledWith('yk-pay-ok')
+    expect(mockHandleRefund).not.toHaveBeenCalled()
+  })
+
+  it('passes payment_id (not refund id) to handleRefundSucceeded', async () => {
+    const res = makeRes()
+    await yookassaWebhookHandler(
+      makeReq('185.71.76.1', {
+        event: 'refund.succeeded',
+        object: {
+          id: 'rf-1',
+          payment_id: 'yk-pay-1',
+          amount: { value: '1350.00', currency: 'RUB' },
+        },
+      }),
+      res,
+      vi.fn(),
+    )
+    expect(res.json).toHaveBeenCalledWith({ ok: true })
+    expect(mockHandleRefund).toHaveBeenCalledWith({
+      paymentId: 'yk-pay-1',
+      refundAmount: '1350.00',
+      refundId: 'rf-1',
+    })
+    expect(mockFulfill).not.toHaveBeenCalled()
+  })
+
+  it('skips refund handler when payment_id missing', async () => {
+    const res = makeRes()
+    await yookassaWebhookHandler(
+      makeReq('185.71.76.1', {
+        event: 'refund.succeeded',
+        object: { id: 'rf-1', amount: { value: '10.00' } },
+      }),
+      res,
+      vi.fn(),
+    )
+    expect(res.json).toHaveBeenCalledWith({ ok: true })
+    expect(mockHandleRefund).not.toHaveBeenCalled()
   })
 })
