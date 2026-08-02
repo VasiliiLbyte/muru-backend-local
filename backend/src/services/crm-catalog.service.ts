@@ -25,6 +25,7 @@ import {
 } from './crm-catalog-subcategories.service'
 import { conflictError, slugify } from './crm-catalog.helpers'
 import { validateProductDimsUpdate } from './admin-product-dims.validation'
+import { applyStockDelta, type StockActor } from './stock-movements.service'
 
 const DEFAULT_IMAGE_URL = 'https://placehold.co/1200x1200?text=MURU'
 
@@ -638,6 +639,7 @@ export const createCrmCatalogProduct = async (
 export const updateCrmCatalogProduct = async (
   id: number,
   input: PatchCrmCatalogProductInput,
+  actor: StockActor = { type: 'system' },
 ): Promise<CrmCatalogProductDetail | null> => {
   assertCatalogCrmWritable()
   validateDimsOrThrow(input)
@@ -684,10 +686,7 @@ export const updateCrmCatalogProduct = async (
     params.push(input.discountPercent)
     sets.push(`discount_percent = $${params.length}`)
   }
-  if (input.inStock !== undefined) {
-    params.push(input.inStock)
-    sets.push(`in_stock = $${params.length}`)
-  }
+  // inStock is applied via applyStockDelta inside the transaction (journaled adjustment).
   if (input.categoryId !== undefined) {
     params.push(input.categoryId)
     sets.push(`category_id = $${params.length}`)
@@ -767,7 +766,8 @@ export const updateCrmCatalogProduct = async (
   }
 
   const hasSubcategorySync = input.subcategoryIds !== undefined
-  if (sets.length === 1 && !hasSubcategorySync) {
+  const hasStockChange = input.inStock !== undefined
+  if (sets.length === 1 && !hasSubcategorySync && !hasStockChange) {
     throw new Error('Нет полей для сохранения.')
   }
 
@@ -790,6 +790,28 @@ export const updateCrmCatalogProduct = async (
       if (exists.rows.length === 0) {
         await client.query('ROLLBACK')
         return null
+      }
+    }
+
+    if (hasStockChange) {
+      const stockRow = await client.query<{ sku: string; in_stock: number }>(
+        `SELECT sku, in_stock FROM products WHERE id = $1 FOR UPDATE`,
+        [id],
+      )
+      const row = stockRow.rows[0]
+      if (!row) {
+        await client.query('ROLLBACK')
+        return null
+      }
+      const delta = input.inStock! - Number(row.in_stock)
+      if (delta !== 0) {
+        await applyStockDelta(client, {
+          productSku: row.sku,
+          delta,
+          type: 'adjustment',
+          reason: 'Ручная корректировка',
+          actor,
+        })
       }
     }
 
@@ -823,12 +845,37 @@ export const setCrmCatalogProductArchived = async (
 export const updateCrmCatalogProductStock = async (
   id: number,
   inStock: number,
+  actor: StockActor = { type: 'system' },
 ): Promise<CrmCatalogProductDetail | null> => {
   assertCatalogCrmWritable()
-  const result = await pool.query(
-    `UPDATE products SET in_stock = $1, updated_at = NOW() WHERE id = $2`,
-    [inStock, id],
-  )
-  if ((result.rowCount ?? 0) === 0) return null
-  return getCrmCatalogProductById(id)
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+    const stockRow = await client.query<{ sku: string; in_stock: number }>(
+      `SELECT sku, in_stock FROM products WHERE id = $1 FOR UPDATE`,
+      [id],
+    )
+    const row = stockRow.rows[0]
+    if (!row) {
+      await client.query('ROLLBACK')
+      return null
+    }
+    const delta = inStock - Number(row.in_stock)
+    if (delta !== 0) {
+      await applyStockDelta(client, {
+        productSku: row.sku,
+        delta,
+        type: 'adjustment',
+        reason: 'Ручная корректировка',
+        actor,
+      })
+    }
+    await client.query('COMMIT')
+    return getCrmCatalogProductById(id)
+  } catch (error) {
+    await client.query('ROLLBACK')
+    throw error
+  } finally {
+    client.release()
+  }
 }

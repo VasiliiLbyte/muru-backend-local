@@ -13,6 +13,9 @@ import {
   renameCrmSubcategorySchema,
 } from '../schemas/crm-catalog.schemas'
 import { CatalogLockedError } from '../services/catalog-source.guard'
+import type { CrmRequest } from '../middleware/require-crm-auth.middleware'
+import { pool } from '../utils/db'
+import type { StockActor } from '../services/stock-movements.service'
 import {
   createCrmCategory,
   deleteCrmCategory,
@@ -97,6 +100,19 @@ const parseSortBy = (value: unknown): CrmCatalogSortBy | undefined => {
 const parseSortDir = (value: unknown): CrmCatalogSortDir | undefined => {
   if (value === 'asc' || value === 'desc') return value
   return undefined
+}
+
+const resolveCrmStockActor = async (req: Request): Promise<StockActor> => {
+  const adminId = (req as CrmRequest).crmAdmin?.adminId
+  if (adminId == null) return { type: 'system' }
+  const r = await pool.query<{ email: string }>(`SELECT email FROM admin_users WHERE id = $1`, [
+    adminId,
+  ])
+  return {
+    type: 'admin',
+    adminId,
+    label: r.rows[0]?.email ?? `admin:${adminId}`,
+  }
 }
 
 /** Returns undefined when absent; throws HttpError 400 when present but invalid. */
@@ -222,7 +238,7 @@ export const patchCrmCatalogProductHandler = async (
       throw new HttpError(400, zodErrorMessage(parsed.error.issues), 'VALIDATION', parsed.error.issues)
     }
 
-    const product = await updateCrmCatalogProduct(id, parsed.data)
+    const product = await updateCrmCatalogProduct(id, parsed.data, await resolveCrmStockActor(req))
     if (!product) {
       return fail(res, 404, 'Товар не найден.', 'NOT_FOUND')
     }
@@ -284,7 +300,11 @@ export const updateCrmCatalogProductStockHandler = async (
       throw new HttpError(400, zodErrorMessage(parsed.error.issues), 'VALIDATION', parsed.error.issues)
     }
 
-    const product = await updateCrmCatalogProductStock(id, parsed.data.inStock)
+    const product = await updateCrmCatalogProductStock(
+      id,
+      parsed.data.inStock,
+      await resolveCrmStockActor(req),
+    )
     if (!product) {
       return fail(res, 404, 'Товар не найден.', 'NOT_FOUND')
     }

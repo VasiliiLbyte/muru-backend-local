@@ -1,4 +1,5 @@
 import {
+  isTerminalOrderStatus,
   isValidOrderStatus,
   ORDER_STATUS_CANCELLED,
 } from '../constants/order-statuses'
@@ -6,6 +7,10 @@ import type { DeliveryMode, OrderChannel, OrderDraft, OrderItemInput } from '../
 import { pool } from '../utils/db'
 
 import { normalizeAdminOrdersPage, normalizeAdminOrdersPageSize } from './admin-orders.helpers'
+import {
+  settleOrderStockOnStatusChange,
+  type StockActor,
+} from './stock-movements.service'
 
 export type CrmOrderListItem = {
   id: number
@@ -79,7 +84,10 @@ export type CrmOrderPatch = {
   status?: string
   adminComment?: string
   deliveryEta?: string | null
+  actor?: StockActor
 }
+
+const SYSTEM_ACTOR: StockActor = { type: 'system' }
 
 const CUSTOMER_NAME_SQL = `CASE WHEN o.channel = 'web' THEN o.cdek_recipient_name ELSE up.full_name END`
 const CUSTOMER_PHONE_SQL = `CASE WHEN o.channel = 'web' THEN o.cdek_recipient_phone ELSE up.phone END`
@@ -475,30 +483,83 @@ export const updateCrmOrder = async (
   orderId: number,
   patch: CrmOrderPatch,
 ): Promise<{ order: CrmOrderDetail; previousStatus: string } | null> => {
+  if (patch.status !== undefined && !isValidOrderStatus(patch.status)) {
+    throw new Error(`Некорректный статус заказа: ${patch.status}`)
+  }
+
+  const actor: StockActor =
+    patch.actor ??
+    SYSTEM_ACTOR
+
+  // Status change goes through a transaction so settlement can restore stock atomically.
+  if (patch.status !== undefined) {
+    const client = await pool.connect()
+    let previousStatus = ''
+    try {
+      await client.query('BEGIN')
+      const existing = await client.query<{ status: string }>(
+        `SELECT status FROM orders WHERE id = $1 FOR UPDATE`,
+        [orderId],
+      )
+      if (existing.rows.length === 0) {
+        await client.query('ROLLBACK')
+        return null
+      }
+      previousStatus = existing.rows[0].status
+
+      const sets: string[] = ['updated_at = NOW()']
+      const params: unknown[] = []
+
+      params.push(patch.status)
+      sets.push(`status = $${params.length}`)
+      if (patch.status === 'Черновик') {
+        sets.push('is_draft = TRUE')
+      } else {
+        sets.push('is_draft = FALSE')
+      }
+
+      if (patch.adminComment !== undefined) {
+        params.push(patch.adminComment)
+        sets.push(`admin_comment = $${params.length}`)
+      }
+
+      if (patch.deliveryEta !== undefined) {
+        params.push(patch.deliveryEta)
+        sets.push(`delivery_eta = $${params.length}`)
+      }
+
+      params.push(orderId)
+      await client.query(`UPDATE orders SET ${sets.join(', ')} WHERE id = $${params.length}`, params)
+
+      await settleOrderStockOnStatusChange(client, {
+        orderId,
+        previousStatus,
+        newStatus: patch.status,
+        actor,
+      })
+
+      await client.query('COMMIT')
+    } catch (error) {
+      await client.query('ROLLBACK')
+      throw error
+    } finally {
+      client.release()
+    }
+
+    const order = await getCrmOrderById(orderId)
+    if (!order) return null
+    return { order, previousStatus }
+  }
+
   const existing = await pool.query<{ status: string }>(
     `SELECT status FROM orders WHERE id = $1`,
     [orderId],
   )
   if (existing.rows.length === 0) return null
-
   const previousStatus = existing.rows[0].status
-
-  if (patch.status !== undefined && !isValidOrderStatus(patch.status)) {
-    throw new Error(`Некорректный статус заказа: ${patch.status}`)
-  }
 
   const sets: string[] = ['updated_at = NOW()']
   const params: unknown[] = []
-
-  if (patch.status !== undefined) {
-    params.push(patch.status)
-    sets.push(`status = $${params.length}`)
-    if (patch.status === 'Черновик') {
-      sets.push('is_draft = TRUE')
-    } else if (patch.status) {
-      sets.push('is_draft = FALSE')
-    }
-  }
 
   if (patch.adminComment !== undefined) {
     params.push(patch.adminComment)
@@ -508,6 +569,12 @@ export const updateCrmOrder = async (
   if (patch.deliveryEta !== undefined) {
     params.push(patch.deliveryEta)
     sets.push(`delivery_eta = $${params.length}`)
+  }
+
+  if (sets.length === 1) {
+    const order = await getCrmOrderById(orderId)
+    if (!order) return null
+    return { order, previousStatus }
   }
 
   params.push(orderId)
@@ -533,28 +600,28 @@ export const cancelCrmOrder = async (orderId: number): Promise<CrmOrderDetail> =
       throw new Error('Заказ не найден.')
     }
 
-    if (orderResult.rows[0].status === ORDER_STATUS_CANCELLED) {
-      const err = new Error('Заказ уже отменён.')
+    const previousStatus = orderResult.rows[0].status
+    if (isTerminalOrderStatus(previousStatus)) {
+      const err = new Error(
+        previousStatus === ORDER_STATUS_CANCELLED
+          ? 'Заказ уже отменён.'
+          : 'Заказ уже в терминальном статусе.',
+      )
       ;(err as Error & { statusCode?: number }).statusCode = 409
       throw err
-    }
-
-    const itemsResult = await client.query<{ product_sku: string; quantity: number }>(
-      `SELECT product_sku, quantity FROM order_items WHERE order_id = $1`,
-      [orderId],
-    )
-
-    for (const item of itemsResult.rows) {
-      await client.query(
-        `UPDATE products SET in_stock = in_stock + $1 WHERE sku = $2`,
-        [item.quantity, item.product_sku],
-      )
     }
 
     await client.query(
       `UPDATE orders SET status = $1, is_draft = FALSE, updated_at = NOW() WHERE id = $2`,
       [ORDER_STATUS_CANCELLED, orderId],
     )
+
+    await settleOrderStockOnStatusChange(client, {
+      orderId,
+      previousStatus,
+      newStatus: ORDER_STATUS_CANCELLED,
+      actor: SYSTEM_ACTOR,
+    })
 
     await client.query('COMMIT')
   } catch (error) {

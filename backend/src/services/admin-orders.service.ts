@@ -1,4 +1,5 @@
 import {
+  isTerminalOrderStatus,
   isValidOrderStatus,
   ORDER_STATUS_CANCELLED,
 } from '../constants/order-statuses'
@@ -6,6 +7,7 @@ import type { DeliveryMode, OrderDraft, OrderItemInput } from '../types/order'
 import { pool } from '../utils/db'
 
 import { normalizeAdminOrdersPage, normalizeAdminOrdersPageSize } from './admin-orders.helpers'
+import { settleOrderStockOnStatusChange } from './stock-movements.service'
 
 export {
   normalizeAdminOrdersPage,
@@ -456,28 +458,28 @@ export const restockAdminOrder = async (orderId: number): Promise<AdminOrderDeta
       throw new Error('Order not found')
     }
 
-    if (orderResult.rows[0].status === ORDER_STATUS_CANCELLED) {
-      const err = new Error('Order is already cancelled')
+    const previousStatus = orderResult.rows[0].status
+    if (isTerminalOrderStatus(previousStatus)) {
+      const err = new Error(
+        previousStatus === ORDER_STATUS_CANCELLED
+          ? 'Order is already cancelled'
+          : 'Order is already in a terminal status',
+      )
       ;(err as Error & { statusCode?: number }).statusCode = 409
       throw err
-    }
-
-    const itemsResult = await client.query<{ product_sku: string; quantity: number }>(
-      `SELECT product_sku, quantity FROM order_items WHERE order_id = $1`,
-      [orderId],
-    )
-
-    for (const item of itemsResult.rows) {
-      await client.query(
-        `UPDATE products SET in_stock = in_stock + $1 WHERE sku = $2`,
-        [item.quantity, item.product_sku],
-      )
     }
 
     await client.query(
       `UPDATE orders SET status = $1, is_draft = FALSE, updated_at = NOW() WHERE id = $2`,
       [ORDER_STATUS_CANCELLED, orderId],
     )
+
+    await settleOrderStockOnStatusChange(client, {
+      orderId,
+      previousStatus,
+      newStatus: ORDER_STATUS_CANCELLED,
+      actor: { type: 'system' },
+    })
 
     await client.query('COMMIT')
   } catch (error) {

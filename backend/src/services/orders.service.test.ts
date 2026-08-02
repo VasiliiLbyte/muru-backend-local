@@ -18,6 +18,11 @@ vi.mock('./promo.service', () => ({
   PromoValidationError: class PromoValidationError extends Error {},
 }))
 
+const mockApplyStockDelta = vi.fn().mockResolvedValue({ before: 5, after: 4 })
+vi.mock('./stock-movements.service', () => ({
+  applyStockDelta: (...args: unknown[]) => mockApplyStockDelta(...args),
+}))
+
 import { createOrder, getOrdersByTelegramUserId } from './orders.service'
 
 describe('getOrdersByTelegramUserId', () => {
@@ -43,6 +48,7 @@ describe('getOrdersByTelegramUserId', () => {
 describe('createOrder', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockApplyStockDelta.mockResolvedValue({ before: 5, after: 4 })
     mockConnect.mockResolvedValue({
       query: mockClientQuery,
       release: vi.fn(),
@@ -102,9 +108,16 @@ describe('createOrder', () => {
       expect.stringContaining('DELETE FROM orders WHERE telegram_user_id = $1 AND is_draft = TRUE'),
       [123],
     )
-    expect(mockClientQuery).not.toHaveBeenCalledWith(
-      expect.stringContaining('UPDATE orders SET is_draft = FALSE'),
+    expect(mockApplyStockDelta).toHaveBeenCalledWith(
       expect.anything(),
+      expect.objectContaining({
+        productSku: 'MU0001',
+        delta: -1,
+        type: 'sale',
+        reason: 'Заказ #50',
+        orderId: 50,
+        actor: { type: 'system' },
+      }),
     )
   })
 

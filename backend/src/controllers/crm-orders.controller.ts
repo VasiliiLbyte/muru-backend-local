@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from 'express'
 import { z } from 'zod'
 
 import { isValidOrderStatus } from '../constants/order-statuses'
+import type { CrmRequest } from '../middleware/require-crm-auth.middleware'
 import { shouldNotifyConfirmed } from '../services/admin-orders.helpers'
 import {
   cancelCrmOrder,
@@ -11,8 +12,10 @@ import {
   updateCrmOrder,
 } from '../services/crm-orders.service'
 import { notifyClientStatusChange } from '../services/order-notifications.service'
+import type { StockActor } from '../services/stock-movements.service'
 import type { OrderChannel } from '../types/order'
 import { fail, HttpError, ok, zodErrorMessage } from '../utils/api-response'
+import { pool } from '../utils/db'
 
 const parseOrderId = (req: Request, res: Response): number | null => {
   const parsed = Number(req.params.id)
@@ -36,6 +39,18 @@ const patchBodySchema = z
   })
   .strict()
 
+const resolveCrmOrderActor = async (req: Request): Promise<StockActor> => {
+  const adminId = (req as CrmRequest).crmAdmin?.adminId
+  if (adminId == null) return { type: 'system' }
+  const r = await pool.query<{ email: string }>(`SELECT email FROM admin_users WHERE id = $1`, [
+    adminId,
+  ])
+  return {
+    type: 'admin',
+    adminId,
+    label: r.rows[0]?.email ?? `admin:${adminId}`,
+  }
+}
 export const listCrmOrdersHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const data = await listCrmOrders({
@@ -94,6 +109,7 @@ export const patchCrmOrderHandler = async (req: Request, res: Response, next: Ne
       status: parsed.data.status,
       adminComment: parsed.data.adminComment,
       deliveryEta: parsed.data.deliveryEta,
+      actor: await resolveCrmOrderActor(req),
     })
 
     if (!result) {

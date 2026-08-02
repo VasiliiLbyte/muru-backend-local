@@ -8,6 +8,7 @@ import {
 } from './promo.service'
 import { pool } from '../utils/db'
 import type { CheckoutDraftInput, OrderDraft, OrderHistoryItem, OrderItemInput } from '../types/order'
+import { applyStockDelta } from './stock-movements.service'
 
 const normalizeMoney = (value: number | undefined) => {
   if (typeof value !== 'number' || !Number.isFinite(value)) return 0
@@ -335,10 +336,14 @@ export const createOrder = async (input: CheckoutDraftInput): Promise<OrderDraft
     createdOrderId = order.id
     await replaceOrderItems(client, order.id, input.items)
     for (const item of input.items) {
-      await client.query(
-        `UPDATE products SET in_stock = GREATEST(0, in_stock - $1) WHERE sku = $2`,
-        [item.quantity, item.sku],
-      )
+      await applyStockDelta(client, {
+        productSku: item.sku,
+        delta: -item.quantity,
+        type: 'sale',
+        reason: `Заказ #${order.id}`,
+        orderId: order.id,
+        actor: { type: 'system' },
+      })
     }
     await client.query(
       `DELETE FROM orders WHERE telegram_user_id = $1 AND is_draft = TRUE`,

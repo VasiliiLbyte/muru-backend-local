@@ -9,7 +9,9 @@ import {
   notifyClientPaymentReceived,
 } from '../order-notifications.service'
 import { sendOrderEmails } from '../order-email.service'
+import { applyStockDelta } from '../stock-movements.service'
 import type { DeliveryMode, OrderChannel } from '../../types/order'
+import { ORDER_STATUS_CANCELLED } from '../../constants/order-statuses'
 
 import { getYkPayment } from './client'
 import type { CheckoutSnapshot } from './payments.service'
@@ -48,12 +50,29 @@ const snapshotToOrderInput = (snap: CheckoutSnapshot, paymentChargeId: string) =
 export const _snapshotToOrderInputForTests = snapshotToOrderInput
 
 const cancelOrphanOrder = async (orderId: number, items: { sku: string; quantity: number }[]) => {
-  await pool.query(`UPDATE orders SET status='Отменён', updated_at=NOW() WHERE id=$1`, [orderId])
-  for (const item of items) {
-    await pool.query(`UPDATE products SET in_stock = in_stock + $1 WHERE sku = $2`, [
-      item.quantity,
-      item.sku,
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+    await client.query(`UPDATE orders SET status=$1, updated_at=NOW() WHERE id=$2`, [
+      ORDER_STATUS_CANCELLED,
+      orderId,
     ])
+    for (const item of items) {
+      await applyStockDelta(client, {
+        productSku: item.sku,
+        delta: item.quantity,
+        type: 'return',
+        reason: `Дубль оплаты #${orderId}`,
+        orderId,
+        actor: { type: 'system' },
+      })
+    }
+    await client.query('COMMIT')
+  } catch (error) {
+    await client.query('ROLLBACK')
+    throw error
+  } finally {
+    client.release()
   }
 }
 

@@ -27,6 +27,11 @@ vi.mock('../order-email.service', () => ({
   sendOrderEmails: (...args: unknown[]) => mockSendOrderEmails(...args),
 }))
 
+const mockApplyStockDelta = vi.fn().mockResolvedValue({ before: 1, after: 2 })
+vi.mock('../stock-movements.service', () => ({
+  applyStockDelta: (...args: unknown[]) => mockApplyStockDelta(...args),
+}))
+
 vi.mock('../../utils/env', () => ({
   env: { enableSheetsStockWrite: false, yookassa: { enabled: true } },
 }))
@@ -201,6 +206,14 @@ describe('fulfillPaidPayment', () => {
     const result = await fulfillPaidPayment('yk-dup')
     expect(result).toBe(42)
     expect(mockCreateOrder).toHaveBeenCalledOnce()
+    expect(mockApplyStockDelta).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        type: 'return',
+        reason: 'Дубль оплаты #99',
+        orderId: 99,
+      }),
+    )
   })
 })
 
