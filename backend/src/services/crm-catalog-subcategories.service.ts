@@ -3,11 +3,36 @@ import type {
   PatchCrmSubcategoryInput,
 } from '../schemas/crm-catalog.schemas'
 import { pool } from '../utils/db'
+import { extractDriveFileId } from '../utils/drive-file-id'
 
 import { SALE_CATEGORY_NAME } from '../constants/catalog-top-level'
 
 import { assertCatalogCrmWritable } from './catalog-source.guard'
 import { conflictError, isUniqueViolation, slugify } from './crm-catalog.helpers'
+import { invalidateImageCache } from './image-proxy.service'
+
+/** Append/replace cache-bust `v` query param on cover URLs (C1). */
+export const withCoverCacheBust = (url: string, versionMs = Date.now()): string => {
+  const trimmed = url.trim()
+  if (!trimmed) return trimmed
+  try {
+    const hasScheme = /^[a-z][a-z0-9+.-]*:/i.test(trimmed)
+    const parsed = new URL(trimmed, hasScheme ? undefined : 'https://muru.local')
+    parsed.searchParams.delete('v')
+    parsed.searchParams.set('v', String(versionMs))
+    if (!hasScheme) {
+      return `${parsed.pathname}${parsed.search}${parsed.hash}`
+    }
+    return parsed.toString()
+  } catch {
+    const stripped = trimmed
+      .replace(/([?&])v=[^&]*/gi, '$1')
+      .replace(/[?&]$/, '')
+      .replace(/\?&/, '?')
+    const sep = stripped.includes('?') ? '&' : '?'
+    return `${stripped}${sep}v=${versionMs}`
+  }
+}
 
 export type CrmSubcategoryItem = {
   id: number
@@ -118,8 +143,18 @@ export const updateCrmSubcategory = async (
     sets.push(`slug = $${params.length}`)
   }
   if (input.coverImageUrl !== undefined) {
-    params.push(input.coverImageUrl)
+    const cover =
+      input.coverImageUrl === null || input.coverImageUrl.trim() === ''
+        ? null
+        : withCoverCacheBust(input.coverImageUrl)
+    params.push(cover)
     sets.push(`cover_image_url = $${params.length}`)
+    if (cover) {
+      const fileId = extractDriveFileId(cover)
+      if (fileId) {
+        void invalidateImageCache([fileId]).catch(() => undefined)
+      }
+    }
   }
   if (input.sortOrder !== undefined) {
     params.push(input.sortOrder)

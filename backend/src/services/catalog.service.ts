@@ -33,6 +33,7 @@ const parseCategoryPath = (value: string) =>
     .filter(Boolean)
 
 type ProductRow = {
+  id: number
   sku: string
   slug: string | null
   name: string
@@ -139,6 +140,12 @@ const attachProductSubcategories = async (nodes: CatalogNode[]): Promise<void> =
             s.cover_image_url
      FROM subcategories s
      JOIN categories c ON c.id = s.category_id
+     WHERE EXISTS (
+       SELECT 1
+       FROM product_subcategories ps
+       JOIN products p ON p.id = ps.product_id AND p.is_archived = FALSE
+       WHERE ps.subcategory_id = s.id
+     )
      ORDER BY c.slug, s.sort_order, s.name`,
   )
 
@@ -247,6 +254,76 @@ const attachWebFields = (
   if (cross) item.webCrossPlacement = cross
 }
 
+/** Batch-load all junction subcategory slugs for web product DTOs (ordered by position). */
+const loadWebSubcategorySlugsByProductId = async (
+  productIds: number[],
+): Promise<Map<number, string[]>> => {
+  const map = new Map<number, string[]>()
+  if (productIds.length === 0) return map
+  const result = await pool.query<{ product_id: number; slug: string }>(
+    `SELECT ps.product_id, s.slug
+     FROM product_subcategories ps
+     JOIN subcategories s ON s.id = ps.subcategory_id
+     WHERE ps.product_id = ANY($1::int[])
+     ORDER BY ps.product_id, ps.position, s.slug`,
+    [productIds],
+  )
+  for (const row of result.rows) {
+    const list = map.get(row.product_id) ?? []
+    list.push(row.slug)
+    map.set(row.product_id, list)
+  }
+  return map
+}
+
+const productInSubcategoryBySlugSql = (productAlias: string, slugParam: string): string =>
+  `EXISTS (
+     SELECT 1
+     FROM product_subcategories ps
+     JOIN subcategories s ON s.id = ps.subcategory_id
+     WHERE ps.product_id = ${productAlias}.id
+       AND s.slug = ${slugParam}
+   )`
+
+const productInSubcategoryBySlugUnderCategorySql = (
+  productAlias: string,
+  categorySlugParam: string,
+  subcategorySlugParam: string,
+): string =>
+  `EXISTS (
+     SELECT 1
+     FROM product_subcategories ps
+     JOIN subcategories s ON s.id = ps.subcategory_id
+     JOIN categories sc ON sc.id = s.category_id
+     WHERE ps.product_id = ${productAlias}.id
+       AND sc.slug = ${categorySlugParam}
+       AND s.slug = ${subcategorySlugParam}
+   )`
+
+const productInSubcategoryByNameSql = (productAlias: string, nameParam: string): string =>
+  `EXISTS (
+     SELECT 1
+     FROM product_subcategories ps
+     JOIN subcategories s ON s.id = ps.subcategory_id
+     WHERE ps.product_id = ${productAlias}.id
+       AND s.name ILIKE ${nameParam}
+   )`
+
+const productInSubcategoryByNameUnderCategorySql = (
+  productAlias: string,
+  categoryNameParam: string,
+  subcategoryNameParam: string,
+): string =>
+  `EXISTS (
+     SELECT 1
+     FROM product_subcategories ps
+     JOIN subcategories s ON s.id = ps.subcategory_id
+     JOIN categories sc ON sc.id = s.category_id
+     WHERE ps.product_id = ${productAlias}.id
+       AND sc.name ILIKE ${categoryNameParam}
+       AND s.name ILIKE ${subcategoryNameParam}
+   )`
+
 export const getCatalogProducts = async (params: {
   channel?: string
   category?: string
@@ -289,7 +366,7 @@ export const getCatalogProducts = async (params: {
         values.push(subcategorySlug)
         const subIdx = values.length
         conditions.push(
-          `((c.slug = $${catIdx} AND p.web_subcategory_slug = $${subIdx}) OR (c_cross.slug = $${catIdx} AND pwcp.subcategory_slug = $${subIdx}))`,
+          `((c.slug = $${catIdx} AND p.web_subcategory_slug = $${subIdx}) OR (c_cross.slug = $${catIdx} AND pwcp.subcategory_slug = $${subIdx}) OR ${productInSubcategoryBySlugUnderCategorySql('p', `$${catIdx}`, `$${subIdx}`)})`,
         )
       } else {
         conditions.push(
@@ -303,7 +380,7 @@ export const getCatalogProducts = async (params: {
         values.push(`%${subcategory}%`)
         const subIdx = values.length
         conditions.push(
-          `((c.name ILIKE $${catIdx} AND p.web_subcategory_name ILIKE $${subIdx}) OR (c_cross.name ILIKE $${catIdx} AND pwcp.subcategory_name ILIKE $${subIdx}) OR (${productInCategoryByNameSql('p', `$${catIdx}`)} AND p.web_subcategory_name ILIKE $${subIdx}))`,
+          `((c.name ILIKE $${catIdx} AND p.web_subcategory_name ILIKE $${subIdx}) OR (c_cross.name ILIKE $${catIdx} AND pwcp.subcategory_name ILIKE $${subIdx}) OR (${productInCategoryByNameSql('p', `$${catIdx}`)} AND p.web_subcategory_name ILIKE $${subIdx}) OR ${productInSubcategoryByNameUnderCategorySql('p', `$${catIdx}`, `$${subIdx}`)})`,
         )
       } else {
         conditions.push(
@@ -313,12 +390,12 @@ export const getCatalogProducts = async (params: {
     } else if (subcategorySlug) {
       values.push(subcategorySlug)
       conditions.push(
-        `(p.web_subcategory_slug = $${values.length} OR pwcp.subcategory_slug = $${values.length})`,
+        `(p.web_subcategory_slug = $${values.length} OR pwcp.subcategory_slug = $${values.length} OR ${productInSubcategoryBySlugSql('p', `$${values.length}`)})`,
       )
     } else if (subcategory) {
       values.push(`%${subcategory}%`)
       conditions.push(
-        `(p.web_subcategory_name ILIKE $${values.length} OR pwcp.subcategory_name ILIKE $${values.length})`,
+        `(p.web_subcategory_name ILIKE $${values.length} OR pwcp.subcategory_name ILIKE $${values.length} OR ${productInSubcategoryByNameSql('p', `$${values.length}`)})`,
       )
     }
   } else {
@@ -388,6 +465,7 @@ export const getCatalogProducts = async (params: {
 
   const result = await pool.query<ProductRow>(
     `SELECT
+       p.id,
        p.sku,
        p.slug,
        p.name,
@@ -417,8 +495,10 @@ export const getCatalogProducts = async (params: {
 
   const placeholder = await getCatalogPlaceholderImageUrl()
   const grouped = new Map<string, CatalogProductListItem>()
+  const productIdBySku = new Map<string, number>()
   for (const row of result.rows) {
     if (!grouped.has(row.sku)) {
+      productIdBySku.set(row.sku, row.id)
       const item: CatalogProductListItem = {
         sku: row.sku,
         slug: row.slug ?? '',
@@ -474,6 +554,16 @@ export const getCatalogProducts = async (params: {
     }
   }
 
+  if (web && productIdBySku.size > 0) {
+    const slugsById = await loadWebSubcategorySlugsByProductId([...productIdBySku.values()])
+    for (const [sku, item] of grouped) {
+      const id = productIdBySku.get(sku)
+      if (id == null) continue
+      const slugs = slugsById.get(id)
+      if (slugs && slugs.length > 0) item.webSubcategorySlugs = slugs
+    }
+  }
+
   return Array.from(grouped.values())
 }
 
@@ -501,6 +591,7 @@ export const getCatalogProductBySku = async (
 
   const result = await pool.query<ProductDetailRow>(
     `SELECT
+       p.id,
        p.sku,
        p.slug,
        p.name,
@@ -592,6 +683,12 @@ export const getCatalogProductBySku = async (
   if (first.color_tags?.length) detail.colorTags = first.color_tags
   detail.weightGrams = first.weight_grams
   attachWebFields(detail, first, web)
+
+  if (web) {
+    const slugsById = await loadWebSubcategorySlugsByProductId([first.id])
+    const slugs = slugsById.get(first.id)
+    if (slugs && slugs.length > 0) detail.webSubcategorySlugs = slugs
+  }
 
   return detail
 }

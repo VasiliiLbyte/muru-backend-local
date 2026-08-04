@@ -19,12 +19,28 @@ import {
   createCrmSubcategory,
   deleteCrmSubcategory,
   listCrmSubcategories,
+  updateCrmSubcategory,
+  withCoverCacheBust,
 } from './crm-catalog-subcategories.service'
+
+vi.mock('./image-proxy.service', () => ({
+  invalidateImageCache: vi.fn(async () => undefined),
+}))
 
 describe('crm-catalog-subcategories.service', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockEnv.catalogSource = 'crm'
+  })
+
+  it('withCoverCacheBust appends v= and replaces prior v', () => {
+    expect(withCoverCacheBust('https://drive.google.com/thumbnail?id=abc&sz=w1600', 1700000000000)).toContain(
+      'v=1700000000000',
+    )
+    expect(withCoverCacheBust('https://example.com/img.webp?v=1', 99)).toBe(
+      'https://example.com/img.webp?v=99',
+    )
+    expect(withCoverCacheBust('/img/fileId', 42)).toBe('/img/fileId?v=42')
   })
 
   it('listCrmSubcategories returns mapped rows ordered by sort_order', async () => {
@@ -77,6 +93,34 @@ describe('crm-catalog-subcategories.service', () => {
       message: 'Подкатегория с таким slug уже есть в этой категории.',
       statusCode: 409,
     })
+  })
+
+  it('updateCrmSubcategory versions coverImageUrl with v=', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rowCount: 1, rows: [] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: 9,
+            category_id: 5,
+            name: 'Bags',
+            slug: 'bags',
+            cover_image_url: 'https://drive.google.com/thumbnail?id=abc123&sz=w1600&v=1',
+            sort_order: 0,
+            product_count: 0,
+          },
+        ],
+      })
+
+    const updated = await updateCrmSubcategory(5, 9, {
+      coverImageUrl: 'https://drive.google.com/thumbnail?id=abc123&sz=w1600',
+    })
+
+    const updateSql = String(mockQuery.mock.calls[0][0])
+    const updateParams = mockQuery.mock.calls[0][1] as unknown[]
+    expect(updateSql).toContain('cover_image_url')
+    expect(String(updateParams[0])).toContain('v=')
+    expect(updated?.coverImageUrl).toContain('v=')
   })
 
   it('deleteCrmSubcategory returns 409 when active products exist', async () => {

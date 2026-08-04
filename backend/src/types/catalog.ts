@@ -119,6 +119,8 @@ export type CatalogProductListItem = {
   subcategory: string
   subcategorySlug?: string
   webPrimarySubcategory?: WebSubcategoryRef
+  /** All linked subcategory slugs via product_subcategories (web channel), ordered by position. */
+  webSubcategorySlugs?: string[]
   webCrossPlacement?: WebCrossPlacementRef
   color?: string
   dimensionsLabel?: string
