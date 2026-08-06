@@ -145,6 +145,22 @@ describe('crm-catalog.service', () => {
     expect(countParams).toContain(5)
   })
 
+  it('list subcategory filter includes junction EXISTS alongside denorm', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ total: '0' }] })
+      .mockResolvedValueOnce({ rows: [] })
+
+    await listCrmCatalogProducts({ subcategory: 'khranenie-i-poryadok', archived: 'false' })
+
+    const countSql = String(mockQuery.mock.calls[0][0])
+    const countParams = mockQuery.mock.calls[0][1] as unknown[]
+    expect(countSql).toContain('product_subcategories ps')
+    expect(countSql).toContain('s.slug = $')
+    expect(countSql).toContain('p.web_subcategory_slug')
+    expect(countParams).toContain('khranenie-i-poryadok')
+    expect(countParams).toContain('%khranenie-i-poryadok%')
+  })
+
   it('list without collectionId does not join content_collection_products', async () => {
     mockQuery
       .mockResolvedValueOnce({ rows: [{ total: '0' }] })

@@ -84,15 +84,40 @@ describe('crm-catalog-subcategories.service', () => {
     expect(mockQuery).toHaveBeenCalledTimes(1)
   })
 
+  it('createCrmSubcategory returns 409 when slug matches top category', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ name: 'Текстиль' }] })
+      .mockResolvedValueOnce({ rows: [{ ok: 1 }] })
+
+    await expect(createCrmSubcategory(5, { name: 'Кухня и столовая' })).rejects.toMatchObject({
+      message: 'Slug совпадает с категорией верхнего уровня. Выберите другое название.',
+      statusCode: 409,
+    })
+    expect(String(mockQuery.mock.calls[1][0])).toContain('FROM categories WHERE slug')
+  })
+
   it('createCrmSubcategory returns 409 on slug conflict', async () => {
     mockQuery
       .mockResolvedValueOnce({ rows: [{ name: 'Used' }] })
+      .mockResolvedValueOnce({ rows: [] })
       .mockRejectedValueOnce(Object.assign(new Error('duplicate'), { code: '23505' }))
 
     await expect(createCrmSubcategory(5, { name: 'Bags' })).rejects.toMatchObject({
       message: 'Подкатегория с таким slug уже есть в этой категории.',
       statusCode: 409,
     })
+  })
+
+  it('updateCrmSubcategory returns 409 when renamed slug matches top category', async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [{ ok: 1 }] })
+
+    await expect(
+      updateCrmSubcategory(5, 9, { name: 'Кухня и столовая' }),
+    ).rejects.toMatchObject({
+      message: 'Slug совпадает с категорией верхнего уровня. Выберите другое название.',
+      statusCode: 409,
+    })
+    expect(mockQuery).toHaveBeenCalledTimes(1)
   })
 
   it('updateCrmSubcategory versions coverImageUrl with v=', async () => {

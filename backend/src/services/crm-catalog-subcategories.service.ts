@@ -64,6 +64,19 @@ const mapRow = (row: SubcategoryRow): CrmSubcategoryItem => ({
   productCount: row.product_count,
 })
 
+/** Block subcategory slugs that collide with any top-level categories.slug (SF topByLeaf). */
+const assertSubcategorySlugNotTopCategory = async (slug: string): Promise<void> => {
+  const result = await pool.query<{ ok: number }>(
+    'SELECT 1 AS ok FROM categories WHERE slug = $1 LIMIT 1',
+    [slug],
+  )
+  if (result.rows.length > 0) {
+    throw conflictError(
+      'Slug совпадает с категорией верхнего уровня. Выберите другое название.',
+    )
+  }
+}
+
 const SUBCATEGORY_SELECT = `
   SELECT s.id, s.category_id, s.name, s.slug, s.cover_image_url, s.sort_order,
          COUNT(DISTINCT ps.product_id) FILTER (WHERE p.is_archived = FALSE)::int AS product_count
@@ -99,6 +112,7 @@ export const createCrmSubcategory = async (
 
   const name = input.name.trim()
   const slug = slugify(name)
+  await assertSubcategorySlugNotTopCategory(slug)
 
   try {
     const result = await pool.query<{ id: number }>(
@@ -134,12 +148,16 @@ export const updateCrmSubcategory = async (
     params.push(name)
     sets.push(`name = $${params.length}`)
     if (input.slug === undefined) {
-      params.push(slugify(name))
+      const autoSlug = slugify(name)
+      await assertSubcategorySlugNotTopCategory(autoSlug)
+      params.push(autoSlug)
       sets.push(`slug = $${params.length}`)
     }
   }
   if (input.slug !== undefined) {
-    params.push(input.slug.trim())
+    const nextSlug = input.slug.trim()
+    await assertSubcategorySlugNotTopCategory(nextSlug)
+    params.push(nextSlug)
     sets.push(`slug = $${params.length}`)
   }
   if (input.coverImageUrl !== undefined) {

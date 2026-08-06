@@ -323,7 +323,13 @@ const buildListFilters = (filters: CrmCatalogListFilters): FilterBuildResult => 
       params.push(`%${subcategory}%`)
       const likeIdx = params.length
       where.push(
-        `(p.web_subcategory_slug = $${idx} OR p.web_subcategory_name ILIKE $${likeIdx} OR p.subcategory_slug = $${idx} OR p.subcategory ILIKE $${likeIdx})`,
+        `(p.web_subcategory_slug = $${idx} OR p.web_subcategory_name ILIKE $${likeIdx} OR p.subcategory_slug = $${idx} OR p.subcategory ILIKE $${likeIdx} OR EXISTS (
+           SELECT 1
+           FROM product_subcategories ps
+           JOIN subcategories s ON s.id = ps.subcategory_id
+           WHERE ps.product_id = p.id
+             AND (s.slug = $${idx} OR s.name ILIKE $${likeIdx})
+         ))`,
       )
     }
   }
