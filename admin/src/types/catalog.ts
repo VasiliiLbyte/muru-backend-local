@@ -156,6 +156,51 @@ export type CrmCatalogImportResult = {
   errors: Array<{ row: number; sku?: string; message: string }>
 }
 
+/** Clean product XLSX import (IMPORT-001). */
+export type ProductImportMode = 'new' | 'upsert'
+
+export type ProductImportFieldError = {
+  field: string
+  message: string
+}
+
+export type ProductImportRowResult = {
+  row: number
+  sku: string
+  action: 'create' | 'update' | 'error'
+  errors: ProductImportFieldError[]
+}
+
+export type ProductImportSummary = {
+  toCreate: number
+  toUpdate: number
+  errorRows: number
+  total: number
+}
+
+export type ProductImportResult = {
+  importId?: number
+  summary: ProductImportSummary
+  rows: ProductImportRowResult[]
+}
+
+export type ProductImportLogSummary = ProductImportSummary
+
+export type ProductImportLogListItem = {
+  id: number
+  createdAt: string
+  filename: string
+  mode: ProductImportMode
+  adminId: number | null
+  adminEmail: string | null
+  summary: ProductImportLogSummary
+  durationMs: number | null
+}
+
+export type ProductImportLogDetail = ProductImportLogListItem & {
+  errors: Array<{ row: number; sku: string; field: string; message: string }>
+}
+
 export type CrmCategoryCreateBody = { name: string }
 
 export type CrmCategoryPatchBody = {

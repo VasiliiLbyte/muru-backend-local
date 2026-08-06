@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 
+import { ProductImportLogPanel } from '../../components/catalog/ProductImportLogPanel'
+import { ProductImportPanel } from '../../components/catalog/ProductImportPanel'
 import {
   Button,
   Card,
@@ -40,6 +42,7 @@ export const ImportExportPage = () => {
   const [report, setReport] = useState<CrmCatalogImportResult | null>(null)
   const [importSuccess, setImportSuccess] = useState(false)
   const [error, setError] = useState('')
+  const [logRefreshToken, setLogRefreshToken] = useState(0)
 
   const onExport = async (format: 'xlsx' | 'csv') => {
     setExporting(format)
@@ -118,6 +121,13 @@ export const ImportExportPage = () => {
       <PageHeader title="Импорт / Экспорт" />
       {error ? <p className="error-text">{error}</p> : null}
 
+      <ProductImportPanel
+        readOnly={readOnly}
+        onCommitted={() => setLogRefreshToken((n) => n + 1)}
+      />
+
+      <ProductImportLogPanel refreshToken={logRefreshToken} />
+
       <Card title="Экспорт">
         <div className="form-actions">
           <Button
@@ -140,9 +150,17 @@ export const ImportExportPage = () => {
         </div>
       </Card>
 
-      {!readOnly ? (
-        <Card title="Импорт">
+      <Card title="Импорт (Google-реестр)">
+        {readOnly ? (
+          <p className="muted-text">
+            Каталог в режиме Google Sheets — импорт реестра недоступен.
+          </p>
+        ) : (
           <div className="form-stack">
+            <p className="muted-text">
+              Legacy-формат Google Sheets / полный реестр. Для новых товаров используйте блок «Импорт
+              товаров» выше.
+            </p>
             <FileDropzone
               accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               fileName={file?.name ?? null}
@@ -172,11 +190,11 @@ export const ImportExportPage = () => {
               </Button>
             </div>
           </div>
-        </Card>
-      ) : null}
+        )}
+      </Card>
 
       {report ? (
-        <Card title="Отчёт импорта">
+        <Card title="Отчёт импорта (Google-реестр)">
           <div className="form-stack">
             <p>dryRun: {report.dryRun ? 'да' : 'нет'}</p>
             <p>Строк всего: {report.totalRows}</p>

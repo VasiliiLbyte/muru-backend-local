@@ -17,6 +17,10 @@ import type {
   CrmSubcategoryCreateBody,
   CrmSubcategoryItem,
   CrmSubcategoryPatchBody,
+  ProductImportLogDetail,
+  ProductImportLogListItem,
+  ProductImportMode,
+  ProductImportResult,
 } from '../types/catalog'
 import { ApiError, apiFetch } from './api'
 import { parseApiJson } from './parse-api-json'
@@ -209,3 +213,77 @@ export const downloadExport = async (
   const filename = parseFilename(res.headers.get('Content-Disposition'), fallback)
   return { blob, filename }
 }
+
+export const downloadProductImportTemplate = async (): Promise<{
+  blob: Blob
+  filename: string
+}> => {
+  const res = await fetch(`${CRM_BASE}/import/template`, {
+    credentials: 'include',
+  })
+
+  if (!res.ok) {
+    if (res.status === 401) {
+      window.location.assign('/admin/login')
+      throw new ApiError('Нужна авторизация. Войдите снова.', 401)
+    }
+    try {
+      const body = await parseApiJson<unknown>(res)
+      if (!body.success) {
+        throw new ApiError(body.error.message, res.status, body.error.code)
+      }
+    } catch (err) {
+      if (err instanceof ApiError) throw err
+      throw new ApiError('Не удалось скачать шаблон импорта', res.status)
+    }
+    throw new ApiError('Не удалось скачать шаблон импорта', res.status)
+  }
+
+  const blob = await res.blob()
+  const filename = parseFilename(
+    res.headers.get('Content-Disposition'),
+    'muru-product-import-template.xlsx',
+  )
+  return { blob, filename }
+}
+
+const postProductImport = async (
+  file: File,
+  mode: ProductImportMode,
+  dryRun: boolean,
+): Promise<ProductImportResult> => {
+  const form = new FormData()
+  form.append('file', file)
+
+  const res = await fetch(
+    `${CRM_BASE}/import/products?dryRun=${dryRun ? 'true' : 'false'}&mode=${mode}`,
+    {
+      method: 'POST',
+      credentials: 'include',
+      body: form,
+    },
+  )
+
+  const body = await parseApiJson<ProductImportResult>(res)
+  if (!body.success) {
+    if (res.status === 401) {
+      window.location.assign('/admin/login')
+    }
+    throw new ApiError(body.error.message, res.status, body.error.code)
+  }
+
+  return body.data
+}
+
+export const previewProductImport = (file: File, mode: ProductImportMode) =>
+  postProductImport(file, mode, true)
+
+export const commitProductImport = (file: File, mode: ProductImportMode) =>
+  postProductImport(file, mode, false)
+
+export const listProductImportLogs = () =>
+  apiFetch<{ items: ProductImportLogListItem[] }>(`${CRM_BASE}/import/log`)
+
+export const getProductImportLog = (id: number) =>
+  apiFetch<ProductImportLogDetail>(`${CRM_BASE}/import/log/${id}`)
+
