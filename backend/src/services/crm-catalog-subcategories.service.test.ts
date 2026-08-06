@@ -22,6 +22,7 @@ import {
   updateCrmSubcategory,
   withCoverCacheBust,
 } from './crm-catalog-subcategories.service'
+import { invalidateImageCache } from './image-proxy.service'
 
 vi.mock('./image-proxy.service', () => ({
   invalidateImageCache: vi.fn(async () => undefined),
@@ -120,7 +121,7 @@ describe('crm-catalog-subcategories.service', () => {
     expect(mockQuery).toHaveBeenCalledTimes(1)
   })
 
-  it('updateCrmSubcategory versions coverImageUrl with v=', async () => {
+  it('updateCrmSubcategory versions Drive cover and invalidates cache', async () => {
     mockQuery
       .mockResolvedValueOnce({ rowCount: 1, rows: [] })
       .mockResolvedValueOnce({
@@ -146,6 +147,36 @@ describe('crm-catalog-subcategories.service', () => {
     expect(updateSql).toContain('cover_image_url')
     expect(String(updateParams[0])).toContain('v=')
     expect(updated?.coverImageUrl).toContain('v=')
+    expect(invalidateImageCache).toHaveBeenCalledWith(['abc123'])
+  })
+
+  it('updateCrmSubcategory versions crm_ cover without invalidating cache', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rowCount: 1, rows: [] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: 9,
+            category_id: 5,
+            name: 'Bags',
+            slug: 'bags',
+            cover_image_url:
+              'https://drive.google.com/thumbnail?id=crm_deadbeef012345&sz=w1600&v=99',
+            sort_order: 0,
+            product_count: 0,
+          },
+        ],
+      })
+
+    const updated = await updateCrmSubcategory(5, 9, {
+      coverImageUrl: 'https://drive.google.com/thumbnail?id=crm_deadbeef012345&sz=w1600',
+    })
+
+    const updateParams = mockQuery.mock.calls[0][1] as unknown[]
+    expect(String(updateParams[0])).toContain('v=')
+    expect(String(updateParams[0])).toContain('crm_deadbeef012345')
+    expect(updated?.coverImageUrl).toContain('v=')
+    expect(invalidateImageCache).not.toHaveBeenCalled()
   })
 
   it('deleteCrmSubcategory returns 409 when active products exist', async () => {

@@ -169,7 +169,7 @@ export const updateCrmSubcategory = async (
     sets.push(`cover_image_url = $${params.length}`)
     if (cover) {
       const fileId = extractDriveFileId(cover)
-      if (fileId) {
+      if (fileId && !fileId.startsWith('crm_')) {
         void invalidateImageCache([fileId]).catch(() => undefined)
       }
     }
