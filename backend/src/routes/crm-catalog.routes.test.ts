@@ -4,6 +4,7 @@ import request from 'supertest'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockVerifyAdminJwt = vi.fn()
+const mockPoolQuery = vi.fn()
 const mockGetCrmCatalogMeta = vi.fn()
 const mockListCrmCatalogProducts = vi.fn()
 const mockCreateCrmCatalogProduct = vi.fn()
@@ -13,6 +14,16 @@ const mockCreateCrmCharacteristic = vi.fn()
 const mockUploadCrmCatalogImage = vi.fn()
 const mockExportCrmCatalog = vi.fn()
 const mockImportCrmCatalogFromBuffer = vi.fn()
+const mockGetCrmCatalogProductImportTemplate = vi.fn()
+const mockImportCrmCatalogProductsFromBuffer = vi.fn()
+const mockListCatalogProductImportLogs = vi.fn()
+const mockGetCatalogProductImportLogById = vi.fn()
+
+vi.mock('../utils/db', () => ({
+  pool: {
+    query: (...args: unknown[]) => mockPoolQuery(...args),
+  },
+}))
 
 vi.mock('../services/admin-auth.service', () => ({
   verifyAdminJwt: (...args: unknown[]) => mockVerifyAdminJwt(...args),
@@ -54,6 +65,22 @@ vi.mock('../services/crm-catalog-import.service', () => ({
   importCrmCatalogFromBuffer: (...args: unknown[]) => mockImportCrmCatalogFromBuffer(...args),
 }))
 
+vi.mock('../services/crm-catalog-import-template.service', () => ({
+  getCrmCatalogProductImportTemplate: (...args: unknown[]) =>
+    mockGetCrmCatalogProductImportTemplate(...args),
+}))
+
+vi.mock('../services/crm-catalog-product-import.service', () => ({
+  importCrmCatalogProductsFromBuffer: (...args: unknown[]) =>
+    mockImportCrmCatalogProductsFromBuffer(...args),
+}))
+
+vi.mock('../services/crm-catalog-product-import-log.service', () => ({
+  listCatalogProductImportLogs: (...args: unknown[]) => mockListCatalogProductImportLogs(...args),
+  getCatalogProductImportLogById: (...args: unknown[]) =>
+    mockGetCatalogProductImportLogById(...args),
+}))
+
 import { errorHandler } from '../middleware/error-handler.middleware'
 import { crmCatalogRouter } from '../routes/crm-catalog.routes'
 import { CatalogLockedError } from '../services/catalog-source.guard'
@@ -71,6 +98,7 @@ describe('crm catalog routes', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockVerifyAdminJwt.mockReturnValue({ adminId: 1, role: 'owner' })
+    mockPoolQuery.mockResolvedValue({ rows: [{ email: 'owner@muru.test' }] })
     mockGetCrmCatalogMeta.mockReturnValue({ catalogSource: 'sheets', readOnly: true })
     mockListCrmCatalogProducts.mockResolvedValue({
       items: [],
@@ -95,6 +123,17 @@ describe('crm catalog routes', () => {
       skipped: 0,
       errors: [],
     })
+    mockGetCrmCatalogProductImportTemplate.mockReturnValue({
+      buffer: Buffer.from('template-xlsx'),
+      contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      filename: 'muru-product-import-template.xlsx',
+    })
+    mockImportCrmCatalogProductsFromBuffer.mockResolvedValue({
+      summary: { toCreate: 1, toUpdate: 0, errorRows: 0, total: 1 },
+      rows: [{ row: 2, sku: 'MU1', action: 'create', errors: [] }],
+    })
+    mockListCatalogProductImportLogs.mockResolvedValue([])
+    mockGetCatalogProductImportLogById.mockResolvedValue(null)
   })
 
   it('GET /api/crm/catalog/products returns 401 without cookie', async () => {
@@ -266,5 +305,47 @@ describe('crm catalog routes', () => {
     expect(res.body.success).toBe(true)
     expect(res.body.data.dryRun).toBe(true)
     expect(mockImportCrmCatalogFromBuffer).toHaveBeenCalledWith(expect.any(Buffer), true)
+  })
+
+  it('GET /api/crm/catalog/import/template returns xlsx attachment', async () => {
+    const app = buildApp()
+    const res = await request(app)
+      .get('/api/crm/catalog/import/template')
+      .set('Cookie', 'admin_token=valid')
+    expect(res.status).toBe(200)
+    expect(res.headers['content-type']).toContain('spreadsheetml')
+    expect(res.headers['content-disposition']).toContain('muru-product-import-template.xlsx')
+    expect(mockGetCrmCatalogProductImportTemplate).toHaveBeenCalled()
+  })
+
+  it('POST /api/crm/catalog/import/products?dryRun=true&mode=new returns preview', async () => {
+    const app = buildApp()
+    const res = await request(app)
+      .post('/api/crm/catalog/import/products?dryRun=true&mode=new')
+      .set('Cookie', 'admin_token=valid')
+      .attach('file', Buffer.from('fake'), {
+        filename: 'products.xlsx',
+        contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      })
+    expect(res.status).toBe(200)
+    expect(res.body.success).toBe(true)
+    expect(res.body.data.summary.toCreate).toBe(1)
+    expect(mockImportCrmCatalogProductsFromBuffer).toHaveBeenCalledWith(
+      expect.any(Buffer),
+      expect.objectContaining({ dryRun: true, mode: 'new' }),
+    )
+  })
+
+  it('POST /api/crm/catalog/import/products without mode returns 400', async () => {
+    const app = buildApp()
+    const res = await request(app)
+      .post('/api/crm/catalog/import/products?dryRun=true')
+      .set('Cookie', 'admin_token=valid')
+      .attach('file', Buffer.from('fake'), {
+        filename: 'products.xlsx',
+        contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      })
+    expect(res.status).toBe(400)
+    expect(mockImportCrmCatalogProductsFromBuffer).not.toHaveBeenCalled()
   })
 })
