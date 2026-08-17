@@ -163,7 +163,7 @@ adminRouter.get('/sync-schedule', async (req, res, next) => {
 
   try {
     const { getSyncSchedule } = await import('../services/sync-schedule.service')
-    return ok(res, await getSyncSchedule())
+    return ok(res, { ...await getSyncSchedule(), syncAvailable: !env.isCatalogCrmMode })
   } catch (error) {
     next(error)
   }
@@ -171,6 +171,10 @@ adminRouter.get('/sync-schedule', async (req, res, next) => {
 
 adminRouter.put('/sync-schedule', async (req, res, next) => {
   if (!isAdminRequest(req)) return adminForbidden(res)
+
+  if (env.isCatalogCrmMode) {
+    return fail(res, 423, 'Catalog is managed via CRM; sync is disabled', 'LOCKED')
+  }
 
   try {
     const enabled = Boolean(req.body?.enabled)

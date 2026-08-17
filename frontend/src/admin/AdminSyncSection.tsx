@@ -166,6 +166,7 @@ export const AdminSyncSection = ({ userId, onOpenCategories }: AdminSyncSectionP
   }, [userId])
 
   const handleSaveSchedule = async () => {
+    if (schedule?.syncAvailable === false) return
     setScheduleSaving(true)
     setScheduleError(null)
     setScheduleNote(null)
@@ -186,6 +187,7 @@ export const AdminSyncSection = ({ userId, onOpenCategories }: AdminSyncSectionP
   }
 
   const handleSync = async () => {
+    if (schedule?.syncAvailable === false) return
     setIsLoading(true)
     setSyncStatus('in-progress')
     setError(null)
@@ -219,6 +221,8 @@ export const AdminSyncSection = ({ userId, onOpenCategories }: AdminSyncSectionP
     }
   }
 
+  const syncLocked = schedule?.syncAvailable === false
+
   return (
     <div className="space-y-4">
       <div>
@@ -227,6 +231,13 @@ export const AdminSyncSection = ({ userId, onOpenCategories }: AdminSyncSectionP
           Загрузка каталога из реестра и фото из Google Drive в базу приложения.
         </p>
       </div>
+
+      {syncLocked ? (
+        <div className="rounded-xl border border-[#d8cfbc] bg-[#fff5df] p-3 text-sm">
+          <p className="font-semibold text-muru-olive">Каталог управляется в CRM</p>
+          <p className="mt-1 text-[#5c5346]">Редактирование: murushop.ru/admin/catalog</p>
+        </div>
+      ) : null}
 
       <div className="grid gap-2 rounded-xl bg-[#efe8d8] p-3 text-sm">
         <p>
@@ -250,6 +261,7 @@ export const AdminSyncSection = ({ userId, onOpenCategories }: AdminSyncSectionP
         </p>
       </div>
 
+      {syncLocked ? null : (
       <div className="grid gap-2 sm:grid-cols-2">
         <button
           type="button"
@@ -275,9 +287,11 @@ export const AdminSyncSection = ({ userId, onOpenCategories }: AdminSyncSectionP
           Категории — обложки из Drive
         </button>
       </div>
+      )}
 
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
 
+      {syncLocked ? null : (
       <div className="rounded-xl bg-[#efe8d8] p-3 text-sm">
         <h3 className="font-semibold text-muru-olive">Автосинхронизация</h3>
         <p className="mt-1 text-[#5c5346]">
@@ -343,6 +357,7 @@ export const AdminSyncSection = ({ userId, onOpenCategories }: AdminSyncSectionP
           {scheduleSaving ? 'Сохранение…' : 'Сохранить'}
         </button>
       </div>
+      )}
 
       {isLoading && syncProgress ? (
         <div className="rounded-lg border border-[#d8cfbc] bg-[#fff5df] px-3 py-2 text-sm text-[#5c5346]">

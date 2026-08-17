@@ -4,6 +4,8 @@ import { basename, resolve } from 'node:path'
 import dotenv from 'dotenv'
 import { z } from 'zod'
 
+import { runEnvSanityCheck } from './env-sanity'
+
 const envCandidatePaths = [
   resolve(process.cwd(), '.env'),
   resolve(process.cwd(), '../.env'),
@@ -11,7 +13,7 @@ const envCandidatePaths = [
   resolve(process.cwd(), '../.cursor/.env'),
 ]
 
-const resolvedEnvPath = envCandidatePaths.find((filePath) => existsSync(filePath))
+export const resolvedEnvPath = envCandidatePaths.find((filePath) => existsSync(filePath))
 
 if (resolvedEnvPath) {
   dotenv.config({ path: resolvedEnvPath })
@@ -344,4 +346,13 @@ export const env = {
     nativeEnabled: nativePaymentsEnabled,
   },
   maintenanceMode,
+}
+
+if (process.env.NODE_ENV !== 'test') {
+  runEnvSanityCheck({
+    envFilePath: resolvedEnvPath,
+    effectivePort: env.port,
+    effectiveCatalogSource: env.catalogSource,
+    nodeEnv: env.nodeEnv,
+  })
 }

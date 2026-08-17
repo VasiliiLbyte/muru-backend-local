@@ -67,6 +67,7 @@ export type SyncScheduleSettings = {
   enabled: boolean
   hourMsk: number
   lastAutoRunAt: string | null
+  syncAvailable?: boolean
 }
 
 const SYNC_POLL_INTERVAL_MS = 4000

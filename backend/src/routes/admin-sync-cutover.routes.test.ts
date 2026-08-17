@@ -11,6 +11,8 @@ const mockEnv = vi.hoisted(() => ({
 const mockVerifyJwt = vi.fn()
 const mockStartCatalogSyncJob = vi.fn()
 const mockIsCatalogSyncRunning = vi.fn()
+const mockGetSyncSchedule = vi.fn()
+const mockUpdateSyncSchedule = vi.fn()
 
 vi.mock('../utils/env', () => ({
   env: mockEnv,
@@ -24,6 +26,11 @@ vi.mock('../services/sync-job-state', () => ({
   getCatalogSyncJobState: () => ({ status: 'idle' }),
   isCatalogSyncRunning: () => mockIsCatalogSyncRunning(),
   startCatalogSyncJob: (...args: unknown[]) => mockStartCatalogSyncJob(...args),
+}))
+
+vi.mock('../services/sync-schedule.service', () => ({
+  getSyncSchedule: (...args: unknown[]) => mockGetSyncSchedule(...args),
+  updateSyncSchedule: (...args: unknown[]) => mockUpdateSyncSchedule(...args),
 }))
 
 import { errorHandler } from '../middleware/error-handler.middleware'
@@ -46,6 +53,16 @@ describe('cutover guards — admin catalog sync', () => {
     mockVerifyJwt.mockReturnValue({ userId: 1, telegramId: 111 })
     mockIsCatalogSyncRunning.mockReturnValue(false)
     mockStartCatalogSyncJob.mockReturnValue(true)
+    mockGetSyncSchedule.mockResolvedValue({
+      enabled: false,
+      hourMsk: 4,
+      lastAutoRunAt: null,
+    })
+    mockUpdateSyncSchedule.mockResolvedValue({
+      enabled: true,
+      hourMsk: 4,
+      lastAutoRunAt: null,
+    })
   })
 
   it('POST /api/admin/sync returns 423 when catalog source is crm', async () => {
@@ -73,5 +90,56 @@ describe('cutover guards — admin catalog sync', () => {
 
     expect(res.status).toBe(423)
     expect(res.body.error.code).toBe('LOCKED')
+  })
+
+  it('PUT /api/admin/sync-schedule returns 423 when catalog source is crm', async () => {
+    mockEnv.isCatalogCrmMode = true
+
+    const res = await request(buildApp())
+      .put('/api/admin/sync-schedule')
+      .set('Authorization', 'Bearer admin-token')
+      .set('x-telegram-user-id', '111')
+      .send({ enabled: true, hourMsk: 4 })
+
+    expect(res.status).toBe(423)
+    expect(res.body.error.code).toBe('LOCKED')
+    expect(mockUpdateSyncSchedule).not.toHaveBeenCalled()
+  })
+
+  it('PUT /api/admin/sync-schedule updates schedule when catalog source is sheets', async () => {
+    mockEnv.isCatalogCrmMode = false
+
+    const res = await request(buildApp())
+      .put('/api/admin/sync-schedule')
+      .set('Authorization', 'Bearer admin-token')
+      .set('x-telegram-user-id', '111')
+      .send({ enabled: true, hourMsk: 4 })
+
+    expect(res.status).toBe(200)
+    expect(mockUpdateSyncSchedule).toHaveBeenCalledWith({ enabled: true, hourMsk: 4 })
+  })
+
+  it('GET /api/admin/sync-schedule returns syncAvailable false in crm mode', async () => {
+    mockEnv.isCatalogCrmMode = true
+
+    const res = await request(buildApp())
+      .get('/api/admin/sync-schedule')
+      .set('Authorization', 'Bearer admin-token')
+      .set('x-telegram-user-id', '111')
+
+    expect(res.status).toBe(200)
+    expect(res.body.data.syncAvailable).toBe(false)
+  })
+
+  it('GET /api/admin/sync-schedule returns syncAvailable true in sheets mode', async () => {
+    mockEnv.isCatalogCrmMode = false
+
+    const res = await request(buildApp())
+      .get('/api/admin/sync-schedule')
+      .set('Authorization', 'Bearer admin-token')
+      .set('x-telegram-user-id', '111')
+
+    expect(res.status).toBe(200)
+    expect(res.body.data.syncAvailable).toBe(true)
   })
 })
