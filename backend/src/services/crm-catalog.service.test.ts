@@ -41,6 +41,7 @@ mockConnect.mockImplementation(async () => ({
 }))
 
 import { CatalogLockedError } from './catalog-source.guard'
+import { slugify } from './crm-catalog.helpers'
 import {
   renameCrmSubcategory,
 } from './crm-catalog-categories.service'
@@ -264,6 +265,77 @@ describe('crm-catalog.service', () => {
       statusCode: 409,
     })
     expect(mockQuery).toHaveBeenCalledTimes(1)
+  })
+
+  it('createCrmCatalogProduct returns 409 when explicit slug is taken', async () => {
+    mockEnv.catalogSource = 'crm'
+    mockQuery
+      .mockResolvedValueOnce({ rows: [] }) // sku unique
+      .mockResolvedValueOnce({ rows: [{ id: 99 }] }) // explicit slug taken
+
+    await expect(
+      createCrmCatalogProduct({
+        sku: 'MU9998',
+        name: 'Test',
+        price: 100,
+        slug: 'taken-slug',
+      }),
+    ).rejects.toMatchObject({
+      message: 'Товар со slug taken-slug уже существует.',
+      statusCode: 409,
+    })
+    expect(mockQuery).toHaveBeenCalledTimes(2)
+  })
+
+  it('createCrmCatalogProduct uniquifies auto slug with sku suffix for twin names', async () => {
+    mockEnv.catalogSource = 'crm'
+    const twinName = 'Керамический салатник'
+    const baseSlug = slugify(twinName)
+
+    mockQuery
+      .mockResolvedValueOnce({ rows: [] }) // sku MU1001
+      .mockResolvedValueOnce({ rows: [] }) // base slug free
+      .mockResolvedValueOnce({ rows: [productDetailRow] })
+      .mockResolvedValueOnce({ rows: [] })
+    mockClientQuery
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ id: 101 }] })
+      .mockResolvedValueOnce({ rows: [] })
+
+    await createCrmCatalogProduct({
+      sku: 'MU1001',
+      name: twinName,
+      price: 100,
+    })
+
+    const firstInsertParams = mockClientQuery.mock.calls[1][1] as unknown[]
+    expect(firstInsertParams[1]).toBe(baseSlug)
+
+    vi.clearAllMocks()
+    mockConnect.mockImplementation(async () => ({
+      query: (...args: unknown[]) => mockClientQuery(...args),
+      release: vi.fn(),
+    }))
+
+    mockQuery
+      .mockResolvedValueOnce({ rows: [] }) // sku MU1002
+      .mockResolvedValueOnce({ rows: [{ id: 101 }] }) // base taken
+      .mockResolvedValueOnce({ rows: [] }) // base-sku free
+      .mockResolvedValueOnce({ rows: [productDetailRow] })
+      .mockResolvedValueOnce({ rows: [] })
+    mockClientQuery
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ id: 102 }] })
+      .mockResolvedValueOnce({ rows: [] })
+
+    await createCrmCatalogProduct({
+      sku: 'MU1002',
+      name: twinName,
+      price: 200,
+    })
+
+    const secondInsertParams = mockClientQuery.mock.calls[1][1] as unknown[]
+    expect(secondInsertParams[1]).toBe(`${baseSlug}-mu1002`)
   })
 
   it('createCrmCatalogProduct write-throughs primary subcategory to denorm columns', async () => {

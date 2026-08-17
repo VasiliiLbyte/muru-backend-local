@@ -24,6 +24,7 @@ import {
   validateSubcategoryIdsExist,
 } from './crm-catalog-subcategories.service'
 import { conflictError, slugify } from './crm-catalog.helpers'
+import { resolveProductSlugForCreate } from './product-slug.service'
 import { validateProductDimsUpdate } from './admin-product-dims.validation'
 import { applyStockDelta, type StockActor } from './stock-movements.service'
 import {
@@ -558,14 +559,11 @@ export const createCrmCatalogProduct = async (
     throw conflictError(`Товар с артикулом ${sku} уже существует.`)
   }
 
-  const productSlug = (input.slug?.trim() || slugify(input.name)).toLowerCase()
-  if (!/^[a-z0-9-]+$/.test(productSlug)) {
-    throw conflictError('Некорректный slug товара.')
-  }
-  const slugTaken = await pool.query('SELECT id FROM products WHERE slug = $1', [productSlug])
-  if (slugTaken.rows.length > 0) {
-    throw conflictError(`Товар со slug ${productSlug} уже существует.`)
-  }
+  const productSlug = await resolveProductSlugForCreate({
+    name: input.name,
+    sku,
+    explicitSlug: input.slug,
+  })
 
   if (input.categoryId != null) {
     await assertNotVirtualSaleCategory(input.categoryId)
@@ -686,17 +684,12 @@ export const updateCrmCatalogProduct = async (
     sets.push(`name = $${params.length}`)
   }
   if (input.slug !== undefined) {
-    const nextSlug = input.slug.trim().toLowerCase()
-    if (!/^[a-z0-9-]+$/.test(nextSlug)) {
-      throw conflictError('Некорректный slug товара.')
-    }
-    const clash = await pool.query('SELECT id FROM products WHERE slug = $1 AND id <> $2', [
-      nextSlug,
-      id,
-    ])
-    if (clash.rows.length > 0) {
-      throw conflictError(`Товар со slug ${nextSlug} уже существует.`)
-    }
+    const nextSlug = await resolveProductSlugForCreate({
+      name: input.name ?? '',
+      sku: '',
+      explicitSlug: input.slug,
+      excludeProductId: id,
+    })
     params.push(nextSlug)
     sets.push(`slug = $${params.length}`)
   }

@@ -216,4 +216,74 @@ describe('importCrmCatalogProductsFromBuffer', () => {
     expect(mockCreate).toHaveBeenCalledTimes(1)
     expect(mockInsertLog).toHaveBeenCalled()
   })
+
+  it('imports twin names as separate creates without slug errors', async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [] })
+    const twinName = 'Керамический салатник'
+    const buffer = buildWorkbookBuffer([
+      ['MU1001', twinName, '100', '1', '', '', '', '', '', '', ''],
+      ['MU1002', twinName, '200', '2', '', '', '', '', '', '', ''],
+    ])
+    const result = await importCrmCatalogProductsFromBuffer(buffer, {
+      dryRun: false,
+      mode: 'new',
+      filename: 'twins.xlsx',
+      actor: { adminId: 1, adminEmail: 'a@b.c' },
+    })
+    expect(result.summary.toCreate).toBe(2)
+    expect(result.summary.errorRows).toBe(0)
+    expect(result.rows.every((r) => r.action === 'create')).toBe(true)
+    expect(mockCreate).toHaveBeenCalledTimes(2)
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ sku: 'MU1001', name: twinName }),
+    )
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ sku: 'MU1002', name: twinName }),
+    )
+  })
+
+  it('dryRun and commit produce the same summary for twin names', async () => {
+    mockQuery.mockResolvedValue({ rows: [] })
+    const twinName = 'Керамический салатник'
+    const buffer = buildWorkbookBuffer([
+      ['MU1001', twinName, '100', '1', '', '', '', '', '', '', ''],
+      ['MU1002', twinName, '200', '2', '', '', '', '', '', '', ''],
+    ])
+
+    const preview = await importCrmCatalogProductsFromBuffer(buffer, {
+      dryRun: true,
+      mode: 'new',
+      filename: 'twins.xlsx',
+      actor: { adminId: 1, adminEmail: 'a@b.c' },
+    })
+    const commit = await importCrmCatalogProductsFromBuffer(buffer, {
+      dryRun: false,
+      mode: 'new',
+      filename: 'twins.xlsx',
+      actor: { adminId: 1, adminEmail: 'a@b.c' },
+    })
+
+    expect(preview.summary).toEqual(commit.summary)
+    expect(preview.rows.map((r) => ({ row: r.row, action: r.action, sku: r.sku }))).toEqual(
+      commit.rows.map((r) => ({ row: r.row, action: r.action, sku: r.sku })),
+    )
+  })
+
+  it('upsert update path does not pass slug in patch', async () => {
+    mockQuery.mockResolvedValueOnce({
+      rows: [{ id: 9, sku: 'MU1', specs: {} }],
+    })
+    const buffer = buildWorkbookBuffer([
+      ['MU1', 'Updated name', '100', '1', '', '', '', '', '', '', ''],
+    ])
+    await importCrmCatalogProductsFromBuffer(buffer, {
+      dryRun: false,
+      mode: 'upsert',
+      filename: 't.xlsx',
+      actor: { adminId: 1, adminEmail: 'a@b.c' },
+    })
+    expect(mockUpdate).toHaveBeenCalledTimes(1)
+    const patch = mockUpdate.mock.calls[0][1] as Record<string, unknown>
+    expect(patch).not.toHaveProperty('slug')
+  })
 })
