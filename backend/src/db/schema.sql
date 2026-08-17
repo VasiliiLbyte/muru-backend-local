@@ -416,11 +416,11 @@ CREATE TABLE IF NOT EXISTS product_web_cross_placements (
 );
 CREATE INDEX IF NOT EXISTS idx_pwcp_category_id ON product_web_cross_placements(category_id);
 
--- customer accounts (см. migrations/031_customer_accounts.sql)
+-- customer accounts (см. migrations/031_customer_accounts.sql, 042_customer_phone_otp.sql)
 CREATE TABLE IF NOT EXISTS customers (
   id SERIAL PRIMARY KEY,
-  email TEXT NOT NULL UNIQUE,
-  password_hash TEXT NOT NULL,
+  email TEXT,
+  password_hash TEXT,
   full_name TEXT NOT NULL DEFAULT '',
   phone TEXT,
   phone_verified_at TIMESTAMPTZ,
@@ -434,7 +434,23 @@ CREATE TABLE IF NOT EXISTS customers (
   last_login_at TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS idx_customers_email ON customers(email);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_email_unique ON customers(email) WHERE email IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_phone_unique ON customers(phone) WHERE phone IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_customers_telegram_id ON customers(telegram_id) WHERE telegram_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS customer_otp_codes (
+  id SERIAL PRIMARY KEY,
+  phone TEXT NOT NULL,
+  code_hash TEXT NOT NULL,
+  purpose TEXT NOT NULL DEFAULT 'login',
+  attempts INT NOT NULL DEFAULT 0,
+  request_ip TEXT,
+  expires_at TIMESTAMPTZ NOT NULL,
+  consumed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_customer_otp_codes_phone_created
+  ON customer_otp_codes (phone, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS customer_addresses (
   id SERIAL PRIMARY KEY,

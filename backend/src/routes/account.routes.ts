@@ -12,6 +12,8 @@ import {
   listOrdersHandler,
   loginHandler,
   logoutHandler,
+  otpRequestHandler,
+  otpVerifyHandler,
   putMeHandler,
   putMePasswordHandler,
   refreshHandler,
@@ -35,6 +37,8 @@ accountRouter.post('/logout', logoutHandler)
 accountRouter.post('/refresh', rateLimitByIp('account:refresh', 30), refreshHandler)
 accountRouter.post('/password/forgot', rateLimitByIp('account:forgot', 5), forgotPasswordHandler)
 accountRouter.post('/password/reset', rateLimitByIp('account:reset', 5), resetPasswordHandler)
+accountRouter.post('/otp/request', rateLimitByIp('account:otp-request', 5), otpRequestHandler)
+accountRouter.post('/otp/verify', rateLimitByIp('account:otp-verify', 10), otpVerifyHandler)
 
 accountRouter.get('/me', requireCustomerAuth, getMeHandler)
 accountRouter.put('/me', requireCustomerAuth, putMeHandler)

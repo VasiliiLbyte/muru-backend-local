@@ -34,12 +34,22 @@ import {
   updateAddress,
 } from '../services/customer-account.service'
 import { CaptchaRejectedError, verifySmartCaptcha } from '../services/smartcaptcha.service'
+import { requestPhoneOtp, verifyPhoneOtp } from '../services/phone-otp.service'
 import { fail, HttpError, ok, zodErrorMessage } from '../utils/api-response'
 import { env } from '../utils/env'
 
 const ensureModule = (res: Response): boolean => {
   if (!env.customerAccountsEnabled) {
     fail(res, 503, 'Customer account module is not configured', 'UPSTREAM')
+    return false
+  }
+  return true
+}
+
+const ensureFlashcall = (res: Response): boolean => {
+  if (!ensureModule(res)) return false
+  if (!env.flashcallConfigured) {
+    fail(res, 503, 'Flash call auth is not configured', 'UPSTREAM')
     return false
   }
   return true
@@ -121,6 +131,46 @@ const addressSchema = z.object({
 const favoriteSkuSchema = z.object({
   sku: z.string().min(1),
 })
+
+const otpRequestSchema = z.object({
+  phone: z.string().min(1),
+  captchaToken: z.string().optional(),
+})
+
+const otpVerifySchema = z.object({
+  phone: z.string().min(1),
+  code: z.string().min(1),
+})
+
+export const otpRequestHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (!ensureFlashcall(res)) return
+    const parsed = otpRequestSchema.safeParse(req.body)
+    if (!parsed.success) {
+      return fail(res, 400, zodErrorMessage(parsed.error.issues), 'VALIDATION', parsed.error.issues)
+    }
+    const ip = clientIp(req)
+    const result = await requestPhoneOtp(parsed.data.phone, ip, parsed.data.captchaToken)
+    return ok(res, result)
+  } catch (error) {
+    return mapServiceError(error, next, res)
+  }
+}
+
+export const otpVerifyHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (!ensureFlashcall(res)) return
+    const parsed = otpVerifySchema.safeParse(req.body)
+    if (!parsed.success) {
+      return fail(res, 400, zodErrorMessage(parsed.error.issues), 'VALIDATION', parsed.error.issues)
+    }
+    const ip = clientIp(req)
+    const result = await verifyPhoneOtp(parsed.data.phone, parsed.data.code, ip)
+    return ok(res, result)
+  } catch (error) {
+    return mapServiceError(error, next, res)
+  }
+}
 
 export const registerHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {

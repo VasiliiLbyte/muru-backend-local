@@ -35,6 +35,11 @@ const envSchema = z.object({
   SMARTCAPTCHA_DEV_BYPASS: z.string().optional(),
   STOREFRONT_PUBLIC_URL: z.string().optional(),
   CUSTOMER_CONSENT_VERSION: z.string().optional(),
+  STREAMTELECOM_LOGIN: z.string().optional(),
+  STREAMTELECOM_PASS: z.string().optional(),
+  FLASHCALL_PROVIDER: z.string().optional(),
+  FLASHCALL_TEST_MODE: z.string().optional(),
+  STREAMTELECOM_CALLBACK_URL: z.string().optional(),
   DEV_TELEGRAM_USER_ID: z.string().optional(),
   ALLOWED_ORIGINS: z.string().optional(),
   ADMIN_TELEGRAM_IDS: z.string().default(''),
@@ -230,6 +235,16 @@ const storefrontPublicUrl = (parsed.data.STOREFRONT_PUBLIC_URL?.trim() || 'http:
 )
 const customerConsentVersion = parsed.data.CUSTOMER_CONSENT_VERSION?.trim() || '2026-06-03'
 
+const flashcallProvider = parsed.data.FLASHCALL_PROVIDER?.trim().toLowerCase() || 'streamtelecom'
+const streamTelecomLogin = parsed.data.STREAMTELECOM_LOGIN?.trim() ?? ''
+const streamTelecomPass = parsed.data.STREAMTELECOM_PASS?.trim() ?? ''
+const flashcallTestMode = parsed.data.FLASHCALL_TEST_MODE?.trim().toLowerCase() === 'true'
+const streamTelecomCallbackUrl = parsed.data.STREAMTELECOM_CALLBACK_URL?.trim() ?? ''
+const flashcallConfigured =
+  flashcallProvider === 'streamtelecom' &&
+  streamTelecomLogin.length > 0 &&
+  streamTelecomPass.length > 0
+
 const nodeEnv = parsed.data.NODE_ENV || 'development'
 const smartCaptchaDevBypass =
   parsed.data.SMARTCAPTCHA_DEV_BYPASS?.trim().toLowerCase() === 'true' && nodeEnv !== 'production'
@@ -259,6 +274,12 @@ export const env = {
   smartCaptchaDevBypass,
   storefrontPublicUrl,
   customerConsentVersion,
+  flashcallProvider,
+  streamTelecomLogin,
+  streamTelecomPass,
+  flashcallTestMode,
+  streamTelecomCallbackUrl,
+  flashcallConfigured,
   devTelegramUserId: parsed.data.DEV_TELEGRAM_USER_ID ?? '',
   allowedOrigins,
   adminTelegramIds,

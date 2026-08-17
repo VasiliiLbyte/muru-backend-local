@@ -35,7 +35,7 @@ export type CustomerJwtPayload = {
 
 export type CustomerDto = {
   id: number
-  email: string
+  email: string | null
   fullName: string
   phone: string | null
   emailVerified: boolean
@@ -49,8 +49,8 @@ export type CustomerDto = {
 
 type CustomerDbRow = {
   id: number
-  email: string
-  password_hash: string
+  email: string | null
+  password_hash: string | null
   full_name: string
   phone: string | null
   phone_verified_at: Date | string | null
@@ -66,8 +66,8 @@ type CustomerDbRow = {
 
 export type CustomerRow = {
   id: number
-  email: string
-  passwordHash: string
+  email: string | null
+  passwordHash: string | null
   fullName: string
   phone: string | null
   phoneVerifiedAt: string | null
@@ -291,6 +291,15 @@ export const findCustomerByEmail = async (email: string): Promise<CustomerRow | 
   return row ? toCustomerRow(row) : null
 }
 
+export const findCustomerByPhone = async (phone: string): Promise<CustomerRow | null> => {
+  const result = await pool.query<CustomerDbRow>(
+    `SELECT ${CUSTOMER_SELECT} FROM customers WHERE phone = $1 LIMIT 1`,
+    [phone],
+  )
+  const row = result.rows[0]
+  return row ? toCustomerRow(row) : null
+}
+
 export const findCustomerById = async (id: number): Promise<CustomerRow | null> => {
   const result = await pool.query<CustomerDbRow>(
     `SELECT ${CUSTOMER_SELECT} FROM customers WHERE id = $1 LIMIT 1`,
@@ -316,6 +325,21 @@ const issueTokenPair = async (customerId: number): Promise<TokenPair> => {
   const accessToken = signCustomerAccessJwt({ customerId })
   const refreshToken = await issueRefreshToken(customerId)
   return { accessToken, refreshToken, expiresIn: 15 * 60 }
+}
+
+export const issueCustomerSession = async (
+  customerId: number,
+): Promise<TokenPair & { customer: CustomerDto }> => {
+  assertCustomerModuleEnabled()
+  const tokens = await issueTokenPair(customerId)
+  const customer = await findCustomerById(customerId)
+  if (!customer || !customer.isActive) {
+    const err = new Error('Unauthorized') as Error & { status?: number; code?: string }
+    err.status = 401
+    err.code = 'UNAUTHORIZED'
+    throw err
+  }
+  return { ...tokens, customer: toCustomerDto(customer) }
 }
 
 const createAuthToken = async (
@@ -455,7 +479,7 @@ export const verifyEmailToken = async (rawToken: string): Promise<{ ok: true }> 
   )
 
   const customer = await findCustomerById(row.customer_id)
-  if (customer?.emailVerifiedAt) {
+  if (customer?.emailVerifiedAt && customer.email) {
     await linkGuestOrdersToCustomer(customer.id, customer.email)
   }
 
@@ -485,6 +509,24 @@ export const linkGuestOrdersToCustomer = async (
   return result.rowCount ?? 0
 }
 
+export const linkGuestOrdersByPhone = async (
+  customerId: number,
+  phone: string,
+): Promise<number> => {
+  const customer = await findCustomerById(customerId)
+  if (!customer || !customer.isActive || !customer.phoneVerifiedAt) {
+    return 0
+  }
+
+  const result = await pool.query(
+    `UPDATE orders SET customer_id = $1
+     WHERE customer_id IS NULL
+       AND customer_phone = $2`,
+    [customerId, phone],
+  )
+  return result.rowCount ?? 0
+}
+
 export const loginCustomer = async (
   emailRaw: string,
   password: string,
@@ -503,7 +545,7 @@ export const loginCustomer = async (
     throw err
   }
 
-  const passwordOk = await bcrypt.compare(password, customer.passwordHash)
+  const passwordOk = await bcrypt.compare(password, customer.passwordHash ?? DUMMY_HASH)
   if (!passwordOk) {
     recordLoginFailure(ip, email)
     const err = new Error(INVALID_CREDENTIALS_MESSAGE) as Error & { status?: number; code?: string }
@@ -671,6 +713,12 @@ export const changePassword = async (
     const err = new Error('Unauthorized') as Error & { status?: number; code?: string }
     err.status = 401
     err.code = 'UNAUTHORIZED'
+    throw err
+  }
+  if (!customer.passwordHash) {
+    const err = new Error('Invalid current password') as Error & { status?: number; code?: string }
+    err.status = 400
+    err.code = 'VALIDATION'
     throw err
   }
   const okOld = await bcrypt.compare(oldPassword, customer.passwordHash)
