@@ -56,6 +56,12 @@ describe('getCatalogProducts', () => {
     queryMock.mockReset()
   })
 
+  it('returns empty array for invalid q without querying the database', async () => {
+    const products = await getCatalogProducts({ q: 'a', channel: 'web' })
+    expect(products).toEqual([])
+    expect(queryMock).not.toHaveBeenCalled()
+  })
+
   it('maps web subcategory (column F) when channel=web', async () => {
     queryMock
       .mockResolvedValueOnce({

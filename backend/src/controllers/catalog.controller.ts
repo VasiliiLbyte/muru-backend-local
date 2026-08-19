@@ -8,7 +8,23 @@ import {
   getCatalogProducts,
   getCatalogTree,
 } from '../services/catalog.service'
+import {
+  searchCatalogProducts,
+  suggestCatalogSearch,
+} from '../services/catalog-search.service'
 import { fail, HttpError, ok, zodErrorMessage } from '../utils/api-response'
+
+const catalogSearchQuerySchema = z.object({
+  q: z.string().optional(),
+  channel: z.string().optional(),
+  page: z.coerce.number().int().positive().optional(),
+  pageSize: z.coerce.number().int().positive().optional(),
+})
+
+const catalogSearchSuggestQuerySchema = z.object({
+  q: z.string().optional(),
+  channel: z.string().optional(),
+})
 
 const restockPayloadSchema = z.object({
   telegramUserId: z.number().int().positive(),
@@ -64,6 +80,46 @@ export const getCatalogProductsHandler = async (req: Request, res: Response, nex
     }
 
     return ok(res, products)
+  } catch (error) {
+    next(error)
+  }
+}
+
+export const getCatalogSearchHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const parsed = catalogSearchQuerySchema.safeParse(req.query)
+    if (!parsed.success) {
+      throw new HttpError(400, zodErrorMessage(parsed.error.issues), 'VALIDATION', parsed.error.issues)
+    }
+
+    const result = await searchCatalogProducts({
+      q: parsed.data.q ?? '',
+      channel: parsed.data.channel,
+      page: parsed.data.page,
+      pageSize: parsed.data.pageSize,
+    })
+    return ok(res, result)
+  } catch (error) {
+    next(error)
+  }
+}
+
+export const getCatalogSearchSuggestHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const parsed = catalogSearchSuggestQuerySchema.safeParse(req.query)
+    if (!parsed.success) {
+      throw new HttpError(400, zodErrorMessage(parsed.error.issues), 'VALIDATION', parsed.error.issues)
+    }
+
+    const result = await suggestCatalogSearch({
+      q: parsed.data.q ?? '',
+      channel: parsed.data.channel,
+    })
+    return ok(res, result)
   } catch (error) {
     next(error)
   }
