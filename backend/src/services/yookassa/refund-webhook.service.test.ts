@@ -73,10 +73,10 @@ describe('handleRefundSucceeded', () => {
   it('treats 1350.00 refund vs total 1350 as full', async () => {
     mockQuery
       .mockResolvedValueOnce({ rows: [{ id: 1, order_id: 7 }] })
-      .mockResolvedValueOnce({ rows: [{ id: 7, status: 'В обработке', total: '1350.00' }] })
+      .mockResolvedValueOnce({ rows: [{ id: 7, status: 'Собирается', total: '1350.00' }] })
     mockClientQuery.mockImplementation(async (sql: string) => {
       if (sql === 'BEGIN' || sql === 'COMMIT' || sql === 'ROLLBACK') return { rows: [] }
-      if (sql.includes('FOR UPDATE')) return { rows: [{ status: 'В обработке' }] }
+      if (sql.includes('FOR UPDATE')) return { rows: [{ status: 'Собирается' }] }
       return { rows: [] }
     })
 

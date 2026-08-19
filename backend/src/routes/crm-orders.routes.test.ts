@@ -73,6 +73,7 @@ const baseOrder = (overrides: Partial<CrmOrderDetail> = {}): CrmOrderDetail => (
   itemsCount: 1,
   customerName: 'Ivan',
   customerPhone: '+7999',
+  customerEmail: null,
   paymentStatus: null,
   paidAt: null,
   paymentId: null,
@@ -165,8 +166,8 @@ describe('crm orders routes', () => {
     expect(mockUpdateCrmOrder).not.toHaveBeenCalled()
   })
 
-  it('PATCH telegram order to Подтверждён calls notifyClientStatusChange', async () => {
-    const order = baseOrder({ channel: 'telegram', telegramUserId: 555, status: 'Подтверждён' })
+  it('PATCH telegram order to Собирается calls notifyClientStatusChange', async () => {
+    const order = baseOrder({ channel: 'telegram', telegramUserId: 555, status: 'Собирается' })
     mockUpdateCrmOrder.mockResolvedValue({
       order,
       previousStatus: 'Новый',
@@ -176,17 +177,17 @@ describe('crm orders routes', () => {
     const res = await request(app)
       .patch('/api/crm/orders/1')
       .set('Cookie', 'admin_token=valid')
-      .send({ status: 'Подтверждён' })
+      .send({ status: 'Собирается' })
 
     expect(res.status).toBe(200)
     expect(mockNotifyClientStatusChange).toHaveBeenCalledOnce()
   })
 
-  it('PATCH web order to Подтверждён does not call notifyClientStatusChange', async () => {
+  it('PATCH web order to Собирается does not call notifyClientStatusChange', async () => {
     const order = baseOrder({
       channel: 'web',
       telegramUserId: null,
-      status: 'Подтверждён',
+      status: 'Собирается',
       customerName: 'Web User',
       customerPhone: '+7888',
     })
@@ -199,7 +200,7 @@ describe('crm orders routes', () => {
     const res = await request(app)
       .patch('/api/crm/orders/1')
       .set('Cookie', 'admin_token=valid')
-      .send({ status: 'Подтверждён' })
+      .send({ status: 'Собирается' })
 
     expect(res.status).toBe(200)
     expect(mockNotifyClientStatusChange).not.toHaveBeenCalled()

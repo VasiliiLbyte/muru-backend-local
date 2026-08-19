@@ -27,8 +27,8 @@ import {
   formatOrderDate,
   getChannelLabel,
   getPaymentLabel,
-  isOrderPaid,
 } from '../../utils/order-labels'
+import { OrderStatusBadge } from '../../utils/order-status-ui'
 
 const PAGE_SIZE = 20
 
@@ -202,12 +202,10 @@ export const OrdersListPage = () => {
                 <TableCell>{renderCustomer(order)}</TableCell>
                 <TableCell numeric>{order.itemsCount} шт.</TableCell>
                 <TableCell numeric>{formatMoney(order.total)}</TableCell>
+                <TableCell>{getPaymentLabel(order)}</TableCell>
                 <TableCell>
-                  <Badge variant={isOrderPaid(order) ? 'success' : 'warning'}>
-                    {getPaymentLabel(order)}
-                  </Badge>
+                  <OrderStatusBadge status={order.status} />
                 </TableCell>
-                <TableCell>{order.status}</TableCell>
               </TableRow>
             ))}
           </TableBody>

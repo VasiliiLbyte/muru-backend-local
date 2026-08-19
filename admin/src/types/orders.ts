@@ -28,6 +28,7 @@ export type CrmOrderDetailItem = {
 }
 
 export type CrmOrderDetail = CrmOrderListItem & {
+  customerEmail: string | null
   subtotal: number
   deliveryOption: string | null
   deliveryPrice: number

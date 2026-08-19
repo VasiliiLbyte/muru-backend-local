@@ -31,8 +31,8 @@ import {
   getChannelLabel,
   getPaymentLabel,
   inputToDeliveryEta,
-  isOrderPaid,
 } from '../../utils/order-labels'
+import { OrderStatusBadge } from '../../utils/order-status-ui'
 
 const hasCdekData = (order: CrmOrderDetail) =>
   Boolean(
@@ -171,167 +171,167 @@ export const OrderDetailPage = () => {
 
       {error ? <p className="error-text">{error}</p> : null}
 
-      <Card title="Обзор">
-        <div className="order-detail-meta">
-          <Badge variant="neutral">{getChannelLabel(order.channel)}</Badge>
-          <span>{order.status}</span>
-          <span className="muted-text">Создан: {formatOrderDate(order.createdAt)}</span>
-          <span className="muted-text">Обновлён: {formatOrderDate(order.updatedAt)}</span>
-        </div>
-      </Card>
+      <div className="order-detail-header">
+        <Badge variant="neutral">{getChannelLabel(order.channel)}</Badge>
+        <OrderStatusBadge status={order.status} />
+        <span className="muted-text">Создан: {formatOrderDate(order.createdAt)}</span>
+        <span className="muted-text">Обновлён: {formatOrderDate(order.updatedAt)}</span>
+        <span className="order-detail-header__total">Итого: {formatMoney(order.total)}</span>
+        <span>Оплата: {getPaymentLabel(order)}</span>
+      </div>
 
-      <Card title="Состав">
-        <Table>
-          <TableHeader sticky>
-            <TableRow hover={false}>
-              <TableHead />
-              <TableHead>Товар</TableHead>
-              <TableHead>SKU</TableHead>
-              <TableHead numeric>Кол-во</TableHead>
-              <TableHead numeric>Цена</TableHead>
-              <TableHead numeric>Сумма</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {order.items.map((item) => (
-              <TableRow key={`${item.sku}-${item.color ?? ''}-${item.size ?? ''}`}>
-                <TableCell>
-                  {item.imageUrl ? (
-                    <img className="order-thumb" src={item.imageUrl} alt={item.name} />
-                  ) : (
-                    '—'
-                  )}
-                </TableCell>
-                <TableCell>
-                  {item.name}
-                  {item.color || item.size ? (
-                    <div className="muted-text">
-                      {[item.color, item.size].filter(Boolean).join(' / ')}
-                    </div>
-                  ) : null}
-                </TableCell>
-                <TableCell>{item.sku}</TableCell>
-                <TableCell numeric>{item.quantity}</TableCell>
-                <TableCell numeric>{formatMoney(item.price)}</TableCell>
-                <TableCell numeric>{formatMoney(item.price * item.quantity)}</TableCell>
+      <div className="order-detail-grid">
+        <Card title="Состав">
+          <Table>
+            <TableHeader sticky>
+              <TableRow hover={false}>
+                <TableHead />
+                <TableHead>Товар</TableHead>
+                <TableHead>SKU</TableHead>
+                <TableHead numeric>Кол-во</TableHead>
+                <TableHead numeric>Цена</TableHead>
+                <TableHead numeric>Сумма</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Card>
+            </TableHeader>
+            <TableBody>
+              {order.items.map((item) => (
+                <TableRow key={`${item.sku}-${item.color ?? ''}-${item.size ?? ''}`}>
+                  <TableCell>
+                    {item.imageUrl ? (
+                      <img className="order-thumb" src={item.imageUrl} alt={item.name} />
+                    ) : (
+                      '—'
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {item.name}
+                    {item.color || item.size ? (
+                      <div className="muted-text">
+                        {[item.color, item.size].filter(Boolean).join(' / ')}
+                      </div>
+                    ) : null}
+                  </TableCell>
+                  <TableCell>{item.sku}</TableCell>
+                  <TableCell numeric>{item.quantity}</TableCell>
+                  <TableCell numeric>{formatMoney(item.price)}</TableCell>
+                  <TableCell numeric>{formatMoney(item.price * item.quantity)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
 
-      <Card title="Суммы">
-        <p>Подытог: {formatMoney(order.subtotal)}</p>
-        <p>
-          Доставка: {formatMoney(order.deliveryPrice)}
-          {order.deliveryOption ? ` (${order.deliveryOption})` : ''}
-        </p>
-        {order.promoCode || order.promoDiscount > 0 ? (
-          <p>
-            Промо: {order.promoCode ?? '—'} (−{formatMoney(order.promoDiscount)})
-          </p>
-        ) : null}
-        <p>
-          <strong>Итого: {formatMoney(order.total)}</strong>
-        </p>
-      </Card>
-
-      <Card title="Контакты">
-        <p>{order.customerName ?? '—'}</p>
-        <p>{order.customerPhone ?? '—'}</p>
-        {order.channel === 'telegram' && order.telegramUserId != null ? (
-          <p className="muted-text">Telegram ID: {order.telegramUserId}</p>
-        ) : null}
-      </Card>
-
-      <Card title="Адрес и доставка">
-        <p>Способ: {order.deliveryMode === 'pickup' ? 'Самовывоз' : 'Доставка'}</p>
-        <p>Адрес: {order.address || '—'}</p>
-        <p>Ориентировочная дата: {order.deliveryEta ? formatOrderDate(order.deliveryEta) : '—'}</p>
-      </Card>
-
-      {hasCdekData(order) ? (
-        <Card title="CDEK">
-          {order.cdekCityName ? <p>Город: {order.cdekCityName}</p> : null}
-          {order.cdekPvzAddress ? <p>ПВЗ: {order.cdekPvzAddress}</p> : null}
-          {order.cdekTrackNumber ? <p>Трек: {order.cdekTrackNumber}</p> : null}
-          {order.cdekStatus ? <p>Статус CDEK: {order.cdekStatus}</p> : null}
-          <p>Синхронизация: {order.cdekSyncState}</p>
-          {order.cdekCreateError ? (
-            <p className="error-text">Ошибка создания: {order.cdekCreateError}</p>
+        <Card title="Контакты">
+          <p>{order.customerName ?? '—'}</p>
+          <p>{order.customerPhone ?? '—'}</p>
+          <p>Email: {order.customerEmail ?? '—'}</p>
+          {order.channel === 'telegram' && order.telegramUserId != null ? (
+            <p className="muted-text">Telegram ID: {order.telegramUserId}</p>
           ) : null}
         </Card>
-      ) : null}
 
-      <Card title="Оплата">
-        <p>
-          Статус:{' '}
-          <Badge variant={isOrderPaid(order) ? 'success' : 'warning'}>
-            {getPaymentLabel(order)}
-          </Badge>
-        </p>
-        <p>Payment ID: {order.paymentId ?? '—'}</p>
-        <p>paymentStatus: {order.paymentStatus ?? '—'}</p>
-        <p>Оплачен: {order.paidAt ? formatOrderDate(order.paidAt) : '—'}</p>
-      </Card>
+        <Card title="Суммы">
+          <p>Подытог: {formatMoney(order.subtotal)}</p>
+          <p>
+            Доставка: {formatMoney(order.deliveryPrice)}
+            {order.deliveryOption ? ` (${order.deliveryOption})` : ''}
+          </p>
+          {order.promoCode || order.promoDiscount > 0 ? (
+            <p>
+              Промо: {order.promoCode ?? '—'} (−{formatMoney(order.promoDiscount)})
+            </p>
+          ) : null}
+          <p>
+            <strong>Итого: {formatMoney(order.total)}</strong>
+          </p>
+        </Card>
 
-      <Card title="Комментарий клиента">
-        <p>{order.comment || '—'}</p>
-      </Card>
+        <Card title="Адрес и доставка">
+          <p>Способ: {order.deliveryMode === 'pickup' ? 'Самовывоз' : 'Доставка'}</p>
+          <p>Адрес: {order.address || '—'}</p>
+          <p>Ориентировочная дата: {order.deliveryEta ? formatOrderDate(order.deliveryEta) : '—'}</p>
+          {hasCdekData(order) ? (
+            <div className="order-detail-cdek">
+              <p className="order-detail-cdek__title">CDEK</p>
+              {order.cdekCityName ? <p>Город: {order.cdekCityName}</p> : null}
+              {order.cdekPvzAddress ? <p>ПВЗ: {order.cdekPvzAddress}</p> : null}
+              {order.cdekTrackNumber ? <p>Трек: {order.cdekTrackNumber}</p> : null}
+              {order.cdekStatus ? <p>Статус CDEK: {order.cdekStatus}</p> : null}
+              <p>Синхронизация: {order.cdekSyncState}</p>
+              {order.cdekCreateError ? (
+                <p className="error-text">Ошибка создания: {order.cdekCreateError}</p>
+              ) : null}
+            </div>
+          ) : null}
+        </Card>
 
-      <Card title="Согласие">
-        <p className="muted-text">
-          {order.consentAccepted ? 'Принято' : 'Не принято'}
-          {order.consentVersion ? ` · v${order.consentVersion}` : ''}
-          {order.consentAcceptedAt ? ` · ${formatOrderDate(order.consentAcceptedAt)}` : ''}
-        </p>
-      </Card>
+        <div className="order-detail-grid__full">
+          <Card title="Оплата">
+            <p>Статус: {getPaymentLabel(order)}</p>
+            <p>Payment ID: {order.paymentId ?? '—'}</p>
+            <p>paymentStatus: {order.paymentStatus ?? '—'}</p>
+            <p>Оплачен: {order.paidAt ? formatOrderDate(order.paidAt) : '—'}</p>
+          </Card>
 
-      <Card title="Действия менеджера">
-        <form className="form-stack" onSubmit={onSave}>
-          <Field label="Статус" htmlFor="order-status">
-            <Select id="order-status" value={status} onChange={(e) => setStatus(e.target.value)}>
-              {CRM_EDITABLE_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </Select>
-          </Field>
+          <Card title="Комментарий клиента">
+            <p>{order.comment || '—'}</p>
+          </Card>
 
-          <Field label="Комментарий менеджера" htmlFor="order-admin-comment">
-            <Textarea
-              id="order-admin-comment"
-              value={adminComment}
-              onChange={(e) => setAdminComment(e.target.value)}
-            />
-          </Field>
+          <Card title="Согласие">
+            <p className="muted-text">
+              {order.consentAccepted ? 'Принято' : 'Не принято'}
+              {order.consentVersion ? ` · v${order.consentVersion}` : ''}
+              {order.consentAcceptedAt ? ` · ${formatOrderDate(order.consentAcceptedAt)}` : ''}
+            </p>
+          </Card>
 
-          <Field label="Ориентировочная дата доставки" htmlFor="order-delivery-eta">
-            <Input
-              id="order-delivery-eta"
-              type="date"
-              value={deliveryEta}
-              onChange={(e) => setDeliveryEta(e.target.value)}
-            />
-          </Field>
+          <Card title="Действия менеджера" className="order-detail-actions--sticky">
+            <form className="form-stack" onSubmit={onSave}>
+              <Field label="Статус" htmlFor="order-status">
+                <Select id="order-status" value={status} onChange={(e) => setStatus(e.target.value)}>
+                  {CRM_EDITABLE_STATUSES.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
 
-          <div className="form-actions">
-            <Button type="submit" loading={saving}>
-              Сохранить
-            </Button>
-            <Button
-              type="button"
-              variant="danger"
-              loading={cancelling}
-              disabled={order.status === ORDER_STATUS_CANCELLED}
-              onClick={() => void onCancel()}
-            >
-              Отменить заказ
-            </Button>
-          </div>
-        </form>
-      </Card>
+              <Field label="Комментарий менеджера" htmlFor="order-admin-comment">
+                <Textarea
+                  id="order-admin-comment"
+                  value={adminComment}
+                  onChange={(e) => setAdminComment(e.target.value)}
+                />
+              </Field>
+
+              <Field label="Ориентировочная дата доставки" htmlFor="order-delivery-eta">
+                <Input
+                  id="order-delivery-eta"
+                  type="date"
+                  value={deliveryEta}
+                  onChange={(e) => setDeliveryEta(e.target.value)}
+                />
+              </Field>
+
+              <div className="form-actions">
+                <Button type="submit" loading={saving}>
+                  Сохранить
+                </Button>
+                <Button
+                  type="button"
+                  variant="danger"
+                  loading={cancelling}
+                  disabled={order.status === ORDER_STATUS_CANCELLED}
+                  onClick={() => void onCancel()}
+                >
+                  Отменить заказ
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      </div>
     </section>
   )
 }

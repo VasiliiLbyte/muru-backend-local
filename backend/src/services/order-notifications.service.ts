@@ -36,7 +36,7 @@ export const notifyClientStatusChange = async (
       chat_id: order.telegramUserId,
       parse_mode: 'HTML',
       text: [
-        `✅ <b>Заказ #${order.id} подтверждён</b>`,
+        `✅ <b>Заказ #${order.id} принят в сборку</b>`,
         '',
         `Статус: <b>${newStatus}</b>`,
         `Сумма: <b>${order.total.toFixed(2)} ₽</b>`,

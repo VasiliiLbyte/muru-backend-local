@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   BookOpen,
@@ -8,8 +9,10 @@ import {
   Sparkles,
 } from 'lucide-react'
 
-import { Badge, PageHeader } from '../components/ui'
+import { Badge, Card, PageHeader, SkeletonText } from '../components/ui'
+import { countActiveOrders } from '../constants/order-statuses'
 import { useAuth } from '../context/AuthContext'
+import { listOrders } from '../lib/orders-api'
 
 const dashboardLinks = [
   {
@@ -46,6 +49,15 @@ const dashboardLinks = [
 
 export const DashboardPage = () => {
   const { admin } = useAuth()
+  const [activeCount, setActiveCount] = useState<number | null>(null)
+  const [activeLoading, setActiveLoading] = useState(true)
+
+  useEffect(() => {
+    listOrders({ page: 1, pageSize: 1 })
+      .then((data) => setActiveCount(countActiveOrders(data.statusCounts)))
+      .catch(() => setActiveCount(null))
+      .finally(() => setActiveLoading(false))
+  }, [])
 
   return (
     <section className="page-stack muru-rise">
@@ -57,6 +69,20 @@ export const DashboardPage = () => {
           <Badge variant="neutral">{admin.role}</Badge>
         </div>
       ) : null}
+
+      <Card title="Активные заказы">
+        <div className="dashboard-active-orders">
+          {activeLoading ? (
+            <SkeletonText lines={1} />
+          ) : (
+            <span className="dashboard-active-orders__count">{activeCount ?? '—'}</span>
+          )}
+          <p className="muted-text">Новый + Собирается + В пути</p>
+          <Link className="dashboard-active-orders__link" to="/orders">
+            Перейти к заказам →
+          </Link>
+        </div>
+      </Card>
 
       <div className="dashboard-grid">
         {dashboardLinks.map((item) => (

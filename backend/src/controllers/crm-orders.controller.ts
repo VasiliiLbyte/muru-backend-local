@@ -3,7 +3,7 @@ import { z } from 'zod'
 
 import { isValidOrderStatus } from '../constants/order-statuses'
 import type { CrmRequest } from '../middleware/require-crm-auth.middleware'
-import { shouldNotifyConfirmed } from '../services/admin-orders.helpers'
+import { shouldNotifyAssembling } from '../services/admin-orders.helpers'
 import {
   cancelCrmOrder,
   crmOrderDetailToOrderDraft,
@@ -120,7 +120,7 @@ export const patchCrmOrderHandler = async (req: Request, res: Response, next: Ne
     if (
       result.order.channel === 'telegram' &&
       result.order.telegramUserId != null &&
-      shouldNotifyConfirmed(result.previousStatus, newStatus)
+      shouldNotifyAssembling(result.previousStatus, newStatus)
     ) {
       void notifyClientStatusChange(crmOrderDetailToOrderDraft(result.order), newStatus).catch(
         (err) => {

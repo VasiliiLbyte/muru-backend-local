@@ -1,5 +1,5 @@
 import {
-  ORDER_STATUS_CONFIRMED,
+  ORDER_STATUS_ASSEMBLING,
 } from '../constants/order-statuses'
 
 export const normalizeAdminOrdersPage = (page: unknown): number => {
@@ -14,5 +14,5 @@ export const normalizeAdminOrdersPageSize = (pageSize: unknown): number => {
   return Math.min(parsed, 100)
 }
 
-export const shouldNotifyConfirmed = (previousStatus: string, newStatus: string): boolean =>
-  newStatus === ORDER_STATUS_CONFIRMED && previousStatus !== ORDER_STATUS_CONFIRMED
+export const shouldNotifyAssembling = (previousStatus: string, newStatus: string): boolean =>
+  newStatus === ORDER_STATUS_ASSEMBLING && previousStatus !== ORDER_STATUS_ASSEMBLING

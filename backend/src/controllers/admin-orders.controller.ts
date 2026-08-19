@@ -5,7 +5,7 @@ import {
   getAdminOrderById,
   listAdminOrders,
   restockAdminOrder,
-  shouldNotifyConfirmed,
+  shouldNotifyAssembling,
   updateAdminOrder,
   adminOrderDetailToOrderDraft,
 } from '../services/admin-orders.service'
@@ -113,7 +113,7 @@ export const patchAdminOrderHandler = async (req: Request, res: Response, next: 
     }
 
     const newStatus = parsed.data.status ?? result.order.status
-    if (shouldNotifyConfirmed(result.previousStatus, newStatus)) {
+    if (shouldNotifyAssembling(result.previousStatus, newStatus)) {
       void notifyClientStatusChange(adminOrderDetailToOrderDraft(result.order), newStatus).catch(
         (err) => {
           console.error('[notify-client-status:error]', err)

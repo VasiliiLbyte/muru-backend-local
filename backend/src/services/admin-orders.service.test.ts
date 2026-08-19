@@ -4,21 +4,21 @@ import { isValidOrderStatus, ORDER_STATUSES } from '../constants/order-statuses'
 import {
   normalizeAdminOrdersPage,
   normalizeAdminOrdersPageSize,
-  shouldNotifyConfirmed,
+  shouldNotifyAssembling,
 } from './admin-orders.helpers'
 
 describe('order status helpers', () => {
   it('validates known statuses', () => {
     expect(isValidOrderStatus('Новый')).toBe(true)
-    expect(isValidOrderStatus('Подтверждён')).toBe(true)
+    expect(isValidOrderStatus('Собирается')).toBe(true)
     expect(isValidOrderStatus('invalid')).toBe(false)
-    expect(ORDER_STATUSES).toHaveLength(9)
+    expect(ORDER_STATUSES).toHaveLength(7)
   })
 
-  it('should notify only on transition to Подтверждён', () => {
-    expect(shouldNotifyConfirmed('Новый', 'Подтверждён')).toBe(true)
-    expect(shouldNotifyConfirmed('Подтверждён', 'Подтверждён')).toBe(false)
-    expect(shouldNotifyConfirmed('В обработке', 'Доставлен')).toBe(false)
+  it('should notify only on transition to Собирается', () => {
+    expect(shouldNotifyAssembling('Новый', 'Собирается')).toBe(true)
+    expect(shouldNotifyAssembling('Собирается', 'Собирается')).toBe(false)
+    expect(shouldNotifyAssembling('Собирается', 'Доставлен')).toBe(false)
   })
 })
 

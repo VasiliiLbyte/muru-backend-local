@@ -1553,6 +1553,129 @@
   align-items: center;
 }
 
+/* Order status chips */
+.order-status-chip {
+  border: none;
+}
+
+.order-status--novyj {
+  background: var(--order-status-novyj-bg);
+  color: var(--order-status-novyj-text);
+}
+
+.order-status--assembling {
+  background: var(--order-status-assembling-bg);
+  color: var(--order-status-assembling-text);
+}
+
+.order-status--vputi {
+  background: var(--order-status-vputi-bg);
+  color: var(--order-status-vputi-text);
+}
+
+.order-status--delivered {
+  background: var(--order-status-delivered-bg);
+  color: var(--order-status-delivered-text);
+}
+
+.order-status--cancelled {
+  background: var(--order-status-cancelled-bg);
+  color: var(--order-status-cancelled-text);
+}
+
+.order-status--returned {
+  background: var(--order-status-returned-bg);
+  color: var(--order-status-returned-text);
+}
+
+.order-status--draft,
+.order-status--fallback {
+  background: var(--order-status-draft-bg);
+  color: var(--order-status-draft-text);
+}
+
+/* Order detail layout */
+.order-detail-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  padding: 16px;
+  background: var(--muru-surface);
+  border: 1px solid var(--muru-border);
+  border-radius: var(--r-md);
+}
+
+.order-detail-header__total {
+  font-weight: 600;
+  color: var(--muru-text-strong);
+}
+
+.order-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  gap: 16px;
+}
+
+.order-detail-grid__full {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.order-detail-cdek {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--muru-border);
+}
+
+.order-detail-cdek__title {
+  margin: 0 0 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--muru-text-strong);
+}
+
+.dashboard-active-orders {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dashboard-active-orders__count {
+  font-size: 2rem;
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--muru-text-strong);
+}
+
+.dashboard-active-orders__link {
+  margin-top: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--muru-olive);
+  text-decoration: none;
+}
+
+.dashboard-active-orders__link:hover {
+  text-decoration: underline;
+}
+
+@media (min-width: 769px) {
+  .order-detail-actions--sticky {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
+  }
+}
+
+@media (max-width: 768px) {
+  .order-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .form-actions {
   display: flex;
   gap: 10px;

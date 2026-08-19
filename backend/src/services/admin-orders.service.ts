@@ -12,7 +12,7 @@ import { settleOrderStockOnStatusChange } from './stock-movements.service'
 export {
   normalizeAdminOrdersPage,
   normalizeAdminOrdersPageSize,
-  shouldNotifyConfirmed,
+  shouldNotifyAssembling,
 } from './admin-orders.helpers'
 
 export type AdminOrderListItem = {

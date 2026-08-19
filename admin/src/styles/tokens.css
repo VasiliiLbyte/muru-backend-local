@@ -36,6 +36,22 @@
   --muru-purple-bg: #ede9fe;
   --muru-purple-text: #6d28d9;
 
+  /* Order status chips (match frontend/src/admin/order-status-ui.ts) */
+  --order-status-novyj-bg: #dbeafe;
+  --order-status-novyj-text: #1e40af;
+  --order-status-assembling-bg: #fde2c9;
+  --order-status-assembling-text: #7a3d12;
+  --order-status-vputi-bg: #cfd9eb;
+  --order-status-vputi-text: #26375e;
+  --order-status-delivered-bg: #bbd6a8;
+  --order-status-delivered-text: #2c4515;
+  --order-status-cancelled-bg: #f3c5c5;
+  --order-status-cancelled-text: #7a2222;
+  --order-status-returned-bg: #ead2c6;
+  --order-status-returned-text: #6b3220;
+  --order-status-draft-bg: #efe8d8;
+  --order-status-draft-text: #5c5346;
+
   /* Radii */
   --r-sm: 8px;
   --r-md: 12px;

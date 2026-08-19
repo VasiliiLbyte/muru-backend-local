@@ -32,6 +32,7 @@ export type CrmOrderDetailItem = OrderItemInput & {
 }
 
 export type CrmOrderDetail = CrmOrderListItem & {
+  customerEmail: string | null
   subtotal: number
   deliveryOption: string | null
   deliveryPrice: number
@@ -334,6 +335,7 @@ export const getCrmOrderById = async (orderId: number): Promise<CrmOrderDetail |
     updated_at: string
     customer_name: string | null
     customer_phone: string | null
+    customer_email: string | null
     payment_id: string | null
     payment_status: string | null
     paid_at: string | null
@@ -374,6 +376,7 @@ export const getCrmOrderById = async (orderId: number): Promise<CrmOrderDetail |
        o.updated_at::text,
        ${CUSTOMER_NAME_SQL} AS customer_name,
        ${CUSTOMER_PHONE_SQL} AS customer_phone,
+       o.customer_email,
        o.payment_id,
        o.payment_status,
        o.paid_at::text,
@@ -422,6 +425,7 @@ export const getCrmOrderById = async (orderId: number): Promise<CrmOrderDetail |
     itemsCount: items.length,
     customerName: row.customer_name,
     customerPhone: row.customer_phone,
+    customerEmail: row.customer_email ?? null,
     paymentStatus: row.payment_status,
     paidAt: row.paid_at,
     paymentId: row.payment_id,

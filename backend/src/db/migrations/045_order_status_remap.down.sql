@@ -1,0 +1,2 @@
+-- Best-effort no-op: merged statuses cannot be reliably split back.
+-- Intentionally empty.

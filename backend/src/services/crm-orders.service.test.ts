@@ -16,7 +16,7 @@ vi.mock('./stock-movements.service', () => ({
   settleOrderStockOnStatusChange: (...args: unknown[]) => mockSettle(...args),
 }))
 
-import { cancelCrmOrder, listCrmOrders, updateCrmOrder } from './crm-orders.service'
+import { cancelCrmOrder, getCrmOrderById, listCrmOrders, updateCrmOrder } from './crm-orders.service'
 
 const detailRow = (overrides: Record<string, unknown> = {}) => ({
   id: 5,
@@ -57,6 +57,7 @@ const detailRow = (overrides: Record<string, unknown> = {}) => ({
   paid_at: null,
   customer_name: null,
   customer_phone: null,
+  customer_email: null,
   items_count: '0',
   ...overrides,
 })
@@ -108,6 +109,27 @@ describe('crm-orders.service channel-aware mapping', () => {
     expect(statusCountsSql).toContain('o.channel = $1')
     expect(statusCountsSql).not.toContain('o.status =')
     expect(statusCountsParams).toEqual(['web'])
+  })
+  it('getCrmOrderById returns customerEmail from row', async () => {
+    mockQuery
+      .mockResolvedValueOnce({
+        rows: [detailRow({ customer_email: 'buyer@example.com' })],
+      })
+      .mockResolvedValueOnce({ rows: [] })
+
+    const order = await getCrmOrderById(5)
+
+    expect(order?.customerEmail).toBe('buyer@example.com')
+  })
+
+  it('getCrmOrderById maps null customer_email to null', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rows: [detailRow()] })
+      .mockResolvedValueOnce({ rows: [] })
+
+    const order = await getCrmOrderById(5)
+
+    expect(order?.customerEmail).toBeNull()
   })
 })
 
@@ -161,7 +183,7 @@ describe('cancelCrmOrder / updateCrmOrder stock settlement', () => {
   it('updateCrmOrder PATCH Возврат settles stock', async () => {
     mockClientQuery.mockImplementation(async (sql: string) => {
       if (sql === 'BEGIN' || sql === 'COMMIT' || sql === 'ROLLBACK') return { rows: [] }
-      if (sql.includes('FOR UPDATE')) return { rows: [{ status: 'В обработке' }] }
+      if (sql.includes('FOR UPDATE')) return { rows: [{ status: 'Собирается' }] }
       return { rows: [] }
     })
     mockQuery
@@ -177,7 +199,7 @@ describe('cancelCrmOrder / updateCrmOrder stock settlement', () => {
       expect.anything(),
       expect.objectContaining({
         orderId: 8,
-        previousStatus: 'В обработке',
+        previousStatus: 'Собирается',
         newStatus: 'Возврат',
         actor: { type: 'admin', adminId: 1, label: 'a@muru.ru' },
       }),
