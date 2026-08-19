@@ -1,4 +1,5 @@
 import {
+  ACTIVE_ORDER_STATUSES,
   isTerminalOrderStatus,
   isValidOrderStatus,
   ORDER_STATUS_CANCELLED,
@@ -113,11 +114,17 @@ const buildListFilters = (filters: CrmOrdersListFilters, includeStatus: boolean)
   const params: unknown[] = []
 
   if (includeStatus && filters.status?.trim()) {
-    if (filters.status.trim() === 'Черновик') {
+    const statusFilter = filters.status.trim()
+
+    if (statusFilter === 'active') {
+      where.push('o.is_draft = FALSE')
+      params.push([...ACTIVE_ORDER_STATUSES])
+      where.push(`o.status = ANY($${params.length}::text[])`)
+    } else if (statusFilter === 'Черновик') {
       where.push('o.is_draft = TRUE')
     } else {
       where.push('o.is_draft = FALSE')
-      params.push(filters.status.trim())
+      params.push(statusFilter)
       where.push(`o.status = $${params.length}`)
     }
   } else {

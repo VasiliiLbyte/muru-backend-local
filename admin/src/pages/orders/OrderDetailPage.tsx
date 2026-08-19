@@ -180,6 +180,52 @@ export const OrderDetailPage = () => {
         <span>Оплата: {getPaymentLabel(order)}</span>
       </div>
 
+      <Card title="Действия менеджера">
+        <form className="form-stack" onSubmit={onSave}>
+          <Field label="Статус" htmlFor="order-status">
+            <Select id="order-status" value={status} onChange={(e) => setStatus(e.target.value)}>
+              {CRM_EDITABLE_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </Select>
+          </Field>
+
+          <Field label="Комментарий менеджера" htmlFor="order-admin-comment">
+            <Textarea
+              id="order-admin-comment"
+              value={adminComment}
+              onChange={(e) => setAdminComment(e.target.value)}
+            />
+          </Field>
+
+          <Field label="Ориентировочная дата доставки" htmlFor="order-delivery-eta">
+            <Input
+              id="order-delivery-eta"
+              type="date"
+              value={deliveryEta}
+              onChange={(e) => setDeliveryEta(e.target.value)}
+            />
+          </Field>
+
+          <div className="form-actions">
+            <Button type="submit" loading={saving}>
+              Сохранить
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              loading={cancelling}
+              disabled={order.status === ORDER_STATUS_CANCELLED}
+              onClick={() => void onCancel()}
+            >
+              Отменить заказ
+            </Button>
+          </div>
+        </form>
+      </Card>
+
       <div className="order-detail-grid">
         <Card title="Состав">
           <Table>
@@ -283,52 +329,6 @@ export const OrderDetailPage = () => {
               {order.consentVersion ? ` · v${order.consentVersion}` : ''}
               {order.consentAcceptedAt ? ` · ${formatOrderDate(order.consentAcceptedAt)}` : ''}
             </p>
-          </Card>
-
-          <Card title="Действия менеджера" className="order-detail-actions--sticky">
-            <form className="form-stack" onSubmit={onSave}>
-              <Field label="Статус" htmlFor="order-status">
-                <Select id="order-status" value={status} onChange={(e) => setStatus(e.target.value)}>
-                  {CRM_EDITABLE_STATUSES.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-
-              <Field label="Комментарий менеджера" htmlFor="order-admin-comment">
-                <Textarea
-                  id="order-admin-comment"
-                  value={adminComment}
-                  onChange={(e) => setAdminComment(e.target.value)}
-                />
-              </Field>
-
-              <Field label="Ориентировочная дата доставки" htmlFor="order-delivery-eta">
-                <Input
-                  id="order-delivery-eta"
-                  type="date"
-                  value={deliveryEta}
-                  onChange={(e) => setDeliveryEta(e.target.value)}
-                />
-              </Field>
-
-              <div className="form-actions">
-                <Button type="submit" loading={saving}>
-                  Сохранить
-                </Button>
-                <Button
-                  type="button"
-                  variant="danger"
-                  loading={cancelling}
-                  disabled={order.status === ORDER_STATUS_CANCELLED}
-                  onClick={() => void onCancel()}
-                >
-                  Отменить заказ
-                </Button>
-              </div>
-            </form>
           </Card>
         </div>
       </div>

@@ -9,10 +9,19 @@ import {
   Sparkles,
 } from 'lucide-react'
 
-import { Badge, Card, PageHeader, SkeletonText } from '../components/ui'
-import { countActiveOrders } from '../constants/order-statuses'
+import { Badge, Card, CardHeader, PageHeader, SkeletonTable } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { listOrders } from '../lib/orders-api'
+import type { CrmOrderListItem } from '../types/orders'
+import { formatMoney, formatOrderDate } from '../utils/order-labels'
+import { OrderStatusBadge } from '../utils/order-status-ui'
+
+const ACTIVE_FEED_SIZE = 10
+
+const renderCustomer = (order: CrmOrderListItem) => {
+  const parts = [order.customerName, order.customerPhone].filter(Boolean)
+  return parts.length > 0 ? parts.join(', ') : '—'
+}
 
 const dashboardLinks = [
   {
@@ -49,14 +58,19 @@ const dashboardLinks = [
 
 export const DashboardPage = () => {
   const { admin } = useAuth()
-  const [activeCount, setActiveCount] = useState<number | null>(null)
-  const [activeLoading, setActiveLoading] = useState(true)
+  const [items, setItems] = useState<CrmOrderListItem[]>([])
+  const [total, setTotal] = useState<number | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    listOrders({ page: 1, pageSize: 1 })
-      .then((data) => setActiveCount(countActiveOrders(data.statusCounts)))
-      .catch(() => setActiveCount(null))
-      .finally(() => setActiveLoading(false))
+    listOrders({ status: 'active', page: 1, pageSize: ACTIVE_FEED_SIZE })
+      .then((data) => {
+        setItems(data.items)
+        setTotal(data.total)
+      })
+      .catch(() => setError('Не удалось загрузить активные заказы'))
+      .finally(() => setLoading(false))
   }, [])
 
   return (
@@ -70,18 +84,40 @@ export const DashboardPage = () => {
         </div>
       ) : null}
 
-      <Card title="Активные заказы">
-        <div className="dashboard-active-orders">
-          {activeLoading ? (
-            <SkeletonText lines={1} />
-          ) : (
-            <span className="dashboard-active-orders__count">{activeCount ?? '—'}</span>
-          )}
-          <p className="muted-text">Новый + Собирается + В пути</p>
-          <Link className="dashboard-active-orders__link" to="/orders">
-            Перейти к заказам →
-          </Link>
-        </div>
+      <Card>
+        <CardHeader className="dashboard-active-feed__header">
+          <span>Активные заказы</span>
+          {!loading && total != null ? <Badge variant="neutral">{total}</Badge> : null}
+        </CardHeader>
+
+        {loading ? <SkeletonTable rows={5} cols={5} /> : null}
+
+        {!loading && error ? <p className="muted-text">{error}</p> : null}
+
+        {!loading && !error && items.length === 0 ? (
+          <p className="muted-text">Нет активных заказов</p>
+        ) : null}
+
+        {!loading && !error && items.length > 0 ? (
+          <ul className="dashboard-active-feed">
+            {items.map((order) => (
+              <li key={order.id} className="dashboard-active-feed__row">
+                <Link to={`/orders/${order.id}`} className="dashboard-active-feed__link">
+                  <span>#{order.id}</span>
+                  <span>{formatOrderDate(order.createdAt)}</span>
+                  <span>{renderCustomer(order)}</span>
+                  <span>{formatMoney(order.total)}</span>
+                  <OrderStatusBadge status={order.status} />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
+        <p className="muted-text">Новый + Собирается + В пути</p>
+        <Link className="dashboard-active-feed__footer" to="/orders">
+          Все заказы →
+        </Link>
       </Card>
 
       <div className="dashboard-grid">

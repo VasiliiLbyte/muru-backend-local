@@ -110,6 +110,25 @@ describe('crm-orders.service channel-aware mapping', () => {
     expect(statusCountsSql).not.toContain('o.status =')
     expect(statusCountsParams).toEqual(['web'])
   })
+
+  it('listCrmOrders with status=active applies ANY filter to list but not statusCounts', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ total: '2' }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+
+    await listCrmOrders({ status: 'active', page: 1, pageSize: 10 })
+
+    const listSql = String(mockQuery.mock.calls[1][0])
+    const listParams = mockQuery.mock.calls[1][1] as unknown[]
+    const statusCountsSql = String(mockQuery.mock.calls[2][0])
+
+    expect(listSql).toContain('ANY')
+    expect(listParams).toContainEqual(['Новый', 'Собирается', 'В пути'])
+    expect(statusCountsSql).not.toContain('ANY')
+    expect(statusCountsSql).not.toContain('o.status =')
+  })
+
   it('getCrmOrderById returns customerEmail from row', async () => {
     mockQuery
       .mockResolvedValueOnce({
