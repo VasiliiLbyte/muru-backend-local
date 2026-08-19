@@ -61,31 +61,22 @@ describe('suggestCatalogSearch', () => {
     expect(queryMock).not.toHaveBeenCalled()
   })
 
-  it('limits products and categories in SQL', async () => {
+  it('uses ROW_NUMBER CTE and returns categorySlug/subcategorySlug', async () => {
     queryMock
       .mockResolvedValueOnce({
         rows: [
           {
-            id: 1,
             sku: 'MU0001',
             slug: 'vaza',
             name: 'Ваза',
             price: '1000',
             discount_percent: '0',
-            in_stock: 1,
-            is_gift_guide: false,
-            is_new_arrival: false,
-            new_arrival_at: null,
             image_url_1: 'https://example.com/1.webp',
             image_url_2: '',
             image_urls: ['https://example.com/1.webp'],
-            category_name: 'Декор',
-            product_color: null,
-            dimensions_label: '',
-            color_tags: null,
-            weight_grams: 1000,
-            variant_color: null,
-            variant_size: null,
+            category_slug: 'dekor',
+            subcategory_slug: 'vazy',
+            search_rank: '80',
           },
         ],
       })
@@ -103,10 +94,54 @@ describe('suggestCatalogSearch', () => {
     const result = await suggestCatalogSearch({ q: 'ваза', channel: 'web' })
 
     expect(result.products).toHaveLength(1)
+    expect(result.products[0].categorySlug).toBe('dekor')
+    expect(result.products[0].subcategorySlug).toBe('vazy')
     expect(result.categories).toHaveLength(1)
     const productSql = String(queryMock.mock.calls[0]?.[0] ?? '')
+    expect(productSql).toContain('ROW_NUMBER()')
+    expect(productSql).toContain('ORDER BY search_rank DESC')
     expect(productSql).toContain('LIMIT $')
-    const categorySql = String(queryMock.mock.calls[1]?.[0] ?? '')
-    expect(categorySql).toContain('LIMIT $')
+    expect(productSql).not.toContain('DISTINCT ON')
+  })
+
+  it('returns products ordered by rank, not alphabetically', async () => {
+    queryMock
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            sku: 'MU0001',
+            slug: 'vaza',
+            name: 'Ваза керамическая',
+            price: '1000',
+            discount_percent: '0',
+            image_url_1: 'https://example.com/1.webp',
+            image_url_2: '',
+            image_urls: ['https://example.com/1.webp'],
+            category_slug: 'dekor',
+            subcategory_slug: 'vazy',
+            search_rank: '90',
+          },
+          {
+            sku: 'MU0002',
+            slug: 'podsvechnik',
+            name: 'Подсвечник',
+            price: '500',
+            discount_percent: '0',
+            image_url_1: 'https://example.com/2.webp',
+            image_url_2: '',
+            image_urls: ['https://example.com/2.webp'],
+            category_slug: 'dekor',
+            subcategory_slug: '',
+            search_rank: '20',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] })
+
+    const result = await suggestCatalogSearch({ q: 'ваза', channel: 'web' })
+
+    expect(result.products).toHaveLength(2)
+    expect(result.products[0].name).toBe('Ваза керамическая')
+    expect(result.products[1].name).toBe('Подсвечник')
   })
 })

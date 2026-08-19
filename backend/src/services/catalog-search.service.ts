@@ -31,6 +31,8 @@ export type CatalogSearchSuggestProduct = {
   price: number
   discountPercent: number
   imageUrl: string | null
+  categorySlug: string
+  subcategorySlug: string
 }
 
 export type CatalogSearchSuggestCategory = {
@@ -168,48 +170,57 @@ export const suggestCatalogSearch = async (params: {
   const ctx = buildSearchContext(params.q, params.channel)
   const placeholder = await getCatalogPlaceholderImageUrl()
 
+  type SuggestProductRow = {
+    sku: string
+    slug: string | null
+    name: string
+    price: string
+    discount_percent: string
+    image_url_1: string
+    image_url_2: string
+    image_urls: string[] | null
+    category_slug: string | null
+    subcategory_slug: string | null
+    search_rank: string
+  }
+
   const productValues = [...ctx.rankValues]
   const productLimitIdx = productValues.push(limitProducts)
-  const productResult = await pool.query<CatalogProductRow>(
-    `SELECT DISTINCT ON (p.sku)
-       p.id,
-       p.sku,
-       p.slug,
-       p.name,
-       p.price::text,
-       p.discount_percent::text,
-       p.in_stock,
-       p.is_gift_guide,
-       p.is_new_arrival,
-       p.new_arrival_at,
-       p.image_url_1,
-       p.image_url_2,
-       p.image_urls,
-       c.name AS category_name,
-       p.color AS product_color,
-       p.dimensions_label,
-       p.color_tags,
-       p.weight_grams,
-       NULL::text AS variant_color,
-       NULL::text AS variant_size
-     ${buildProductFromClause(ctx.web)}
-     ${ctx.whereClause}
-     ORDER BY p.sku, (${ctx.rankExpression}) DESC, p.updated_at DESC
+  const productResult = await pool.query<SuggestProductRow>(
+    `WITH ranked AS (
+       SELECT
+         p.sku,
+         p.slug,
+         p.name,
+         p.price::text,
+         p.discount_percent::text,
+         p.image_url_1,
+         p.image_url_2,
+         p.image_urls,
+         c.slug AS category_slug,
+         COALESCE(NULLIF(trim(p.web_subcategory_slug), ''), NULLIF(trim(p.subcategory_slug), ''), '') AS subcategory_slug,
+         (${ctx.rankExpression}) AS search_rank,
+         ROW_NUMBER() OVER (PARTITION BY p.sku ORDER BY (${ctx.rankExpression}) DESC, p.updated_at DESC) AS rn
+       ${buildProductFromClause(ctx.web)}
+       ${ctx.whereClause}
+     )
+     SELECT * FROM ranked
+     WHERE rn = 1
+     ORDER BY search_rank DESC, name
      LIMIT $${productLimitIdx}`,
     productValues,
   )
 
-  const products: CatalogSearchSuggestProduct[] = productResult.rows
-    .map((row) => ({
-      sku: row.sku,
-      name: row.name,
-      slug: row.slug ?? '',
-      price: Number(row.price),
-      discountPercent: Number(row.discount_percent) || 0,
-      imageUrl: pickFirstProductImageUrl(row, placeholder),
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name, 'ru'))
-    .slice(0, limitProducts)
+  const products: CatalogSearchSuggestProduct[] = productResult.rows.map((row) => ({
+    sku: row.sku,
+    name: row.name,
+    slug: row.slug ?? '',
+    price: Number(row.price),
+    discountPercent: Number(row.discount_percent) || 0,
+    imageUrl: pickFirstProductImageUrl(row, placeholder),
+    categorySlug: row.category_slug ?? '',
+    subcategorySlug: row.subcategory_slug ?? '',
+  }))
 
   const categoryValues: Array<string | number> = []
   const categoryMatch = buildCategoryMatchCondition(categoryValues, ctx.tokens)
