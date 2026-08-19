@@ -24,17 +24,27 @@ const createPromoSchemaBase = z.object({
   isActive: z.boolean().optional(),
 })
 
-const createPromoSchema = createPromoSchemaBase.superRefine((val, ctx) => {
-  if (val.discountType === 'percent' && (val.discountValue < 1 || val.discountValue > 100)) {
+const refinePromoDiscount = (
+  val: { discountType?: 'percent' | 'fixed'; discountValue?: number },
+  ctx: z.RefinementCtx,
+) => {
+  if (
+    val.discountType === 'percent' &&
+    val.discountValue != null &&
+    (val.discountValue < 1 || val.discountValue > 100)
+  ) {
     ctx.addIssue({
       code: 'custom',
       message: 'Для percent discountValue должен быть в диапазоне 1-100',
       path: ['discountValue'],
     })
   }
-})
+}
 
-const patchPromoSchema = createPromoSchema.partial()
+const createPromoSchema = createPromoSchemaBase.superRefine(refinePromoDiscount)
+
+// Zod v4: .partial() on schemas with refinements throws at module load — partial base, refine after.
+const patchPromoSchema = createPromoSchemaBase.partial().superRefine(refinePromoDiscount)
 
 const routeParam = (value: string | string[] | undefined): string | undefined =>
   Array.isArray(value) ? value[0] : value
