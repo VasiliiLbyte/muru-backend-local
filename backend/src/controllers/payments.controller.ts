@@ -5,6 +5,7 @@ import type { AuthenticatedRequest } from '../middleware/auth.middleware'
 import { createInvoiceForCheckout } from '../services/telegram/invoice.service'
 import { verifyCustomerAccessJwt } from '../services/customer-auth.service'
 import { normalizeRussianPhone } from '../services/cdek/phone'
+import { validatePromoCode } from '../services/promo.service'
 import {
   createPayment,
   getPaymentIntentStatusForUser,
@@ -55,7 +56,6 @@ export const snapshotSchema = z
   .strict()
 
 const webSnapshotSchema = snapshotSchema
-  .omit({ promoCode: true })
   .extend({ email: z.string().trim().email('Некорректный e-mail') })
   .strict()
 
@@ -107,7 +107,7 @@ export const parseWebCheckoutBody = (
     ...parsed.data,
     telegramUserId: null,
     channel: 'web',
-    promoCode: null,
+    promoCode: parsed.data.promoCode || null,
     customerId: null,
   }
 }
@@ -152,6 +152,29 @@ export const createWebPaymentHandler = async (req: Request, res: Response, next:
     return ok(res, result)
   } catch (e) {
     next(e)
+  }
+}
+
+export const validateWebPromoHandler = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const schema = z.object({
+      code: z.string().min(1),
+      subtotal: z.number().positive(),
+    })
+    const parsed = schema.safeParse(req.body)
+    if (!parsed.success) {
+      return fail(res, 400, 'Некорректные данные', 'VALIDATION', parsed.error.issues)
+    }
+
+    const customerId = optionalCustomerIdFromRequest(req)
+    const result = await validatePromoCode({
+      code: parsed.data.code,
+      subtotal: parsed.data.subtotal,
+      customerId,
+    })
+    return ok(res, result)
+  } catch (error) {
+    next(error)
   }
 }
 

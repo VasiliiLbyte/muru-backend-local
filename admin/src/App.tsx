@@ -23,6 +23,9 @@ import { LoginPage } from './pages/LoginPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { OrderDetailPage } from './pages/orders/OrderDetailPage'
 import { OrdersListPage } from './pages/orders/OrdersListPage'
+import { PromoCodeEditPage } from './pages/promo-codes/PromoCodeEditPage'
+import { PromoCodesListPage } from './pages/promo-codes/PromoCodesListPage'
+import { PromoCodeUsagesPage } from './pages/promo-codes/PromoCodeUsagesPage'
 import { StockMovementsPage } from './pages/stock/StockMovementsPage'
 import { SettingsHubPage } from './pages/settings/SettingsHubPage'
 import { CdekSettingsPage } from './pages/settings/CdekSettingsPage'
@@ -64,6 +67,10 @@ function App() {
           <Route index element={<DashboardPage />} />
           <Route path="orders" element={<OrdersListPage />} />
           <Route path="orders/:id" element={<OrderDetailPage />} />
+          <Route path="promo-codes" element={<PromoCodesListPage />} />
+          <Route path="promo-codes/new" element={<PromoCodeEditPage />} />
+          <Route path="promo-codes/:id/usages" element={<PromoCodeUsagesPage />} />
+          <Route path="promo-codes/:id" element={<PromoCodeEditPage />} />
           <Route path="stock/movements" element={<StockMovementsPage />} />
           <Route path="settings" element={<RequireOwner />}>
             <Route index element={<SettingsHubPage />} />

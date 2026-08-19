@@ -32,6 +32,7 @@ export type TrustedPricing = {
 
 export type PricingInput = {
   telegramUserId: number | null
+  customerId?: number | null
   items: Array<{ sku: string; quantity: number; color?: string; size?: string }>
   deliveryMode: 'delivery' | 'pickup'
   promoCode: string | null
@@ -123,12 +124,10 @@ export const computeTrustedPricing = async (input: PricingInput): Promise<Truste
   let promoDiscount = 0
   let promoCode: string | null = null
   if (input.promoCode?.trim()) {
-    if (input.telegramUserId == null) {
-      throw new PromoValidationError('Промокоды недоступны для гостевого оформления')
-    }
     const validation = await validatePromoCode({
       code: input.promoCode,
-      telegramUserId: input.telegramUserId,
+      telegramUserId: input.telegramUserId ?? undefined,
+      customerId: input.customerId ?? undefined,
       subtotal,
     })
     if (!validation.valid) {

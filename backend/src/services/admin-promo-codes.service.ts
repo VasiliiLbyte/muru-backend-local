@@ -19,7 +19,8 @@ export type AdminPromoCode = {
 
 export type AdminPromoCodeUsage = {
   id: number
-  telegramUserId: number
+  telegramUserId: number | null
+  customerId: number | null
   orderId: number | null
   usedAt: string
 }
@@ -220,11 +221,12 @@ export const deletePromoCode = async (id: number): Promise<boolean> => {
 export const listPromoCodeUsages = async (promoCodeId: number): Promise<AdminPromoCodeUsage[]> => {
   const result = await pool.query<{
     id: number
-    telegram_user_id: string
+    telegram_user_id: string | null
+    customer_id: number | null
     order_id: number | null
     used_at: string
   }>(
-    `SELECT id, telegram_user_id::text, order_id, used_at::text
+    `SELECT id, telegram_user_id::text, customer_id, order_id, used_at::text
      FROM promo_code_usages
      WHERE promo_code_id = $1
      ORDER BY used_at DESC`,
@@ -232,7 +234,8 @@ export const listPromoCodeUsages = async (promoCodeId: number): Promise<AdminPro
   )
   return result.rows.map((row) => ({
     id: row.id,
-    telegramUserId: Number(row.telegram_user_id),
+    telegramUserId: row.telegram_user_id ? Number(row.telegram_user_id) : null,
+    customerId: row.customer_id ?? null,
     orderId: row.order_id,
     usedAt: row.used_at,
   }))

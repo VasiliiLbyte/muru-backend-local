@@ -19,6 +19,7 @@ import { crmStockRouter } from './routes/crm-stock.routes'
 import { crmProductCollectionsRouter } from './routes/crm-product-collections.routes'
 import { crmUsersRouter } from './routes/crm-users.routes'
 import { crmSettingsRouter } from './routes/crm-settings.routes'
+import { crmPromoCodesRouter } from './routes/crm-promo-codes.routes'
 import { contentPublicRouter } from './routes/content-public.routes'
 import { favoritesRouter } from './routes/favorites.routes'
 import { ordersRouter } from './routes/orders.routes'
@@ -94,6 +95,7 @@ app.use('/api/crm/catalog', crmCatalogRouter)
 app.use('/api/crm/products', crmProductCollectionsRouter)
 app.use('/api/crm/users', crmUsersRouter)
 app.use('/api/crm/settings', crmSettingsRouter)
+app.use('/api/crm/promo-codes', crmPromoCodesRouter)
 app.use('/api/content', contentPublicRouter)
 app.use('/api/admin', adminRouter)
 app.use('/api/catalog', miniappMaintenanceUnlessNoTelegramInitData, catalogRouter)

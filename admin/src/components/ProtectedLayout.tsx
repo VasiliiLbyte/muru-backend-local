@@ -6,6 +6,7 @@ import {
   Package,
   Settings,
   ShoppingBag,
+  Tag,
   Warehouse,
 } from 'lucide-react'
 import { NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
@@ -40,6 +41,7 @@ export const ProtectedLayout = () => {
   const catalogActive =
     pathname.startsWith('/catalog') && !pathname.startsWith('/catalog/products')
   const productsActive = pathname.startsWith('/catalog/products')
+  const promoActive = pathname.startsWith('/promo-codes')
 
   return (
     <div className="layout-shell">
@@ -81,6 +83,14 @@ export const ProtectedLayout = () => {
           >
             <ShoppingBag className="sidebar-link__icon" aria-hidden />
             Заказы
+          </NavLink>
+
+          <NavLink
+            to="/promo-codes"
+            className={() => `sidebar-link${promoActive ? ' sidebar-link--active' : ''}`}
+          >
+            <Tag className="sidebar-link__icon" aria-hidden />
+            Промокоды
           </NavLink>
 
           <NavLink

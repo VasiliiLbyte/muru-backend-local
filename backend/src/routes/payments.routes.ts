@@ -6,6 +6,7 @@ import {
   createWebPaymentHandler,
   getPaymentIntentStatusHandler,
   getPaymentStatusHandler,
+  validateWebPromoHandler,
   getWebPaymentStatusHandler,
 } from '../controllers/payments.controller'
 import { requireAuth } from '../middleware/auth.middleware'
@@ -16,6 +17,11 @@ const paymentsRouter = Router()
 paymentsRouter.post('/create', requireAuth, createPaymentHandler)
 paymentsRouter.post('/invoice', requireAuth, createInvoiceHandler)
 paymentsRouter.post('/web/create', rateLimitByIp('payments:web:create', 10), createWebPaymentHandler)
+paymentsRouter.post(
+  '/web/promo/validate',
+  rateLimitByIp('payments:web:promo', 10),
+  validateWebPromoHandler,
+)
 paymentsRouter.get('/web/:paymentId/status', rateLimitByIp('payments:web:status', 30), getWebPaymentStatusHandler)
 paymentsRouter.get('/intent/:intentId/status', requireAuth, getPaymentIntentStatusHandler)
 paymentsRouter.get('/:paymentId/status', requireAuth, getPaymentStatusHandler)

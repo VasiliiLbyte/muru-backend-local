@@ -296,12 +296,16 @@ CREATE TABLE IF NOT EXISTS promo_codes (
 CREATE TABLE IF NOT EXISTS promo_code_usages (
   id SERIAL PRIMARY KEY,
   promo_code_id INTEGER NOT NULL REFERENCES promo_codes(id) ON DELETE CASCADE,
-  telegram_user_id BIGINT NOT NULL,
+  telegram_user_id BIGINT,
+  customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL,
   order_id INTEGER REFERENCES orders(id) ON DELETE SET NULL,
-  used_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  used_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT chk_pcu_identity CHECK (telegram_user_id IS NOT NULL OR customer_id IS NOT NULL)
 );
 
 CREATE INDEX IF NOT EXISTS idx_promo_usages_user ON promo_code_usages(telegram_user_id, promo_code_id);
+
+CREATE INDEX IF NOT EXISTS idx_pcu_customer_id ON promo_code_usages(customer_id) WHERE customer_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS bot_welcome_settings (
   id INTEGER PRIMARY KEY CHECK (id = 1),

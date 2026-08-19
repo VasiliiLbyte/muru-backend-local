@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import {
   calculatePromoDiscount,
@@ -6,6 +6,7 @@ import {
   normalizePromoCode,
   resolvePromoDisplayStatus,
 } from './promo.helpers'
+import { applyPromoCodeOnOrder } from './promo.service'
 
 describe('normalizePromoCode', () => {
   it('uppercases and trims', () => {
@@ -86,5 +87,19 @@ describe('resolvePromoDisplayStatus', () => {
 describe('normalizeMoney', () => {
   it('rounds to two decimals', () => {
     expect(normalizeMoney(10.556)).toBe(10.56)
+  })
+})
+
+describe('applyPromoCodeOnOrder', () => {
+  it('inserts telegram_user_id=0 when both identities are absent', async () => {
+    const queryMock = vi.fn().mockResolvedValue({ rows: [] })
+    const client = { query: queryMock } as never
+
+    await applyPromoCodeOnOrder(client, { promoCodeId: 5, orderId: 99 })
+
+    expect(queryMock).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO promo_code_usages'),
+      [5, 0, null, 99],
+    )
   })
 })

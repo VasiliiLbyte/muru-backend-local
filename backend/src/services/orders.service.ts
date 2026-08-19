@@ -259,12 +259,10 @@ export const createOrder = async (input: CheckoutDraftInput): Promise<OrderDraft
       promoCodeId = promoRow.rows[0]?.id ?? null
     }
   } else if (input.promoCode?.trim()) {
-    if (input.telegramUserId == null) {
-      throw new PromoValidationError('Промокоды недоступны для гостевого оформления')
-    }
     const validation = await validatePromoCode({
       code: input.promoCode,
-      telegramUserId: input.telegramUserId,
+      telegramUserId: input.telegramUserId ?? undefined,
+      customerId: input.customerId ?? undefined,
       subtotal,
     })
     if (!validation.valid) {
@@ -278,10 +276,6 @@ export const createOrder = async (input: CheckoutDraftInput): Promise<OrderDraft
   const total = normalizeMoney(Math.max(0, subtotal - promoDiscount + deliveryPrice))
   const client = await pool.connect()
   let createdOrderId: number | null = null
-
-  if (promoCodeId != null && input.telegramUserId == null) {
-    throw new PromoValidationError('Промокоды недоступны для гостевого оформления')
-  }
 
   try {
     await client.query('BEGIN')
@@ -357,7 +351,8 @@ export const createOrder = async (input: CheckoutDraftInput): Promise<OrderDraft
         await usageClient.query('BEGIN')
         await applyPromoCodeOnOrder(usageClient, {
           promoCodeId,
-          telegramUserId: input.telegramUserId!,
+          telegramUserId: input.telegramUserId ?? undefined,
+          customerId: input.customerId ?? undefined,
           orderId: createdOrderId,
         })
         await usageClient.query('COMMIT')

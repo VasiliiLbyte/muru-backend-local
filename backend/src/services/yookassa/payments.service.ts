@@ -90,6 +90,7 @@ export const createPayment = async (
 
   const pricing = await computeTrustedPricing({
     telegramUserId: raw.telegramUserId,
+    customerId: raw.customerId ?? undefined,
     items: raw.items,
     deliveryMode: raw.deliveryMode,
     promoCode: raw.promoCode,

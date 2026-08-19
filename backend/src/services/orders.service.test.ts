@@ -24,6 +24,10 @@ vi.mock('./stock-movements.service', () => ({
 }))
 
 import { createOrder, getOrdersByTelegramUserId } from './orders.service'
+import { applyPromoCodeOnOrder, validatePromoCode } from './promo.service'
+
+const validatePromoMock = vi.mocked(validatePromoCode)
+const applyPromoMock = vi.mocked(applyPromoCodeOnOrder)
 
 describe('getOrdersByTelegramUserId', () => {
   beforeEach(() => {
@@ -145,6 +149,51 @@ describe('createOrder', () => {
     expect(insertCall![0]).toContain('customer_id, customer_email, customer_phone')
     expect(insertCall![1]).toEqual(
       expect.arrayContaining([7, 'buyer@example.com', '+79001234567']),
+    )
+  })
+
+  it('allows guest promo without identity', async () => {
+    validatePromoMock.mockResolvedValue({
+      valid: true,
+      promoCodeId: 5,
+      code: 'TEST',
+      discountType: 'percent',
+      discountValue: 10,
+    })
+    applyPromoMock.mockResolvedValue(undefined)
+
+    const mockUsageClientQuery = vi.fn().mockResolvedValue({ rows: [] })
+    mockConnect
+      .mockResolvedValueOnce({
+        query: mockClientQuery,
+        release: vi.fn(),
+      })
+      .mockResolvedValueOnce({
+        query: mockUsageClientQuery,
+        release: vi.fn(),
+      })
+
+    await expect(
+      createOrder({
+        telegramUserId: null,
+        channel: 'web',
+        items: [{ sku: 'MU0001', name: 'Vase', price: 1000, quantity: 1 }],
+        deliveryMode: 'pickup',
+        deliveryPrice: 0,
+        address: '',
+        comment: '',
+        consentAccepted: true,
+        promoCode: 'TEST',
+        customerId: null,
+      }),
+    ).resolves.toBeDefined()
+
+    expect(validatePromoMock).toHaveBeenCalledWith(
+      expect.objectContaining({ code: 'TEST', telegramUserId: undefined, customerId: undefined }),
+    )
+    expect(applyPromoMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ promoCodeId: 5, orderId: 50 }),
     )
   })
 })
