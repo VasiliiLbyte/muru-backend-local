@@ -81,14 +81,51 @@ const requireCaptcha = async (token: string | undefined, req: Request): Promise<
   await verifySmartCaptcha(token, clientIp(req))
 }
 
-const registerSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(CUSTOMER_PASSWORD_MIN_LENGTH),
-  fullName: z.string().min(1).max(200),
-  phone: z.string().optional().nullable(),
-  consentAccepted: z.literal(true),
-  captchaToken: z.string().optional(),
-})
+const nameCompatFields = {
+  lastName: z.string().max(100).optional(),
+  firstName: z.string().max(100).optional(),
+  middleName: z.string().max(100).optional().nullable(),
+  fullName: z.string().max(200).optional(),
+}
+
+const requireNameCompat = (
+  data: {
+    lastName?: string
+    firstName?: string
+    middleName?: string | null
+    fullName?: string
+  },
+  ctx: z.RefinementCtx,
+) => {
+  const hasParts = Boolean(data.lastName?.trim() && data.firstName?.trim())
+  const hasLegacy = Boolean(data.fullName?.trim())
+  if (!hasParts && !hasLegacy) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Provide lastName and firstName, or fullName',
+      path: ['fullName'],
+    })
+  }
+  if (hasParts) {
+    if ((data.lastName?.trim().length ?? 0) < 1) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Required', path: ['lastName'] })
+    }
+    if ((data.firstName?.trim().length ?? 0) < 1) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Required', path: ['firstName'] })
+    }
+  }
+}
+
+const registerSchema = z
+  .object({
+    email: z.string().email(),
+    password: z.string().min(CUSTOMER_PASSWORD_MIN_LENGTH),
+    ...nameCompatFields,
+    phone: z.string().optional().nullable(),
+    consentAccepted: z.literal(true),
+    captchaToken: z.string().optional(),
+  })
+  .superRefine(requireNameCompat)
 
 const emailOnlySchema = z.object({
   email: z.string().email(),
@@ -110,10 +147,12 @@ const resetSchema = z.object({
   password: z.string().min(CUSTOMER_PASSWORD_MIN_LENGTH),
 })
 
-const mePutSchema = z.object({
-  fullName: z.string().min(1).max(200),
-  phone: z.string().min(1),
-})
+const mePutSchema = z
+  .object({
+    ...nameCompatFields,
+    phone: z.string().min(1),
+  })
+  .superRefine(requireNameCompat)
 
 const passwordChangeSchema = z.object({
   oldPassword: z.string().min(1),

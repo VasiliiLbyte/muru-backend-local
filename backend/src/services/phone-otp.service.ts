@@ -193,8 +193,8 @@ const findOrCreateCustomerByPhone = async (phone: string): Promise<number> => {
   const insert = await pool.query<{ id: number }>(
     `INSERT INTO customers (
        phone, phone_verified_at, consent_accepted, consent_version, consent_accepted_at,
-       full_name, last_login_at
-     ) VALUES ($1, NOW(), true, $2, NOW(), '', NOW())
+       last_name, first_name, middle_name, full_name, last_login_at
+     ) VALUES ($1, NOW(), true, $2, NOW(), '', '', '', '', NOW())
      RETURNING id`,
     [phone, consentVersion],
   )

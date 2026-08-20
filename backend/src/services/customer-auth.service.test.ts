@@ -95,6 +95,9 @@ describe('customer-auth.service', () => {
       id: 1,
       email: 'a@b.com',
       passwordHash: 'SECRET_HASH',
+      lastName: '',
+      firstName: 'A',
+      middleName: '',
       fullName: 'A',
       phone: null,
       phoneVerifiedAt: null,
@@ -141,6 +144,9 @@ describe('customer-auth.service', () => {
             email: 'user@example.com',
             password_hash: 'hashed',
             full_name: 'User',
+            last_name: '',
+            first_name: "User",
+            middle_name: '',
             phone: null,
             phone_verified_at: null,
             email_verified_at: null,
@@ -168,8 +174,106 @@ describe('customer-auth.service', () => {
     expect(mockSendVerifyEmail).toHaveBeenCalled()
     expect(mockPoolQuery).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO customers'),
-      expect.anything(),
+      expect.arrayContaining(['', 'User', '', 'User']),
     )
+  })
+
+  it('register with lastName/firstName/middleName persists parts and derived full_name', async () => {
+    mockPoolQuery
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: 11,
+            email: 'parts@example.com',
+            password_hash: 'hashed',
+            full_name: 'Иванов Иван Петрович',
+            last_name: 'Иванов',
+            first_name: 'Иван',
+            middle_name: 'Петрович',
+            phone: null,
+            phone_verified_at: null,
+            email_verified_at: null,
+            telegram_id: null,
+            is_active: true,
+            consent_accepted: true,
+            consent_version: '2026-06-03',
+            consent_accepted_at: new Date(),
+            created_at: new Date(),
+            last_login_at: null,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] })
+
+    await registerCustomer({
+      email: 'parts@example.com',
+      password: 'password1',
+      lastName: 'Иванов',
+      firstName: 'Иван',
+      middleName: 'Петрович',
+      consentAccepted: true,
+    })
+
+    const insertCall = mockPoolQuery.mock.calls.find((c) => String(c[0]).includes('INSERT INTO customers'))
+    expect(insertCall?.[1]).toEqual([
+      'parts@example.com',
+      expect.any(String),
+      'Иванов',
+      'Иван',
+      'Петрович',
+      'Иванов Иван Петрович',
+      null,
+      '2026-06-03',
+    ])
+  })
+
+  it('register legacy fullName splits into name parts', async () => {
+    mockPoolQuery
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: 12,
+            email: 'legacy@example.com',
+            password_hash: 'hashed',
+            full_name: 'Иванов Иван Петрович',
+            last_name: 'Иванов',
+            first_name: 'Иван',
+            middle_name: 'Петрович',
+            phone: null,
+            phone_verified_at: null,
+            email_verified_at: null,
+            telegram_id: null,
+            is_active: true,
+            consent_accepted: true,
+            consent_version: '2026-06-03',
+            consent_accepted_at: new Date(),
+            created_at: new Date(),
+            last_login_at: null,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] })
+
+    await registerCustomer({
+      email: 'legacy@example.com',
+      password: 'password1',
+      fullName: 'Иванов Иван Петрович',
+      consentAccepted: true,
+    })
+
+    const insertCall = mockPoolQuery.mock.calls.find((c) => String(c[0]).includes('INSERT INTO customers'))
+    expect(insertCall?.[1]).toEqual([
+      'legacy@example.com',
+      expect.any(String),
+      'Иванов',
+      'Иван',
+      'Петрович',
+      'Иванов Иван Петрович',
+      null,
+      '2026-06-03',
+    ])
   })
 
   it('register existing vs new email returns identical { ok: true }', async () => {
@@ -178,6 +282,9 @@ describe('customer-auth.service', () => {
       email: 'taken@example.com',
       password_hash: 'stored-hash',
       full_name: 'Taken',
+            last_name: '',
+            first_name: "Taken",
+            middle_name: '',
       phone: null,
       phone_verified_at: null,
       email_verified_at: new Date(),
@@ -237,6 +344,9 @@ describe('customer-auth.service', () => {
           email: 'taken@example.com',
           password_hash: 'stored',
           full_name: 'Taken',
+            last_name: '',
+            first_name: "Taken",
+            middle_name: '',
           phone: null,
           phone_verified_at: null,
           email_verified_at: new Date(),
@@ -272,6 +382,9 @@ describe('customer-auth.service', () => {
             email: 'orphan@example.com',
             password_hash: 'hashed',
             full_name: 'Orphan',
+            last_name: '',
+            first_name: "Orphan",
+            middle_name: '',
             phone: null,
             phone_verified_at: null,
             email_verified_at: null,
@@ -318,6 +431,9 @@ describe('customer-auth.service', () => {
           email: 'u@example.com',
           password_hash: 'stored',
           full_name: 'U',
+            last_name: '',
+            first_name: "U",
+            middle_name: '',
           phone: null,
           phone_verified_at: null,
           email_verified_at: null,
@@ -344,6 +460,9 @@ describe('customer-auth.service', () => {
       email: 'user@example.com',
       password_hash: 'hashed',
       full_name: 'User',
+            last_name: '',
+            first_name: "User",
+            middle_name: '',
       phone: null,
       phone_verified_at: null,
       email_verified_at: new Date(),
@@ -380,6 +499,9 @@ describe('customer-auth.service', () => {
           email: 'guest@example.com',
           password_hash: 'hashed',
           full_name: 'Guest',
+            last_name: '',
+            first_name: "Guest",
+            middle_name: '',
           phone: null,
           phone_verified_at: null,
           email_verified_at: null,
@@ -409,6 +531,9 @@ describe('customer-auth.service', () => {
       email: 'guest@example.com',
       password_hash: 'hashed',
       full_name: 'Guest',
+            last_name: '',
+            first_name: "Guest",
+            middle_name: '',
       phone: null,
       phone_verified_at: null,
       email_verified_at: new Date(),
@@ -460,6 +585,9 @@ describe('customer-auth.service', () => {
             email: 'u@example.com',
             password_hash: 'stored',
             full_name: 'U',
+            last_name: '',
+            first_name: "U",
+            middle_name: '',
             phone: null,
             phone_verified_at: null,
             email_verified_at: null,
@@ -510,6 +638,9 @@ describe('customer-auth.service', () => {
       email: 'u@example.com',
       password_hash: 'hashed',
       full_name: 'User',
+            last_name: '',
+            first_name: "User",
+            middle_name: '',
       phone: null,
       phone_verified_at: null,
       email_verified_at: new Date(),

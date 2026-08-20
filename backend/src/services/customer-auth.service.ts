@@ -13,6 +13,7 @@ import {
 } from './email.service'
 import { pool } from '../utils/db'
 import { env } from '../utils/env'
+import { joinNameParts, resolveNameParts } from '../utils/customer-name'
 import { normalizeEmail } from '../utils/normalize-email'
 import { DUMMY_HASH } from './admin-auth.service'
 
@@ -36,6 +37,9 @@ export type CustomerJwtPayload = {
 export type CustomerDto = {
   id: number
   email: string | null
+  lastName: string
+  firstName: string
+  middleName: string
   fullName: string
   phone: string | null
   emailVerified: boolean
@@ -52,6 +56,9 @@ type CustomerDbRow = {
   email: string | null
   password_hash: string | null
   full_name: string
+  last_name: string
+  first_name: string
+  middle_name: string
   phone: string | null
   phone_verified_at: Date | string | null
   email_verified_at: Date | string | null
@@ -68,6 +75,9 @@ export type CustomerRow = {
   id: number
   email: string | null
   passwordHash: string | null
+  lastName: string
+  firstName: string
+  middleName: string
   fullName: string
   phone: string | null
   phoneVerifiedAt: string | null
@@ -155,6 +165,9 @@ const toCustomerRow = (row: CustomerDbRow): CustomerRow => ({
   id: row.id,
   email: row.email,
   passwordHash: row.password_hash,
+  lastName: row.last_name ?? '',
+  firstName: row.first_name ?? '',
+  middleName: row.middle_name ?? '',
   fullName: row.full_name,
   phone: row.phone,
   phoneVerifiedAt: toIso(row.phone_verified_at),
@@ -172,6 +185,9 @@ export const toCustomerDto = (row: CustomerRow | CustomerDbRow): CustomerDto => 
   return {
     id: normalized.id,
     email: normalized.email,
+    lastName: normalized.lastName,
+    firstName: normalized.firstName,
+    middleName: normalized.middleName,
     fullName: normalized.fullName,
     phone: normalized.phone,
     emailVerified: Boolean(normalized.emailVerifiedAt),
@@ -278,9 +294,9 @@ export const parseRequiredPhone = (raw: string | null | undefined): string => {
   return phone
 }
 
-const CUSTOMER_SELECT = `id, email, password_hash, full_name, phone, phone_verified_at,
-  email_verified_at, telegram_id, is_active, consent_accepted, consent_version,
-  consent_accepted_at, created_at, last_login_at`
+const CUSTOMER_SELECT = `id, email, password_hash, full_name, last_name, first_name, middle_name,
+  phone, phone_verified_at, email_verified_at, telegram_id, is_active, consent_accepted,
+  consent_version, consent_accepted_at, created_at, last_login_at`
 
 export const findCustomerByEmail = async (email: string): Promise<CustomerRow | null> => {
   const result = await pool.query<CustomerDbRow>(
@@ -360,7 +376,10 @@ const createAuthToken = async (
 export type RegisterInput = {
   email: string
   password: string
-  fullName: string
+  lastName?: string | null
+  firstName?: string | null
+  middleName?: string | null
+  fullName?: string | null
   phone?: string | null
   consentAccepted: boolean
 }
@@ -384,6 +403,14 @@ export const registerCustomer = async (input: RegisterInput): Promise<{ ok: true
     throw err
   }
 
+  const nameParts = resolveNameParts({
+    lastName: input.lastName,
+    firstName: input.firstName,
+    middleName: input.middleName,
+    fullName: input.fullName,
+  })
+  const fullName = joinNameParts(nameParts)
+
   const email = normalizeEmail(input.email)
   const phone = parseOptionalPhone(input.phone)
   const existing = await findCustomerByEmail(email)
@@ -406,11 +433,20 @@ export const registerCustomer = async (input: RegisterInput): Promise<{ ok: true
   const consentVersion = env.customerConsentVersion
   const insert = await pool.query<CustomerDbRow>(
     `INSERT INTO customers (
-       email, password_hash, full_name, phone,
+       email, password_hash, last_name, first_name, middle_name, full_name, phone,
        consent_accepted, consent_version, consent_accepted_at
-     ) VALUES ($1, $2, $3, $4, true, $5, NOW())
+     ) VALUES ($1, $2, $3, $4, $5, $6, $7, true, $8, NOW())
      RETURNING ${CUSTOMER_SELECT}`,
-    [email, passwordHash, input.fullName.trim(), phone, consentVersion],
+    [
+      email,
+      passwordHash,
+      nameParts.lastName,
+      nameParts.firstName,
+      nameParts.middleName,
+      fullName,
+      phone,
+      consentVersion,
+    ],
   )
   const customer = toCustomerRow(insert.rows[0]!)
   const verifyToken = await createAuthToken(customer.id, 'email_verify')
@@ -740,15 +776,35 @@ export const changePassword = async (
 
 export const updateCustomerProfile = async (
   customerId: number,
-  input: { fullName: string; phone: string },
+  input: {
+    lastName?: string | null
+    firstName?: string | null
+    middleName?: string | null
+    fullName?: string | null
+    phone: string
+  },
 ): Promise<CustomerDto> => {
   assertCustomerModuleEnabled()
   const phone = parseRequiredPhone(input.phone)
+  const nameParts = resolveNameParts({
+    lastName: input.lastName,
+    firstName: input.firstName,
+    middleName: input.middleName,
+    fullName: input.fullName,
+  })
+  const fullName = joinNameParts(nameParts)
   const result = await pool.query<CustomerDbRow>(
-    `UPDATE customers SET full_name = $1, phone = $2
-     WHERE id = $3 AND is_active = true
+    `UPDATE customers SET last_name = $1, first_name = $2, middle_name = $3, full_name = $4, phone = $5
+     WHERE id = $6 AND is_active = true
      RETURNING ${CUSTOMER_SELECT}`,
-    [input.fullName.trim(), phone, customerId],
+    [
+      nameParts.lastName,
+      nameParts.firstName,
+      nameParts.middleName,
+      fullName,
+      phone,
+      customerId,
+    ],
   )
   const row = result.rows[0]
   if (!row) {

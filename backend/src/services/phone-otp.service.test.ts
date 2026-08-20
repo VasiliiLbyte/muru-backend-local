@@ -185,6 +185,9 @@ describe('phone-otp.service', () => {
     expect(result.customer.id).toBe(99)
     const insertSql = String(mockQuery.mock.calls[2][0])
     expect(insertSql).toContain('INSERT INTO customers')
+    expect(insertSql).toContain('last_name')
+    expect(insertSql).toContain('first_name')
+    expect(insertSql).toContain('middle_name')
   })
 
   it('verifyPhoneOtp increments attempts on wrong code', async () => {

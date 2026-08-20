@@ -420,12 +420,15 @@ CREATE TABLE IF NOT EXISTS product_web_cross_placements (
 );
 CREATE INDEX IF NOT EXISTS idx_pwcp_category_id ON product_web_cross_placements(category_id);
 
--- customer accounts (см. migrations/031_customer_accounts.sql, 042_customer_phone_otp.sql)
+-- customer accounts (см. migrations/031_customer_accounts.sql, 042_customer_phone_otp.sql, 046_customer_name_parts.sql)
 CREATE TABLE IF NOT EXISTS customers (
   id SERIAL PRIMARY KEY,
   email TEXT,
   password_hash TEXT,
   full_name TEXT NOT NULL DEFAULT '',
+  last_name TEXT NOT NULL DEFAULT '',
+  first_name TEXT NOT NULL DEFAULT '',
+  middle_name TEXT NOT NULL DEFAULT '',
   phone TEXT,
   phone_verified_at TIMESTAMPTZ,
   email_verified_at TIMESTAMPTZ,
