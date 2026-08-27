@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Package } from 'lucide-react'
 
 import {
@@ -24,18 +24,21 @@ import {
 import { useCatalogMetaContext } from '../../context/CatalogMetaContext'
 import { archiveProduct, listCategories, listProducts } from '../../lib/catalog-api'
 import { listCollections } from '../../lib/content-api'
+import {
+  buildProductsListSearch,
+  parseProductsListSearch,
+  type ProductsListArchivedFilter,
+  type ProductsListSearchState,
+  type ProductsListStockFilter,
+  type ProductsListTriFilter,
+} from '../../lib/products-list-search'
 import { isSaleCategorySlug } from '../../lib/sale-category'
-import type { CrmCatalogListResult, CrmCatalogSortBy, CrmCatalogSortDir, CrmCategoryItem } from '../../types/catalog'
+import type { CrmCatalogListResult, CrmCatalogSortBy, CrmCategoryItem } from '../../types/catalog'
 import type { CrmCollectionDto } from '../../types/content'
 import { formatMoney } from '../../utils/order-labels'
 import { salePriceFromList } from '../../utils/product-price'
 
 const PAGE_SIZE = 20
-
-type ArchivedFilter = 'false' | 'true' | 'all'
-type StockFilter = 'all' | 'in' | 'out'
-type GiftGuideFilter = 'all' | 'true' | 'false'
-type NewArrivalFilter = 'all' | 'true' | 'false'
 
 const formatNewArrivalDate = (value: string | null | undefined): string => {
   if (!value) return '—'
@@ -83,19 +86,14 @@ const buildSubcategoryOptions = (
 export const ProductsListPage = () => {
   const { readOnly } = useCatalogMetaContext()
   const navigate = useNavigate()
+  const location = useLocation()
+  const [searchParams, setSearchParams] = useSearchParams()
   const confirm = useConfirm()
   const toast = useToast()
 
-  const [qInput, setQInput] = useState('')
-  const [q, setQ] = useState('')
-  const [category, setCategory] = useState('')
-  const [subcategory, setSubcategory] = useState('')
-  const [inStock, setInStock] = useState<StockFilter>('all')
-  const [archived, setArchived] = useState<ArchivedFilter>('false')
-  const [giftGuide, setGiftGuide] = useState<GiftGuideFilter>('all')
-  const [newArrival, setNewArrival] = useState<NewArrivalFilter>('all')
-  const [collectionFilter, setCollectionFilter] = useState('')
-  const [page, setPage] = useState(1)
+  const list = useMemo(() => parseProductsListSearch(searchParams), [searchParams])
+
+  const [qInput, setQInput] = useState(list.q)
   const [data, setData] = useState<CrmCatalogListResult | null>(null)
   const [categories, setCategories] = useState<CrmCategoryItem[]>([])
   const [collections, setCollections] = useState<CrmCollectionDto[]>([])
@@ -103,17 +101,31 @@ export const ProductsListPage = () => {
   const [error, setError] = useState('')
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [bulkArchiving, setBulkArchiving] = useState(false)
-  const [sortBy, setSortBy] = useState<CrmCatalogSortBy>('updatedAt')
-  const [sortDir, setSortDir] = useState<CrmCatalogSortDir>('desc')
+
+  const patchList = useCallback(
+    (patch: Partial<ProductsListSearchState>, resetPage = true) => {
+      const next: ProductsListSearchState = {
+        ...list,
+        ...patch,
+        ...(resetPage && patch.page === undefined ? { page: 1 } : {}),
+      }
+      setSearchParams(buildProductsListSearch(next), { replace: true })
+    },
+    [list, setSearchParams],
+  )
 
   useEffect(() => {
-    const timer = setTimeout(() => setQ(qInput.trim()), 300)
+    setQInput(list.q)
+  }, [list.q])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const trimmed = qInput.trim()
+      if (trimmed === list.q) return
+      patchList({ q: trimmed })
+    }, 300)
     return () => clearTimeout(timer)
-  }, [qInput])
-
-  useEffect(() => {
-    setPage(1)
-  }, [q, category, subcategory, inStock, archived, giftGuide, newArrival, collectionFilter])
+  }, [qInput, list.q, patchList])
 
   useEffect(() => {
     void listCategories()
@@ -131,23 +143,23 @@ export const ProductsListPage = () => {
     setLoading(true)
     setError('')
     try {
-      const collectionId = collectionFilter ? Number(collectionFilter) : undefined
+      const collectionId = list.collectionId ? Number(list.collectionId) : undefined
       const result = await listProducts({
-        q: q || undefined,
-        category: category || undefined,
-        subcategory: subcategory || undefined,
+        q: list.q || undefined,
+        category: list.category || undefined,
+        subcategory: list.subcategory || undefined,
         collectionId:
           typeof collectionId === 'number' && Number.isInteger(collectionId) && collectionId > 0
             ? collectionId
             : undefined,
-        inStock: inStock === 'all' ? undefined : inStock,
-        archived,
-        giftGuide,
-        newArrival,
-        page,
+        inStock: list.inStock === 'all' ? undefined : list.inStock,
+        archived: list.archived,
+        giftGuide: list.giftGuide,
+        newArrival: list.newArrival,
+        page: list.page,
         pageSize: PAGE_SIZE,
-        sortBy: sortBy === 'updatedAt' ? undefined : sortBy,
-        sortDir: sortBy === 'updatedAt' ? undefined : sortDir,
+        sortBy: list.sortBy === 'updatedAt' ? undefined : list.sortBy,
+        sortDir: list.sortBy === 'updatedAt' ? undefined : list.sortDir,
       })
       setData(result)
       setSelectedIds(new Set())
@@ -156,7 +168,7 @@ export const ProductsListPage = () => {
     } finally {
       setLoading(false)
     }
-  }, [q, category, subcategory, collectionFilter, inStock, archived, giftGuide, newArrival, page, sortBy, sortDir])
+  }, [list])
 
   useEffect(() => {
     void load()
@@ -168,32 +180,34 @@ export const ProductsListPage = () => {
   }, [data])
 
   const subcategoryOptions = useMemo(
-    () => buildSubcategoryOptions(category, categories),
-    [categories, category],
+    () => buildSubcategoryOptions(list.category, categories),
+    [categories, list.category],
   )
-  const isSaleFilter = isSaleCategorySlug(category)
+  const isSaleFilter = isSaleCategorySlug(list.category)
 
   const onCategoryChange = (nextCategory: string) => {
-    setCategory(nextCategory)
+    let nextSubcategory = list.subcategory
     if (isSaleCategorySlug(nextCategory)) {
-      setSubcategory('')
-      return
+      nextSubcategory = ''
+    } else {
+      const nextOptions = buildSubcategoryOptions(nextCategory, categories)
+      if (nextSubcategory && !nextOptions.some((opt) => opt.slug === nextSubcategory)) {
+        nextSubcategory = ''
+      }
     }
-    const nextOptions = buildSubcategoryOptions(nextCategory, categories)
-    if (subcategory && !nextOptions.some((opt) => opt.slug === subcategory)) {
-      setSubcategory('')
-    }
+    patchList({ category: nextCategory, subcategory: nextSubcategory })
   }
 
   const onSort = (key: string) => {
     if (key !== 'sku' && key !== 'price' && key !== 'inStock' && key !== 'newArrivalAt') return
-    if (sortBy === key) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    if (list.sortBy === key) {
+      patchList({ sortDir: list.sortDir === 'asc' ? 'desc' : 'asc' })
     } else {
-      setSortBy(key as CrmCatalogSortBy)
-      setSortDir(key === 'newArrivalAt' ? 'desc' : 'asc')
+      patchList({
+        sortBy: key as CrmCatalogSortBy,
+        sortDir: key === 'newArrivalAt' ? 'desc' : 'asc',
+      })
     }
-    setPage(1)
   }
 
   const pageIds = useMemo(() => (data?.items ?? []).map((item) => item.id), [data?.items])
@@ -282,7 +296,7 @@ export const ProductsListPage = () => {
           <Field label="Категория" htmlFor="catalog-category">
             <Select
               id="catalog-category"
-              value={category}
+              value={list.category}
               onChange={(e) => onCategoryChange(e.target.value)}
             >
               <option value="">Все</option>
@@ -297,8 +311,8 @@ export const ProductsListPage = () => {
           <Field label="Подкатегория" htmlFor="catalog-subcategory">
             <Select
               id="catalog-subcategory"
-              value={subcategory}
-              onChange={(e) => setSubcategory(e.target.value)}
+              value={list.subcategory}
+              onChange={(e) => patchList({ subcategory: e.target.value })}
               disabled={isSaleFilter || subcategoryOptions.length === 0}
             >
               <option value="">Все</option>
@@ -313,8 +327,10 @@ export const ProductsListPage = () => {
           <Field label="Остаток" htmlFor="catalog-stock">
             <Select
               id="catalog-stock"
-              value={inStock}
-              onChange={(e) => setInStock(e.target.value as StockFilter)}
+              value={list.inStock}
+              onChange={(e) =>
+                patchList({ inStock: e.target.value as ProductsListStockFilter })
+              }
             >
               <option value="all">Все</option>
               <option value="in">В наличии</option>
@@ -325,8 +341,10 @@ export const ProductsListPage = () => {
           <Field label="Архив" htmlFor="catalog-archived">
             <Select
               id="catalog-archived"
-              value={archived}
-              onChange={(e) => setArchived(e.target.value as ArchivedFilter)}
+              value={list.archived}
+              onChange={(e) =>
+                patchList({ archived: e.target.value as ProductsListArchivedFilter })
+              }
             >
               <option value="false">Активные</option>
               <option value="true">Только архив</option>
@@ -337,8 +355,10 @@ export const ProductsListPage = () => {
           <Field label="Гид по подаркам" htmlFor="catalog-gift-guide">
             <Select
               id="catalog-gift-guide"
-              value={giftGuide}
-              onChange={(e) => setGiftGuide(e.target.value as GiftGuideFilter)}
+              value={list.giftGuide}
+              onChange={(e) =>
+                patchList({ giftGuide: e.target.value as ProductsListTriFilter })
+              }
             >
               <option value="all">Все</option>
               <option value="true">Да</option>
@@ -349,8 +369,10 @@ export const ProductsListPage = () => {
           <Field label="Новинки" htmlFor="catalog-new-arrival">
             <Select
               id="catalog-new-arrival"
-              value={newArrival}
-              onChange={(e) => setNewArrival(e.target.value as NewArrivalFilter)}
+              value={list.newArrival}
+              onChange={(e) =>
+                patchList({ newArrival: e.target.value as ProductsListTriFilter })
+              }
             >
               <option value="all">Все</option>
               <option value="true">Да</option>
@@ -361,8 +383,8 @@ export const ProductsListPage = () => {
           <Field label="Коллекция" htmlFor="catalog-collection">
             <Select
               id="catalog-collection"
-              value={collectionFilter}
-              onChange={(e) => setCollectionFilter(e.target.value)}
+              value={list.collectionId}
+              onChange={(e) => patchList({ collectionId: e.target.value })}
             >
               <option value="">Все</option>
               {collections.map((col) => (
@@ -406,19 +428,45 @@ export const ProductsListPage = () => {
           <TableHeader sticky>
             <TableRow hover={false}>
               {!readOnly ? <TableHead /> : null}
-              <TableHead sortable sortKey="sku" activeSort={sortBy} sortDir={sortDir} onSort={onSort}>
+              <TableHead
+                sortable
+                sortKey="sku"
+                activeSort={list.sortBy}
+                sortDir={list.sortDir}
+                onSort={onSort}
+              >
                 SKU
               </TableHead>
               <TableHead>Название</TableHead>
               <TableHead>Категория</TableHead>
               <TableHead>Подкатегория</TableHead>
-              <TableHead numeric sortable sortKey="price" activeSort={sortBy} sortDir={sortDir} onSort={onSort}>
+              <TableHead
+                numeric
+                sortable
+                sortKey="price"
+                activeSort={list.sortBy}
+                sortDir={list.sortDir}
+                onSort={onSort}
+              >
                 Цена к оплате
               </TableHead>
-              <TableHead numeric sortable sortKey="inStock" activeSort={sortBy} sortDir={sortDir} onSort={onSort}>
+              <TableHead
+                numeric
+                sortable
+                sortKey="inStock"
+                activeSort={list.sortBy}
+                sortDir={list.sortDir}
+                onSort={onSort}
+              >
                 Остаток
               </TableHead>
-              <TableHead sortable sortKey="newArrivalAt" activeSort={sortBy} sortDir={sortDir} onSort={onSort}>
+              <TableHead
+                sortable
+                sortKey="newArrivalAt"
+                activeSort={list.sortBy}
+                sortDir={list.sortDir}
+                onSort={onSort}
+              >
                 Дата новинки
               </TableHead>
               <TableHead>Статус</TableHead>
@@ -438,7 +486,11 @@ export const ProductsListPage = () => {
                   </TableCell>
                 ) : null}
                 <TableCell>
-                  <Link className="muru-page-header__back" to={`/catalog/products/${item.id}`}>
+                  <Link
+                    className="muru-page-header__back"
+                    to={`/catalog/products/${item.id}`}
+                    state={{ listSearch: location.search }}
+                  >
                     {item.sku}
                   </Link>
                 </TableCell>
@@ -478,20 +530,20 @@ export const ProductsListPage = () => {
         <Button
           type="button"
           variant="secondary"
-          disabled={page <= 1}
-          onClick={() => setPage((p) => Math.max(1, p - 1))}
+          disabled={list.page <= 1}
+          onClick={() => patchList({ page: Math.max(1, list.page - 1) }, false)}
         >
           Назад
         </Button>
         <span className="muted-text">
-          Страница {page} из {totalPages}
+          Страница {list.page} из {totalPages}
           {data ? ` · всего ${data.total}` : ''}
         </span>
         <Button
           type="button"
           variant="secondary"
-          disabled={page >= totalPages}
-          onClick={() => setPage((p) => p + 1)}
+          disabled={list.page >= totalPages}
+          onClick={() => patchList({ page: list.page + 1 }, false)}
         >
           Вперёд
         </Button>

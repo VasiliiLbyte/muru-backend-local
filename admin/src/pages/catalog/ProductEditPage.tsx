@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { ArrowDown, ArrowUp, Star } from 'lucide-react'
 
 import { ProductImagesEditor } from '../../components/catalog/ProductImagesEditor'
@@ -58,8 +58,17 @@ const productToImageSlots = (product: CrmCatalogProductDetail): ProductImageSlot
 export const ProductEditPage = () => {
   const { id } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const isNew = !id || id === 'new'
   const productId = isNew ? null : Number(id)
+
+  const rawListSearch = (location.state as { listSearch?: unknown } | null)?.listSearch
+  const listSearch =
+    typeof rawListSearch === 'string' &&
+    (rawListSearch === '' || rawListSearch.startsWith('?'))
+      ? rawListSearch
+      : ''
+  const productsListPath = `/catalog/products${listSearch}`
 
   const { readOnly } = useCatalogMetaContext()
   const toast = useToast()
@@ -384,7 +393,7 @@ export const ProductEditPage = () => {
     return (
       <section className="page-stack">
         <p className="error-text">{error || 'Товар не найден'}</p>
-        <Link className="muru-page-header__back" to="/catalog/products">
+        <Link className="muru-page-header__back" to={productsListPath}>
           К списку
         </Link>
       </section>
@@ -397,7 +406,7 @@ export const ProductEditPage = () => {
     <section className="page-stack">
       <PageHeader
         title={pageTitle}
-        backTo="/catalog/products"
+        backTo={productsListPath}
         backLabel="К списку"
         actions={
           !isNew && !readOnly ? (
