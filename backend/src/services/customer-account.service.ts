@@ -27,6 +27,13 @@ const toIso = (value: Date | string): string => {
   return Number.isNaN(d.getTime()) ? String(value) : d.toISOString()
 }
 
+/** Nullable money from `delivery_price::text` — empty/non-finite → null (not 0). */
+const toNullableNumber = (value: string | null | undefined): number | null => {
+  if (value == null || value === '') return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
 const toAddressDto = (row: AddressDbRow): AddressDto => ({
   id: row.id,
   label: row.label,
@@ -172,6 +179,14 @@ export type CustomerOrderSummary = {
 export type CustomerOrderDetail = CustomerOrderSummary & {
   deliveryMode: string
   address: string
+  trackNumber: string | null
+  cdekStatus: string | null
+  deliveryCity: string | null
+  pvzAddress: string | null
+  pvzCode: string | null
+  deliveryPrice: number | null
+  deliveryEta: string | null
+  deliveryOption: string | null
   items: Array<{
     sku: string
     name: string
@@ -218,9 +233,20 @@ export const getCustomerOrder = async (
     address: string
     created_at: Date | string
     paid_at: Date | string | null
+    cdek_track_number: string | null
+    cdek_status: string | null
+    cdek_to_city_name: string | null
+    cdek_pvz_address: string | null
+    cdek_pvz_code: string | null
+    delivery_price: string | null
+    delivery_eta: string | null
+    delivery_option: string | null
   }>(
     `SELECT id, status, total::text, COALESCE(channel, 'telegram') AS channel,
-            delivery_mode, address, created_at, paid_at
+            delivery_mode, address, created_at, paid_at,
+            cdek_track_number, cdek_status, cdek_to_city_name,
+            cdek_pvz_address, cdek_pvz_code,
+            delivery_price::text, delivery_eta, delivery_option
      FROM orders
      WHERE id = $1 AND customer_id = $2 AND is_draft = false
      LIMIT 1`,
@@ -249,6 +275,14 @@ export const getCustomerOrder = async (
     address: order.address,
     createdAt: toIso(order.created_at),
     paidAt: order.paid_at ? toIso(order.paid_at) : null,
+    trackNumber: order.cdek_track_number,
+    cdekStatus: order.cdek_status,
+    deliveryCity: order.cdek_to_city_name,
+    pvzAddress: order.cdek_pvz_address,
+    pvzCode: order.cdek_pvz_code,
+    deliveryPrice: toNullableNumber(order.delivery_price),
+    deliveryEta: order.delivery_eta,
+    deliveryOption: order.delivery_option,
     items: itemsResult.rows.map((item) => ({
       sku: item.product_sku,
       name: item.product_name,

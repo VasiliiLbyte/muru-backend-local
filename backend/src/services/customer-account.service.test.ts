@@ -34,6 +34,100 @@ describe('customer-account.service ownership', () => {
     await expect(getCustomerOrder(11, 99)).rejects.toMatchObject({ status: 404 })
   })
 
+  it('getCustomerOrder maps delivery and CDEK fields', async () => {
+    mockPoolQuery
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: 42,
+            status: 'paid',
+            total: '1000',
+            channel: 'web',
+            delivery_mode: 'delivery',
+            address: 'Невский 1',
+            created_at: '2026-08-01T10:00:00.000Z',
+            paid_at: '2026-08-01T10:05:00.000Z',
+            cdek_track_number: 'TRACK123',
+            cdek_status: 'CREATED',
+            cdek_to_city_name: 'Санкт-Петербург',
+            cdek_pvz_address: 'ПВЗ на Невском',
+            cdek_pvz_code: 'SPB1',
+            delivery_price: '450.50',
+            delivery_eta: '2-3 дня',
+            delivery_option: 'pvz',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            product_sku: 'MU0001',
+            product_name: 'Ваза',
+            price: '500',
+            quantity: 2,
+          },
+        ],
+      })
+
+    const detail = await getCustomerOrder(11, 42)
+
+    expect(detail).toMatchObject({
+      id: 42,
+      status: 'paid',
+      total: 1000,
+      channel: 'web',
+      deliveryMode: 'delivery',
+      address: 'Невский 1',
+      trackNumber: 'TRACK123',
+      cdekStatus: 'CREATED',
+      deliveryCity: 'Санкт-Петербург',
+      pvzAddress: 'ПВЗ на Невском',
+      pvzCode: 'SPB1',
+      deliveryPrice: 450.5,
+      deliveryEta: '2-3 дня',
+      deliveryOption: 'pvz',
+      items: [{ sku: 'MU0001', name: 'Ваза', price: 500, quantity: 2 }],
+    })
+    expect(mockPoolQuery).toHaveBeenNthCalledWith(
+      1,
+      expect.stringContaining('cdek_track_number'),
+      [42, 11],
+    )
+  })
+
+  it('getCustomerOrder maps null deliveryPrice when SQL price is null', async () => {
+    mockPoolQuery
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: 7,
+            status: 'new',
+            total: '100',
+            channel: 'telegram',
+            delivery_mode: 'pickup',
+            address: '',
+            created_at: '2026-08-01T10:00:00.000Z',
+            paid_at: null,
+            cdek_track_number: null,
+            cdek_status: null,
+            cdek_to_city_name: null,
+            cdek_pvz_address: null,
+            cdek_pvz_code: null,
+            delivery_price: null,
+            delivery_eta: null,
+            delivery_option: null,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] })
+
+    const detail = await getCustomerOrder(11, 7)
+    expect(detail.trackNumber).toBeNull()
+    expect(detail.deliveryCity).toBeNull()
+    expect(detail.deliveryPrice).toBeNull()
+    expect(detail.items).toEqual([])
+  })
+
   it('deleteAddress returns 404 for foreign address', async () => {
     mockPoolQuery.mockResolvedValueOnce({ rowCount: 0, rows: [] })
     await expect(deleteAddress(11, 5)).rejects.toMatchObject({ status: 404 })
