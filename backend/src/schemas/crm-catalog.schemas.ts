@@ -38,6 +38,9 @@ export const createCrmCatalogProductSchema = z
     dimLengthCm: z.number().int().positive().optional(),
     dimWidthCm: z.number().int().positive().optional(),
     dimHeightCm: z.number().int().positive().optional(),
+    seoTitle: z.string().optional(),
+    seoDescription: z.string().optional(),
+    seoH1: z.string().optional(),
   })
   .strict()
 
@@ -63,6 +66,11 @@ export const patchCrmCategorySchema = z
     name: z.string().min(1).optional(),
     slug: z.string().min(1).optional(),
     coverImageUrl: z.union([z.string().url(), z.null()]).optional(),
+    seoTitle: z.string().optional(),
+    seoDescription: z.string().optional(),
+    seoH1: z.string().optional(),
+    seoIntroTop: z.string().optional(),
+    seoTextBottom: z.string().optional(),
   })
   .strict()
   .refine((data) => Object.keys(data).length > 0, { message: 'Укажите хотя бы одно поле.' })
@@ -88,6 +96,11 @@ export const patchCrmSubcategorySchema = z
     slug: z.string().min(1).optional(),
     coverImageUrl: z.union([z.string().url(), z.null()]).optional(),
     sortOrder: z.number().int().optional(),
+    seoTitle: z.string().optional(),
+    seoDescription: z.string().optional(),
+    seoH1: z.string().optional(),
+    seoIntroTop: z.string().optional(),
+    seoTextBottom: z.string().optional(),
   })
   .strict()
   .refine((data) => Object.keys(data).length > 0, { message: 'Укажите хотя бы одно поле.' })

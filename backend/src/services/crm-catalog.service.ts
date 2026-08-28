@@ -89,6 +89,9 @@ export type CrmCatalogProductDetail = {
   dimsSource: 'auto' | 'manual'
   weightSource: 'auto' | 'manual'
   updatedAt: string
+  seoTitle: string
+  seoDescription: string
+  seoH1: string
 }
 
 export type CrmCatalogSortBy = 'sku' | 'price' | 'inStock' | 'updatedAt' | 'newArrivalAt'
@@ -152,6 +155,9 @@ type ProductRow = {
   dims_source: 'auto' | 'manual'
   weight_source: 'auto' | 'manual'
   updated_at: string
+  seo_title: string
+  seo_description: string
+  seo_h1: string
 }
 
 const listMeta = () => ({
@@ -248,6 +254,9 @@ const mapDetailRow = (row: ProductRow, placeholder: string): CrmCatalogProductDe
   dimsSource: row.dims_source,
   weightSource: row.weight_source,
   updatedAt: row.updated_at,
+  seoTitle: row.seo_title ?? '',
+  seoDescription: row.seo_description ?? '',
+  seoH1: row.seo_h1 ?? '',
 }
 }
 
@@ -284,7 +293,10 @@ const PRODUCT_SELECT = `
   p.dim_height_cm,
   p.dims_source,
   p.weight_source,
-  p.updated_at::text
+  p.updated_at::text,
+  p.seo_title,
+  p.seo_description,
+  p.seo_h1
 `
 
 const FROM_PRODUCT = `
@@ -598,6 +610,7 @@ export const createCrmCatalogProduct = async (
          dims_source, weight_source,
          web_subcategory_name, web_subcategory_slug,
          subcategory, subcategory_slug,
+         seo_title, seo_description, seo_h1,
          is_gift_guide, is_new_arrival, new_arrival_at, is_archived, updated_at
        ) VALUES (
          $1, $2, $3, $4, $5, $6, $7, $8::jsonb,
@@ -607,7 +620,8 @@ export const createCrmCatalogProduct = async (
          $21, $22,
          $23, $24,
          $25, $26,
-         $27, $28, $29, FALSE, NOW()
+         $27, $28, $29,
+         $30, $31, $32, FALSE, NOW()
        ) RETURNING id`,
       [
         sku,
@@ -636,6 +650,9 @@ export const createCrmCatalogProduct = async (
         denorm.webSubcategorySlug,
         denorm.subcategory,
         denorm.subcategorySlug,
+        input.seoTitle ?? '',
+        input.seoDescription ?? '',
+        input.seoH1 ?? '',
         input.isGiftGuide ?? false,
         input.isNewArrival ?? false,
         input.isNewArrival === true ? new Date() : null,
@@ -773,6 +790,18 @@ export const updateCrmCatalogProduct = async (
     sets.push(`subcategory = $${params.length}`)
     params.push(denorm.subcategorySlug)
     sets.push(`subcategory_slug = $${params.length}`)
+  }
+  if (input.seoTitle !== undefined) {
+    params.push(input.seoTitle ?? '')
+    sets.push(`seo_title = $${params.length}`)
+  }
+  if (input.seoDescription !== undefined) {
+    params.push(input.seoDescription ?? '')
+    sets.push(`seo_description = $${params.length}`)
+  }
+  if (input.seoH1 !== undefined) {
+    params.push(input.seoH1 ?? '')
+    sets.push(`seo_h1 = $${params.length}`)
   }
 
   const dims = extractDimsInput(input)

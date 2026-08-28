@@ -73,6 +73,11 @@ export type CatalogNode = {
   children: CatalogNode[]
   /** Public thumbnail URL after category cover sync; merged by slug */
   coverImageUrl?: string | null
+  seoTitle: string
+  seoDescription: string
+  seoH1: string
+  seoIntroTop: string
+  seoTextBottom: string
 }
 
 export type AdminCategoryRow = {
@@ -135,4 +140,7 @@ export type CatalogProductDetail = CatalogProductListItem & {
   specs: Record<string, string>
   variants: Variant[]
   weightGrams?: number
+  seoTitle: string
+  seoDescription: string
+  seoH1: string
 }

@@ -71,6 +71,11 @@ describe('crm-catalog-subcategories.service', () => {
         coverImageUrl: null,
         sortOrder: 0,
         productCount: 2,
+        seoTitle: '',
+        seoDescription: '',
+        seoH1: '',
+        seoIntroTop: '',
+        seoTextBottom: '',
       },
     ])
   })
@@ -177,6 +182,41 @@ describe('crm-catalog-subcategories.service', () => {
     expect(String(updateParams[0])).toContain('crm_deadbeef012345')
     expect(updated?.coverImageUrl).toContain('v=')
     expect(invalidateImageCache).not.toHaveBeenCalled()
+  })
+
+  it('updateCrmSubcategory writes SEO fields', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rowCount: 1 })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: 9,
+            category_id: 5,
+            name: 'Bags',
+            slug: 'bags',
+            cover_image_url: null,
+            sort_order: 0,
+            product_count: 2,
+            seo_title: 'Sub SEO',
+            seo_description: 'Sub desc',
+            seo_h1: 'Sub H1',
+            seo_intro_top: 'Top',
+            seo_text_bottom: 'Bottom',
+          },
+        ],
+      })
+
+    await updateCrmSubcategory(5, 9, {
+      seoTitle: 'Sub SEO',
+      seoDescription: 'Sub desc',
+      seoH1: 'Sub H1',
+      seoIntroTop: 'Top',
+      seoTextBottom: 'Bottom',
+    })
+
+    const updateSql = String(mockQuery.mock.calls[0][0])
+    expect(updateSql).toContain('seo_title')
+    expect(updateSql).toContain('seo_intro_top')
   })
 
   it('deleteCrmSubcategory returns 409 when active products exist', async () => {

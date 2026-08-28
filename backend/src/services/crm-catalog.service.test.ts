@@ -89,6 +89,9 @@ const productDetailRow = {
   new_arrival_at: null,
   created_at: new Date(),
   updated_at: new Date(),
+  seo_title: '',
+  seo_description: '',
+  seo_h1: '',
 }
 
 describe('crm-catalog.service', () => {
@@ -444,7 +447,7 @@ describe('crm-catalog.service', () => {
     })
 
     const insertParams = mockClientQuery.mock.calls[1][1] as unknown[]
-    expect(insertParams[26]).toBe(true)
+    expect(insertParams[29]).toBe(true)
     expect(product.isGiftGuide).toBe(true)
   })
 
@@ -546,5 +549,77 @@ describe('crm-catalog.service', () => {
     const updateSql = String(mockClientQuery.mock.calls[1][0])
     expect(updateSql).toContain('is_new_arrival')
     expect(updateSql).not.toContain('new_arrival_at')
+  })
+
+  it('createCrmCatalogProduct persists SEO fields', async () => {
+    mockEnv.catalogSource = 'crm'
+    mockQuery
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            ...productDetailRow,
+            seo_title: 'SEO title',
+            seo_description: 'SEO desc',
+            seo_h1: 'SEO H1',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] })
+    mockClientQuery
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ id: 42 }] })
+      .mockResolvedValueOnce({ rows: [] })
+
+    const product = await createCrmCatalogProduct({
+      sku: 'MU0042',
+      name: 'Test',
+      price: 100,
+      seoTitle: 'SEO title',
+      seoDescription: 'SEO desc',
+      seoH1: 'SEO H1',
+    })
+
+    const insertSql = String(mockClientQuery.mock.calls[1][0])
+    expect(insertSql).toContain('seo_title')
+    const insertParams = mockClientQuery.mock.calls[1][1] as unknown[]
+    expect(insertParams[26]).toBe('SEO title')
+    expect(insertParams[27]).toBe('SEO desc')
+    expect(insertParams[28]).toBe('SEO H1')
+    expect(product.seoTitle).toBe('SEO title')
+    expect(product.seoDescription).toBe('SEO desc')
+    expect(product.seoH1).toBe('SEO H1')
+  })
+
+  it('updateCrmCatalogProduct persists SEO fields', async () => {
+    mockEnv.catalogSource = 'crm'
+    mockClientQuery
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [] })
+    mockQuery
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            ...productDetailRow,
+            seo_title: 'Updated title',
+            seo_description: 'Updated desc',
+            seo_h1: 'Updated H1',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] })
+
+    await updateCrmCatalogProduct(42, {
+      seoTitle: 'Updated title',
+      seoDescription: 'Updated desc',
+      seoH1: 'Updated H1',
+    })
+
+    const updateSql = String(mockClientQuery.mock.calls[1][0])
+    expect(updateSql).toContain('seo_title')
+    expect(updateSql).toContain('seo_description')
+    expect(updateSql).toContain('seo_h1')
   })
 })

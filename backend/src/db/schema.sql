@@ -640,3 +640,20 @@ CREATE INDEX IF NOT EXISTS idx_products_search_document_trgm
   ON products USING gin (search_document gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS idx_products_name_trgm
   ON products USING gin (lower(name) gin_trgm_ops);
+
+-- 047: editable SEO fields (catalog)
+ALTER TABLE products ADD COLUMN IF NOT EXISTS seo_title TEXT NOT NULL DEFAULT '';
+ALTER TABLE products ADD COLUMN IF NOT EXISTS seo_description TEXT NOT NULL DEFAULT '';
+ALTER TABLE products ADD COLUMN IF NOT EXISTS seo_h1 TEXT NOT NULL DEFAULT '';
+
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS seo_title TEXT NOT NULL DEFAULT '';
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS seo_description TEXT NOT NULL DEFAULT '';
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS seo_h1 TEXT NOT NULL DEFAULT '';
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS seo_intro_top TEXT NOT NULL DEFAULT '';
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS seo_text_bottom TEXT NOT NULL DEFAULT '';
+
+ALTER TABLE subcategories ADD COLUMN IF NOT EXISTS seo_title TEXT NOT NULL DEFAULT '';
+ALTER TABLE subcategories ADD COLUMN IF NOT EXISTS seo_description TEXT NOT NULL DEFAULT '';
+ALTER TABLE subcategories ADD COLUMN IF NOT EXISTS seo_h1 TEXT NOT NULL DEFAULT '';
+ALTER TABLE subcategories ADD COLUMN IF NOT EXISTS seo_intro_top TEXT NOT NULL DEFAULT '';
+ALTER TABLE subcategories ADD COLUMN IF NOT EXISTS seo_text_bottom TEXT NOT NULL DEFAULT '';

@@ -49,6 +49,19 @@ const baseProductRow = {
   weight_grams: 3000,
   variant_color: null,
   variant_size: null,
+  description: 'Описание',
+  specs: {},
+  seo_title: '',
+  seo_description: '',
+  seo_h1: '',
+}
+
+const emptyCategorySeo = {
+  seo_title: '',
+  seo_description: '',
+  seo_h1: '',
+  seo_intro_top: '',
+  seo_text_bottom: '',
 }
 
 describe('getCatalogProducts', () => {
@@ -614,6 +627,64 @@ describe('getCatalogTree', () => {
 
     expect(String(queryMock.mock.calls[1][0])).toContain('product_subcategories')
     expect(tree.some((node) => node.slug === 'kukhnya-i-stolovaya')).toBe(true)
+  })
+
+  it('exposes SEO fields on tree nodes and product detail', async () => {
+    queryMock
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            name: 'Кухня и столовая',
+            slug: 'kukhnya-i-stolovaya',
+            seo_title: 'Cat title',
+            seo_description: 'Cat desc',
+            seo_h1: 'Cat H1',
+            seo_intro_top: 'Cat intro',
+            seo_text_bottom: 'Cat bottom',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [{ slug: 'kukhnya-i-stolovaya' }] })
+      .mockResolvedValueOnce({ rows: [{ ok: false }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            category_slug: 'kukhnya-i-stolovaya',
+            name: 'Посуда',
+            slug: 'posuda',
+            cover_image_url: null,
+            seo_title: 'Sub title',
+            seo_description: 'Sub desc',
+            seo_h1: 'Sub H1',
+            seo_intro_top: 'Sub intro',
+            seo_text_bottom: 'Sub bottom',
+          },
+        ],
+      })
+
+    const tree = await getCatalogTree(true)
+    const kitchen = tree.find((node) => node.slug === 'kukhnya-i-stolovaya')
+    expect(kitchen?.seoTitle).toBe('Cat title')
+    expect(kitchen?.seoIntroTop).toBe('Cat intro')
+    expect(kitchen?.children[0]?.seoTitle).toBe('Sub title')
+    expect(kitchen?.children[0]?.seoTextBottom).toBe('Sub bottom')
+
+    queryMock.mockResolvedValueOnce({
+      rows: [
+        {
+          ...baseProductRow,
+          seo_title: 'Product title',
+          seo_description: 'Product desc',
+          seo_h1: 'Product H1',
+        },
+      ],
+    })
+
+    const detail = await getCatalogProductBySku('MU0001')
+    expect(detail?.seoTitle).toBe('Product title')
+    expect(detail?.seoDescription).toBe('Product desc')
+    expect(detail?.seoH1).toBe('Product H1')
   })
 })
 

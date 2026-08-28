@@ -72,6 +72,9 @@ type ProductRow = {
 type ProductDetailRow = ProductRow & {
   description: string
   specs: Record<string, string> | null
+  seo_title: string
+  seo_description: string
+  seo_h1: string
 }
 
 type SubcategoryEntityRow = {
@@ -79,7 +82,34 @@ type SubcategoryEntityRow = {
   name: string
   slug: string
   cover_image_url: string | null
+  seo_title: string
+  seo_description: string
+  seo_h1: string
+  seo_intro_top: string
+  seo_text_bottom: string
 }
+
+const emptyCatalogSeo = () => ({
+  seoTitle: '',
+  seoDescription: '',
+  seoH1: '',
+  seoIntroTop: '',
+  seoTextBottom: '',
+})
+
+const mapCatalogSeoFromRow = (row: {
+  seo_title: string
+  seo_description: string
+  seo_h1: string
+  seo_intro_top: string
+  seo_text_bottom: string
+}) => ({
+  seoTitle: row.seo_title,
+  seoDescription: row.seo_description,
+  seoH1: row.seo_h1,
+  seoIntroTop: row.seo_intro_top,
+  seoTextBottom: row.seo_text_bottom,
+})
 
 const normalizeImageUrls = (
   imageUrls: string[] | null | undefined,
@@ -103,7 +133,7 @@ const buildCatalogTree = (categories: Array<{ name: string; slug: string }>) => 
   const rootMap = new Map<string, CatalogNode>()
   TOP_LEVEL_CATEGORIES.forEach((name) => {
     const slug = slugByName.get(name) ?? slugify(name)
-    rootMap.set(name, { name, slug, children: [] })
+    rootMap.set(name, { name, slug, children: [], ...emptyCatalogSeo() })
   })
 
   for (const { name: rawPath } of categories) {
@@ -114,13 +144,13 @@ const buildCatalogTree = (categories: Array<{ name: string; slug: string }>) => 
     if (!topNode) continue
 
     if (second && !topNode.children.some((child) => child.name === second)) {
-      topNode.children.push({ name: second, slug: slugify(second), children: [] })
+      topNode.children.push({ name: second, slug: slugify(second), children: [], ...emptyCatalogSeo() })
     }
 
     if (second && third) {
       const secondNode = topNode.children.find((child) => child.name === second)
       if (secondNode && !secondNode.children.some((child) => child.name === third)) {
-        secondNode.children.push({ name: third, slug: slugify(third), children: [] })
+        secondNode.children.push({ name: third, slug: slugify(third), children: [], ...emptyCatalogSeo() })
       }
     }
   }
@@ -128,6 +158,22 @@ const buildCatalogTree = (categories: Array<{ name: string; slug: string }>) => 
   return TOP_LEVEL_CATEGORIES.map((name) => rootMap.get(name)).filter(
     (item): item is CatalogNode => Boolean(item),
   )
+}
+
+const mergeSeoIntoTopNodes = (
+  nodes: CatalogNode[],
+  seoBySlug: Map<string, ReturnType<typeof mapCatalogSeoFromRow>>,
+) => {
+  for (const node of nodes) {
+    const seo = seoBySlug.get(node.slug)
+    if (seo) {
+      node.seoTitle = seo.seoTitle
+      node.seoDescription = seo.seoDescription
+      node.seoH1 = seo.seoH1
+      node.seoIntroTop = seo.seoIntroTop
+      node.seoTextBottom = seo.seoTextBottom
+    }
+  }
 }
 
 const mergeCoverUrlsIntoTree = (nodes: CatalogNode[], coversBySlug: Map<string, string>) => {
@@ -143,7 +189,12 @@ const attachProductSubcategories = async (nodes: CatalogNode[]): Promise<void> =
     `SELECT c.slug AS category_slug,
             s.name,
             s.slug,
-            s.cover_image_url
+            s.cover_image_url,
+            s.seo_title,
+            s.seo_description,
+            s.seo_h1,
+            s.seo_intro_top,
+            s.seo_text_bottom
      FROM subcategories s
      JOIN categories c ON c.id = s.category_id
      WHERE EXISTS (
@@ -173,13 +224,29 @@ const attachProductSubcategories = async (nodes: CatalogNode[]): Promise<void> =
       slug: row.slug,
       coverImageUrl: row.cover_image_url ?? undefined,
       children: [],
+      ...mapCatalogSeoFromRow(row),
     }))
   }
 }
 
 export const getCatalogTree = async (withSubcategories = false): Promise<CatalogNode[]> => {
-  const result = await pool.query<{ name: string; slug: string }>('SELECT name, slug FROM categories')
+  const result = await pool.query<{
+    name: string
+    slug: string
+    seo_title: string
+    seo_description: string
+    seo_h1: string
+    seo_intro_top: string
+    seo_text_bottom: string
+  }>(
+    `SELECT name, slug, seo_title, seo_description, seo_h1, seo_intro_top, seo_text_bottom
+     FROM categories`,
+  )
+  const seoBySlug = new Map(
+    result.rows.map((row) => [row.slug, mapCatalogSeoFromRow(row)]),
+  )
   const fullTree = buildCatalogTree(result.rows)
+  mergeSeoIntoTopNodes(fullTree, seoBySlug)
 
   const withProducts = await pool.query<{ slug: string }>(
     `SELECT DISTINCT c.slug
@@ -458,6 +525,9 @@ export const getCatalogProductBySku = async (
        p.dimensions_label,
        p.color_tags,
        p.weight_grams,
+       p.seo_title,
+       p.seo_description,
+       p.seo_h1,
        v.color AS variant_color,
        v.size AS variant_size${webSelect}
      FROM products p
@@ -519,6 +589,9 @@ export const getCatalogProductBySku = async (
     description: first.description ?? '',
     specs: first.specs ?? {},
     variants,
+    seoTitle: first.seo_title,
+    seoDescription: first.seo_description,
+    seoH1: first.seo_h1,
   }
 
   if (web) {

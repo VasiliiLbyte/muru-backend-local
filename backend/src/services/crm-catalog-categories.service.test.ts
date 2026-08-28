@@ -18,6 +18,14 @@ vi.mock('../utils/db', () => ({
 
 import { deleteCrmCategory, listCrmCategories, updateCrmCategory } from './crm-catalog-categories.service'
 
+const emptySubcategorySeo = {
+  seoTitle: '',
+  seoDescription: '',
+  seoH1: '',
+  seoIntroTop: '',
+  seoTextBottom: '',
+}
+
 describe('crm-catalog-categories.service', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -137,6 +145,7 @@ describe('crm-catalog-categories.service', () => {
         coverImageUrl: null,
         sortOrder: 0,
         productCount: 3,
+        ...emptySubcategorySeo,
       },
     ])
     expect(used.isUnused).toBe(false)
@@ -154,6 +163,7 @@ describe('crm-catalog-categories.service', () => {
         coverImageUrl: 'https://example.com/bags.webp',
         sortOrder: 1,
         productCount: 2,
+        ...emptySubcategorySeo,
       },
     ])
     expect(subOnly.isUnused).toBe(false)
@@ -286,5 +296,43 @@ describe('crm-catalog-categories.service', () => {
 
     expect(updated?.coverImageUrl).toBe('https://example.com/cover.webp')
     expect(String(mockQuery.mock.calls[1][0])).toContain('cover_image_url')
+  })
+
+  it('updateCrmCategory writes SEO fields', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ name: 'Кухня', slug: 'kukhnya' }] })
+      .mockResolvedValueOnce({ rowCount: 1 })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: 3,
+            name: 'Кухня',
+            slug: 'kukhnya',
+            cover_image_url: null,
+            cover_drive_filename: null,
+            direct_product_count: 1,
+            cross_placement_count: 0,
+            seo_title: 'Cat SEO title',
+            seo_description: 'Cat SEO desc',
+            seo_h1: 'Cat H1',
+            seo_intro_top: 'Intro',
+            seo_text_bottom: 'Bottom',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ cnt: 0 }] })
+
+    await updateCrmCategory(3, {
+      seoTitle: 'Cat SEO title',
+      seoDescription: 'Cat SEO desc',
+      seoH1: 'Cat H1',
+      seoIntroTop: 'Intro',
+      seoTextBottom: 'Bottom',
+    })
+
+    const updateSql = String(mockQuery.mock.calls[1][0])
+    expect(updateSql).toContain('seo_title')
+    expect(updateSql).toContain('seo_text_bottom')
   })
 })

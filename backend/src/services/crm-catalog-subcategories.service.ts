@@ -42,6 +42,11 @@ export type CrmSubcategoryItem = {
   coverImageUrl: string | null
   sortOrder: number
   productCount: number
+  seoTitle: string
+  seoDescription: string
+  seoH1: string
+  seoIntroTop: string
+  seoTextBottom: string
 }
 
 type SubcategoryRow = {
@@ -52,6 +57,11 @@ type SubcategoryRow = {
   cover_image_url: string | null
   sort_order: number
   product_count: number
+  seo_title: string
+  seo_description: string
+  seo_h1: string
+  seo_intro_top: string
+  seo_text_bottom: string
 }
 
 const mapRow = (row: SubcategoryRow): CrmSubcategoryItem => ({
@@ -62,6 +72,11 @@ const mapRow = (row: SubcategoryRow): CrmSubcategoryItem => ({
   coverImageUrl: row.cover_image_url,
   sortOrder: row.sort_order,
   productCount: row.product_count,
+  seoTitle: row.seo_title ?? '',
+  seoDescription: row.seo_description ?? '',
+  seoH1: row.seo_h1 ?? '',
+  seoIntroTop: row.seo_intro_top ?? '',
+  seoTextBottom: row.seo_text_bottom ?? '',
 })
 
 /** Block subcategory slugs that collide with any top-level categories.slug (SF topByLeaf). */
@@ -79,6 +94,7 @@ const assertSubcategorySlugNotTopCategory = async (slug: string): Promise<void> 
 
 const SUBCATEGORY_SELECT = `
   SELECT s.id, s.category_id, s.name, s.slug, s.cover_image_url, s.sort_order,
+         s.seo_title, s.seo_description, s.seo_h1, s.seo_intro_top, s.seo_text_bottom,
          COUNT(DISTINCT ps.product_id) FILTER (WHERE p.is_archived = FALSE)::int AS product_count
   FROM subcategories s
   LEFT JOIN product_subcategories ps ON ps.subcategory_id = s.id
@@ -177,6 +193,26 @@ export const updateCrmSubcategory = async (
   if (input.sortOrder !== undefined) {
     params.push(input.sortOrder)
     sets.push(`sort_order = $${params.length}`)
+  }
+  if (input.seoTitle !== undefined) {
+    params.push(input.seoTitle ?? '')
+    sets.push(`seo_title = $${params.length}`)
+  }
+  if (input.seoDescription !== undefined) {
+    params.push(input.seoDescription ?? '')
+    sets.push(`seo_description = $${params.length}`)
+  }
+  if (input.seoH1 !== undefined) {
+    params.push(input.seoH1 ?? '')
+    sets.push(`seo_h1 = $${params.length}`)
+  }
+  if (input.seoIntroTop !== undefined) {
+    params.push(input.seoIntroTop ?? '')
+    sets.push(`seo_intro_top = $${params.length}`)
+  }
+  if (input.seoTextBottom !== undefined) {
+    params.push(input.seoTextBottom ?? '')
+    sets.push(`seo_text_bottom = $${params.length}`)
   }
 
   if (sets.length === 0) {
