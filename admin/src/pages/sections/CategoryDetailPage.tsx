@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowDown, ArrowUp, Pencil, Tag, Trash2 } from 'lucide-react'
 
 import { CatalogImageUploadField } from '../../components/catalog/CatalogImageUploadField'
+import { CatalogSeoFields } from '../../components/catalog/CatalogSeoFields'
 import {
   Badge,
   Button,
@@ -37,7 +38,12 @@ import {
 } from '../../lib/catalog-api'
 import { categoryCoverPreviewSrc, SALE_CATEGORY_NAME } from '../../lib/category-cover'
 import { SALE_CATEGORY_SLUG } from '../../lib/sale-category'
-import type { CrmCatalogListResult, CrmCategoryItem, CrmCategorySubcategoryItem } from '../../types/catalog'
+import type {
+  CrmCatalogListResult,
+  CrmCatalogSeoListingFields,
+  CrmCategoryItem,
+  CrmCategorySubcategoryItem,
+} from '../../types/catalog'
 import { formatMoney } from '../../utils/order-labels'
 
 const PRODUCTS_PAGE_SIZE = 20
@@ -47,7 +53,7 @@ type EditingSub = {
   name: string
   slug: string
   coverUrl: string
-}
+} & CrmCatalogSeoListingFields
 
 const getDeleteTitle = (item: CrmCategoryItem): string => {
   if (item.isUnused) return 'Удалить категорию'
@@ -75,7 +81,13 @@ export const CategoryDetailPage = () => {
   const [editName, setEditName] = useState('')
   const [editSlug, setEditSlug] = useState('')
   const [editCoverUrl, setEditCoverUrl] = useState('')
+  const [editSeoTitle, setEditSeoTitle] = useState('')
+  const [editSeoDescription, setEditSeoDescription] = useState('')
+  const [editSeoH1, setEditSeoH1] = useState('')
+  const [editSeoIntroTop, setEditSeoIntroTop] = useState('')
+  const [editSeoTextBottom, setEditSeoTextBottom] = useState('')
   const [savingCategory, setSavingCategory] = useState(false)
+  const [savingCategorySeo, setSavingCategorySeo] = useState(false)
   const [savingCover, setSavingCover] = useState(false)
 
   const [newSubName, setNewSubName] = useState('')
@@ -112,6 +124,11 @@ export const CategoryDetailPage = () => {
         setEditName(found.name)
         setEditSlug(found.slug)
         setEditCoverUrl(found.coverImageUrl ?? '')
+        setEditSeoTitle(found.seoTitle ?? '')
+        setEditSeoDescription(found.seoDescription ?? '')
+        setEditSeoH1(found.seoH1 ?? '')
+        setEditSeoIntroTop(found.seoIntroTop ?? '')
+        setEditSeoTextBottom(found.seoTextBottom ?? '')
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось загрузить категорию')
@@ -209,6 +226,29 @@ export const CategoryDetailPage = () => {
     }
   }
 
+  const onSaveCategorySeo = async () => {
+    if (isMetadataLocked || category == null) return
+    setSavingCategorySeo(true)
+    setError('')
+    try {
+      await patchCategory(category.id, {
+        seoTitle: editSeoTitle,
+        seoDescription: editSeoDescription,
+        seoH1: editSeoH1,
+        seoIntroTop: editSeoIntroTop,
+        seoTextBottom: editSeoTextBottom,
+      })
+      await load()
+      toast.success('SEO сохранено')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Не удалось сохранить SEO'
+      setError(message)
+      toast.error(message)
+    } finally {
+      setSavingCategorySeo(false)
+    }
+  }
+
   const onDeleteCategory = async () => {
     if (isMetadataLocked || category == null || !category.isUnused) return
     const ok = await confirm({
@@ -262,6 +302,11 @@ export const CategoryDetailPage = () => {
         name: editingSub.name.trim(),
         slug: editingSub.slug.trim(),
         coverImageUrl: editingSub.coverUrl.trim() || null,
+        seoTitle: editingSub.seoTitle,
+        seoDescription: editingSub.seoDescription,
+        seoH1: editingSub.seoH1,
+        seoIntroTop: editingSub.seoIntroTop,
+        seoTextBottom: editingSub.seoTextBottom,
       })
       setEditingSub(null)
       await load()
@@ -444,6 +489,34 @@ export const CategoryDetailPage = () => {
         )}
       </Card>
 
+      {!isSale ? (
+        <Card title="SEO">
+          <CatalogSeoFields
+            variant="listing"
+            entityName={editName.trim() || category.name}
+            seoTitle={editSeoTitle}
+            seoDescription={editSeoDescription}
+            seoH1={editSeoH1}
+            seoIntroTop={editSeoIntroTop}
+            seoTextBottom={editSeoTextBottom}
+            onSeoTitleChange={setEditSeoTitle}
+            onSeoDescriptionChange={setEditSeoDescription}
+            onSeoH1Change={setEditSeoH1}
+            onSeoIntroTopChange={setEditSeoIntroTop}
+            onSeoTextBottomChange={setEditSeoTextBottom}
+            disabled={isMetadataLocked}
+            idPrefix="category-seo"
+          />
+          {!isMetadataLocked ? (
+            <div className="form-actions">
+              <Button type="button" loading={savingCategorySeo} onClick={() => void onSaveCategorySeo()}>
+                Сохранить SEO
+              </Button>
+            </div>
+          ) : null}
+        </Card>
+      ) : null}
+
       {isSale ? (
         <Card title="Товары">
           <Field label="Поиск" htmlFor="sale-products-q">
@@ -534,115 +607,152 @@ export const CategoryDetailPage = () => {
                 const subCover = categoryCoverPreviewSrc(
                   isEditing ? editingSub.coverUrl : sub.coverImageUrl,
                 )
+                const subColSpan = isMetadataLocked ? 4 : 5
 
                 return (
-                  <TableRow key={sub.id} className="catalog-subcategory-row">
-                    <TableCell>
-                      {isEditing ? (
-                        <Input
-                          value={editingSub.name}
-                          onChange={(e) => setEditingSub({ ...editingSub, name: e.target.value })}
-                          autoFocus
-                        />
-                      ) : (
-                        sub.name
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {isEditing ? (
-                        <Input
-                          value={editingSub.slug}
-                          onChange={(e) => setEditingSub({ ...editingSub, slug: e.target.value })}
-                        />
-                      ) : (
-                        sub.slug
-                      )}
-                    </TableCell>
-                    <TableCell numeric>{sub.productCount}</TableCell>
-                    <TableCell>
-                      {isEditing ? (
-                        <div className="form-stack">
-                          <Input
-                            value={editingSub.coverUrl}
-                            onChange={(e) =>
-                              setEditingSub({ ...editingSub, coverUrl: e.target.value })
-                            }
-                          />
-                          <CatalogImageUploadField
-                            label="Обложка"
-                            onSuccess={(result) =>
-                              setEditingSub({ ...editingSub, coverUrl: result.url })
-                            }
-                          />
-                        </div>
-                      ) : subCover ? (
-                        <img src={subCover} alt="" className="order-thumb" />
-                      ) : (
-                        '—'
-                      )}
-                    </TableCell>
-                    {!isMetadataLocked ? (
+                  <Fragment key={sub.id}>
+                    <TableRow className="catalog-subcategory-row">
                       <TableCell>
                         {isEditing ? (
-                          <TableActions>
-                            <Button
-                              type="button"
-                              variant="secondary"
-                              loading={savingSub}
-                              disabled={!editingSub.name.trim()}
-                              onClick={() => void onSaveSubEdit()}
-                            >
-                              Сохранить
-                            </Button>
-                            <Button type="button" variant="ghost" onClick={() => setEditingSub(null)}>
-                              Отмена
-                            </Button>
-                          </TableActions>
+                          <Input
+                            value={editingSub.name}
+                            onChange={(e) => setEditingSub({ ...editingSub, name: e.target.value })}
+                            autoFocus
+                          />
                         ) : (
-                          <TableActions>
-                            <IconButton
-                              aria-label="Переместить вверх"
-                              disabled={subIndex === 0 || movingSubKey !== ''}
-                              onClick={() => void moveSubcategory(subIndex, -1)}
-                            >
-                              <ArrowUp size={16} />
-                            </IconButton>
-                            <IconButton
-                              aria-label="Переместить вниз"
-                              disabled={
-                                subIndex === category.subcategories.length - 1 || movingSubKey !== ''
-                              }
-                              onClick={() => void moveSubcategory(subIndex, 1)}
-                            >
-                              <ArrowDown size={16} />
-                            </IconButton>
-                            <IconButton
-                              aria-label="Изменить"
-                              onClick={() =>
-                                setEditingSub({
-                                  subId: sub.id,
-                                  name: sub.name,
-                                  slug: sub.slug,
-                                  coverUrl: sub.coverImageUrl ?? '',
-                                })
-                              }
-                            >
-                              <Pencil size={16} />
-                            </IconButton>
-                            <IconButton
-                              variant="danger"
-                              aria-label="Удалить"
-                              title={getSubDeleteTitle(sub)}
-                              disabled={sub.productCount > 0}
-                              onClick={() => void onDeleteSubcategory(sub)}
-                            >
-                              <Trash2 size={16} />
-                            </IconButton>
-                          </TableActions>
+                          sub.name
                         )}
                       </TableCell>
+                      <TableCell>
+                        {isEditing ? (
+                          <Input
+                            value={editingSub.slug}
+                            onChange={(e) => setEditingSub({ ...editingSub, slug: e.target.value })}
+                          />
+                        ) : (
+                          sub.slug
+                        )}
+                      </TableCell>
+                      <TableCell numeric>{sub.productCount}</TableCell>
+                      <TableCell>
+                        {isEditing ? (
+                          <div className="form-stack">
+                            <Input
+                              value={editingSub.coverUrl}
+                              onChange={(e) =>
+                                setEditingSub({ ...editingSub, coverUrl: e.target.value })
+                              }
+                            />
+                            <CatalogImageUploadField
+                              label="Обложка"
+                              onSuccess={(result) =>
+                                setEditingSub({ ...editingSub, coverUrl: result.url })
+                              }
+                            />
+                          </div>
+                        ) : subCover ? (
+                          <img src={subCover} alt="" className="order-thumb" />
+                        ) : (
+                          '—'
+                        )}
+                      </TableCell>
+                      {!isMetadataLocked ? (
+                        <TableCell>
+                          {isEditing ? (
+                            <TableActions>
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                loading={savingSub}
+                                disabled={!editingSub.name.trim()}
+                                onClick={() => void onSaveSubEdit()}
+                              >
+                                Сохранить
+                              </Button>
+                              <Button type="button" variant="ghost" onClick={() => setEditingSub(null)}>
+                                Отмена
+                              </Button>
+                            </TableActions>
+                          ) : (
+                            <TableActions>
+                              <IconButton
+                                aria-label="Переместить вверх"
+                                disabled={subIndex === 0 || movingSubKey !== ''}
+                                onClick={() => void moveSubcategory(subIndex, -1)}
+                              >
+                                <ArrowUp size={16} />
+                              </IconButton>
+                              <IconButton
+                                aria-label="Переместить вниз"
+                                disabled={
+                                  subIndex === category.subcategories.length - 1 || movingSubKey !== ''
+                                }
+                                onClick={() => void moveSubcategory(subIndex, 1)}
+                              >
+                                <ArrowDown size={16} />
+                              </IconButton>
+                              <IconButton
+                                aria-label="Изменить"
+                                onClick={() =>
+                                  setEditingSub({
+                                    subId: sub.id,
+                                    name: sub.name,
+                                    slug: sub.slug,
+                                    coverUrl: sub.coverImageUrl ?? '',
+                                    seoTitle: sub.seoTitle ?? '',
+                                    seoDescription: sub.seoDescription ?? '',
+                                    seoH1: sub.seoH1 ?? '',
+                                    seoIntroTop: sub.seoIntroTop ?? '',
+                                    seoTextBottom: sub.seoTextBottom ?? '',
+                                  })
+                                }
+                              >
+                                <Pencil size={16} />
+                              </IconButton>
+                              <IconButton
+                                variant="danger"
+                                aria-label="Удалить"
+                                title={getSubDeleteTitle(sub)}
+                                disabled={sub.productCount > 0}
+                                onClick={() => void onDeleteSubcategory(sub)}
+                              >
+                                <Trash2 size={16} />
+                              </IconButton>
+                            </TableActions>
+                          )}
+                        </TableCell>
+                      ) : null}
+                    </TableRow>
+                    {isEditing ? (
+                      <TableRow>
+                        <TableCell colSpan={subColSpan}>
+                          <CatalogSeoFields
+                            variant="listing"
+                            entityName={editingSub.name.trim() || sub.name}
+                            seoTitle={editingSub.seoTitle}
+                            seoDescription={editingSub.seoDescription}
+                            seoH1={editingSub.seoH1}
+                            seoIntroTop={editingSub.seoIntroTop}
+                            seoTextBottom={editingSub.seoTextBottom}
+                            onSeoTitleChange={(value) =>
+                              setEditingSub({ ...editingSub, seoTitle: value })
+                            }
+                            onSeoDescriptionChange={(value) =>
+                              setEditingSub({ ...editingSub, seoDescription: value })
+                            }
+                            onSeoH1Change={(value) => setEditingSub({ ...editingSub, seoH1: value })}
+                            onSeoIntroTopChange={(value) =>
+                              setEditingSub({ ...editingSub, seoIntroTop: value })
+                            }
+                            onSeoTextBottomChange={(value) =>
+                              setEditingSub({ ...editingSub, seoTextBottom: value })
+                            }
+                            idPrefix={`sub-seo-${sub.id}`}
+                          />
+                        </TableCell>
+                      </TableRow>
                     ) : null}
-                  </TableRow>
+                  </Fragment>
                 )
               })}
             </TableBody>

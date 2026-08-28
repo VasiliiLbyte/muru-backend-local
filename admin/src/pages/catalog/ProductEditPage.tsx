@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
-import { ArrowDown, ArrowUp, Star } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronDown, ChevronUp, Star } from 'lucide-react'
 
+import { CatalogSeoFields } from '../../components/catalog/CatalogSeoFields'
 import { ProductImagesEditor } from '../../components/catalog/ProductImagesEditor'
 import {
   Badge,
@@ -103,6 +104,10 @@ export const ProductEditPage = () => {
   const [dimWidthCm, setDimWidthCm] = useState('')
   const [dimHeightCm, setDimHeightCm] = useState('')
   const [dimensionsLabel, setDimensionsLabel] = useState('')
+  const [seoTitle, setSeoTitle] = useState('')
+  const [seoDescription, setSeoDescription] = useState('')
+  const [seoH1, setSeoH1] = useState('')
+  const [seoExpanded, setSeoExpanded] = useState(false)
 
   const [loading, setLoading] = useState(!isNew)
   const [saving, setSaving] = useState(false)
@@ -176,6 +181,9 @@ export const ProductEditPage = () => {
     setDimWidthCm(String(data.dimWidthCm))
     setDimHeightCm(String(data.dimHeightCm))
     setDimensionsLabel(data.dimensionsLabel ?? '')
+    setSeoTitle(data.seoTitle ?? '')
+    setSeoDescription(data.seoDescription ?? '')
+    setSeoH1(data.seoH1 ?? '')
   }, [])
 
   useEffect(() => {
@@ -280,6 +288,9 @@ export const ProductEditPage = () => {
       dimWidthCm: Number(dimWidthCm) || undefined,
       dimHeightCm: Number(dimHeightCm) || undefined,
       dimensionsLabel: dimensionsLabel.trim(),
+      seoTitle,
+      seoDescription,
+      seoH1,
     }
   }
 
@@ -781,6 +792,40 @@ export const ProductEditPage = () => {
             />
           </Field>
         </Card>
+
+        <div className="vacancy-items-editor__item">
+          <div className="vacancy-items-editor__header">
+            <button
+              type="button"
+              className="vacancy-items-editor__toggle"
+              onClick={() => setSeoExpanded((prev) => !prev)}
+              aria-expanded={seoExpanded}
+            >
+              {seoExpanded ? (
+                <ChevronUp size={16} aria-hidden />
+              ) : (
+                <ChevronDown size={16} aria-hidden />
+              )}
+              <span>SEO</span>
+            </button>
+          </div>
+          {seoExpanded ? (
+            <div className="form-stack vacancy-items-editor__body">
+              <CatalogSeoFields
+                variant="product"
+                entityName={name.trim() || 'название товара'}
+                seoTitle={seoTitle}
+                seoDescription={seoDescription}
+                seoH1={seoH1}
+                onSeoTitleChange={setSeoTitle}
+                onSeoDescriptionChange={setSeoDescription}
+                onSeoH1Change={setSeoH1}
+                disabled={readOnly}
+                idPrefix="product-seo"
+              />
+            </div>
+          ) : null}
+        </div>
 
         {!readOnly ? (
           <div className="form-actions">

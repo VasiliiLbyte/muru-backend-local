@@ -1504,6 +1504,15 @@
   border-top: 1px solid var(--muru-border);
 }
 
+.seo-char-count {
+  font-size: 0.85rem;
+  color: var(--muru-muted);
+}
+
+.seo-char-count--warn {
+  color: var(--muru-warning-text);
+}
+
 /* Orders status tabs */
 .orders-status-tabs {
   display: flex;

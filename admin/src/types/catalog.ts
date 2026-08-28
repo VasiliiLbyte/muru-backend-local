@@ -3,6 +3,17 @@ export type CrmCatalogMeta = {
   readOnly: boolean
 }
 
+export type CrmCatalogSeoProductFields = {
+  seoTitle: string
+  seoDescription: string
+  seoH1: string
+}
+
+export type CrmCatalogSeoListingFields = CrmCatalogSeoProductFields & {
+  seoIntroTop: string
+  seoTextBottom: string
+}
+
 export type CrmCatalogListItem = {
   id: number
   sku: string
@@ -55,7 +66,7 @@ export type CrmCatalogProductDetail = {
   dimsSource: 'auto' | 'manual'
   weightSource: 'auto' | 'manual'
   updatedAt: string
-}
+} & CrmCatalogSeoProductFields
 
 export type CrmCatalogSortBy = 'sku' | 'price' | 'inStock' | 'updatedAt' | 'newArrivalAt'
 export type CrmCatalogSortDir = 'asc' | 'desc'
@@ -108,6 +119,9 @@ export type CrmCatalogProductCreateBody = {
   dimHeightCm?: number
   isGiftGuide?: boolean
   isNewArrival?: boolean
+  seoTitle?: string
+  seoDescription?: string
+  seoH1?: string
 }
 
 export type CrmCatalogProductPatchBody = Partial<Omit<CrmCatalogProductCreateBody, 'sku'>>
@@ -119,7 +133,7 @@ export type CrmCategorySubcategoryItem = {
   coverImageUrl: string | null
   sortOrder: number
   productCount: number
-}
+} & CrmCatalogSeoListingFields
 
 export type CrmCategoryItem = {
   id: number
@@ -132,7 +146,7 @@ export type CrmCategoryItem = {
   subcategories: CrmCategorySubcategoryItem[]
   crossPlacementCount: number
   isUnused: boolean
-}
+} & CrmCatalogSeoListingFields
 
 export type CrmCharacteristicItem = {
   id: number
@@ -207,6 +221,11 @@ export type CrmCategoryPatchBody = {
   name?: string
   slug?: string
   coverImageUrl?: string | null
+  seoTitle?: string
+  seoDescription?: string
+  seoH1?: string
+  seoIntroTop?: string
+  seoTextBottom?: string
 }
 
 export type CrmSubcategoryCreateBody = {
@@ -219,6 +238,11 @@ export type CrmSubcategoryPatchBody = {
   slug?: string
   coverImageUrl?: string | null
   sortOrder?: number
+  seoTitle?: string
+  seoDescription?: string
+  seoH1?: string
+  seoIntroTop?: string
+  seoTextBottom?: string
 }
 
 export type CrmSubcategoryItem = {
@@ -229,7 +253,7 @@ export type CrmSubcategoryItem = {
   coverImageUrl: string | null
   sortOrder: number
   productCount: number
-}
+} & CrmCatalogSeoListingFields
 
 export type CrmRenameSubcategoryBody = {
   categoryId: number
