@@ -174,6 +174,7 @@ const favoriteSkuSchema = z.object({
 const otpRequestSchema = z.object({
   phone: z.string().min(1),
   captchaToken: z.string().optional(),
+  channel: z.enum(['call', 'sms']).optional().default('call'),
 })
 
 const otpVerifySchema = z.object({
@@ -189,7 +190,7 @@ export const otpRequestHandler = async (req: Request, res: Response, next: NextF
       return fail(res, 400, zodErrorMessage(parsed.error.issues), 'VALIDATION', parsed.error.issues)
     }
     const ip = clientIp(req)
-    const result = await requestPhoneOtp(parsed.data.phone, ip, parsed.data.captchaToken)
+    const result = await requestPhoneOtp(parsed.data.phone, ip, parsed.data.captchaToken, parsed.data.channel)
     return ok(res, result)
   } catch (error) {
     return mapServiceError(error, next, res)

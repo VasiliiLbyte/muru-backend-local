@@ -11,6 +11,7 @@ vi.mock('../../utils/env', () => ({
     streamTelecomLogin: 'test-login',
     streamTelecomPass: 'test-pass',
     streamTelecomCallbackUrl: '',
+    streamTelecomSmsSender: 'muru.ru',
     nodeEnv: 'development',
   },
 }))
@@ -18,6 +19,7 @@ vi.mock('../../utils/env', () => ({
 import {
   phoneToStreamTelecomDigits,
   sendFlashCall,
+  sendSms,
   StreamTelecomError,
 } from './streamtelecom.service'
 
@@ -84,5 +86,52 @@ describe('streamtelecom.service', () => {
       'Code must be four digits',
     )
     expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  it('sendSms performs GET with query params and parses numeric id', async () => {
+    mockFetch.mockResolvedValueOnce({
+      text: async () => '123456789',
+    })
+
+    const result = await sendSms({
+      phone: '+79219449115',
+      text: 'Код для входа на muru.ru: 1234',
+    })
+
+    expect(result.id).toBe('123456789')
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit | undefined]
+    expect(url).toContain('https://gateway.api.sc/get/?')
+    expect(url).toContain('user=test-login')
+    expect(url).toContain('pwd=test-pass')
+    expect(url).toContain('sadr=muru.ru')
+    expect(url).toContain('dadr=79219449115')
+    expect(new URL(url).searchParams.get('text')).toBe('Код для входа на muru.ru: 1234')
+    expect(init?.method).toBe('GET')
+  })
+
+  it('sendSms maps error text to StreamTelecomError', async () => {
+    mockFetch.mockResolvedValueOnce({
+      text: async () => 'Unknown sender',
+    })
+
+    await expect(
+      sendSms({ phone: '+79219449115', text: 'Код для входа на muru.ru: 1234' }),
+    ).rejects.toMatchObject({
+      message: 'Unknown sender',
+    })
+  })
+
+  it('sendSms short-circuits in test nodeEnv', async () => {
+    const envModule = await import('../../utils/env')
+    const originalNodeEnv = envModule.env.nodeEnv
+    envModule.env.nodeEnv = 'test'
+
+    const result = await sendSms({ phone: '+79219449115', text: 'test' })
+
+    expect(result).toEqual({ id: 'test-sms-id' })
+    expect(mockFetch).not.toHaveBeenCalled()
+
+    envModule.env.nodeEnv = originalNodeEnv
   })
 })

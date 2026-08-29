@@ -12,7 +12,7 @@ import {
   type CustomerDto,
   type TokenPair,
 } from './customer-auth.service'
-import { sendFlashCall, StreamTelecomError } from './flashcall/streamtelecom.service'
+import { sendFlashCall, sendSms, StreamTelecomError } from './flashcall/streamtelecom.service'
 import { verifySmartCaptcha } from './smartcaptcha.service'
 
 export const OTP_TTL_MS = 5 * 60 * 1000
@@ -20,6 +20,12 @@ export const OTP_RESEND_COOLDOWN_MS = 60 * 1000
 export const OTP_REQUEST_LIMIT_PER_HOUR = 5
 export const OTP_REQUEST_WINDOW_MS = 60 * 60 * 1000
 export const OTP_VERIFY_ATTEMPT_LIMIT = 5
+export const OTP_SMS_MIN_DELAY_SEC = 45
+export const OTP_SMS_LIMIT_PER_HOUR = 2
+export const OTP_SMS_WINDOW_MS = 60 * 60 * 1000
+export const OTP_SMS_RESEND_SEC = OTP_SMS_MIN_DELAY_SEC
+
+const OTP_SMS_MIN_DELAY_MS = OTP_SMS_MIN_DELAY_SEC * 1000
 
 type OtpCodeRow = {
   id: number
@@ -32,6 +38,8 @@ type OtpCodeRow = {
 
 const otpRequestCounts = new Map<string, { count: number; resetAt: number }>()
 const otpRequestCaptchaCounts = new Map<string, { count: number; resetAt: number }>()
+const otpSmsByPhone = new Map<string, { count: number; resetAt: number }>()
+const otpSmsByIp = new Map<string, { count: number; resetAt: number }>()
 
 const bumpWindowCount = (
   map: Map<string, { count: number; resetAt: number }>,
@@ -84,9 +92,9 @@ export const requiresCaptchaForOtpRequest = (phone: string, ip: string): boolean
 export const _resetPhoneOtpCountersForTests = (): void => {
   otpRequestCounts.clear()
   otpRequestCaptchaCounts.clear()
+  otpSmsByPhone.clear()
+  otpSmsByIp.clear()
 }
-
-const generateOtpCode = (): number => Math.floor(1000 + Math.random() * 9000)
 
 const getResendAfterSec = async (phone: string): Promise<number> => {
   const result = await pool.query<{ created_at: Date | string }>(
@@ -104,34 +112,67 @@ const getResendAfterSec = async (phone: string): Promise<number> => {
   return remaining > 0 ? Math.ceil(remaining / 1000) : 0
 }
 
+const generateOtpCode = (): number => Math.floor(1000 + Math.random() * 9000)
+
+const throwRateLimited = (message = 'Too many requests'): never => {
+  const err = new Error(message) as Error & { status?: number; code?: string }
+  err.status = 429
+  err.code = 'RATE_LIMITED'
+  throw err
+}
+
+const assertSmsCascadeDelay = async (phone: string): Promise<void> => {
+  const result = await pool.query<{ last_created_at: Date | string | null }>(
+    `SELECT MAX(created_at) AS last_created_at
+     FROM customer_otp_codes
+     WHERE phone = $1`,
+    [phone],
+  )
+  const lastCreatedAt = result.rows[0]?.last_created_at
+  if (!lastCreatedAt) return
+
+  const elapsed = Date.now() - new Date(lastCreatedAt).getTime()
+  if (elapsed < OTP_SMS_MIN_DELAY_MS) {
+    throwRateLimited()
+  }
+}
+
+const assertSmsHourlyCap = (phone: string, ip: string): void => {
+  if (
+    getWindowCount(otpSmsByPhone, phone) >= OTP_SMS_LIMIT_PER_HOUR ||
+    getWindowCount(otpSmsByIp, ip) >= OTP_SMS_LIMIT_PER_HOUR
+  ) {
+    throwRateLimited()
+  }
+}
+
+export type OtpRequestChannel = 'call' | 'sms'
+
 export type OtpRequestResult = {
   ok: true
   resendAfterSec: number
   captchaRequired: boolean
 }
 
-export const requestPhoneOtp = async (
-  phoneRaw: string,
+const findActiveOtpRow = async (phone: string): Promise<OtpCodeRow | null> => {
+  const result = await pool.query<OtpCodeRow>(
+    `SELECT id, phone, code_hash, attempts, expires_at, consumed_at
+     FROM customer_otp_codes
+     WHERE phone = $1
+       AND consumed_at IS NULL
+       AND expires_at > NOW()
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [phone],
+  )
+  return result.rows[0] ?? null
+}
+
+const requestPhoneOtpCall = async (
+  phone: string,
   ip: string,
-  captchaToken?: string,
+  captchaRequired: boolean,
 ): Promise<OtpRequestResult> => {
-  assertFlashcallEnabled()
-
-  const phone = parseOptionalPhone(phoneRaw)
-  if (!phone) {
-    const err = new Error('Invalid phone number') as Error & { status?: number; code?: string }
-    err.status = 400
-    err.code = 'VALIDATION'
-    throw err
-  }
-
-  const captchaRequired = requiresCaptchaForOtpRequest(phone, ip)
-  bumpWindowCount(otpRequestCaptchaCounts, otpCaptchaKey(phone, ip), OTP_REQUEST_WINDOW_MS)
-
-  if (captchaRequired) {
-    await verifySmartCaptcha(captchaToken, ip)
-  }
-
   const resendAfterSec = await getResendAfterSec(phone)
   if (resendAfterSec > 0) {
     return { ok: true, resendAfterSec, captchaRequired }
@@ -162,18 +203,77 @@ export const requestPhoneOtp = async (
   return { ok: true, resendAfterSec: OTP_RESEND_COOLDOWN_MS / 1000, captchaRequired }
 }
 
-const findActiveOtpRow = async (phone: string): Promise<OtpCodeRow | null> => {
-  const result = await pool.query<OtpCodeRow>(
-    `SELECT id, phone, code_hash, attempts, expires_at, consumed_at
-     FROM customer_otp_codes
-     WHERE phone = $1
-       AND consumed_at IS NULL
-       AND expires_at > NOW()
-     ORDER BY created_at DESC
-     LIMIT 1`,
-    [phone],
-  )
-  return result.rows[0] ?? null
+const requestPhoneOtpSms = async (
+  phone: string,
+  ip: string,
+  captchaRequired: boolean,
+): Promise<OtpRequestResult> => {
+  await assertSmsCascadeDelay(phone)
+  assertSmsHourlyCap(phone, ip)
+
+  const code = generateOtpCode()
+  const smsText = `Код для входа на muru.ru: ${code}`
+
+  try {
+    await sendSms({ phone, text: smsText })
+  } catch (error) {
+    console.error('[phone-otp] sms failed:', error instanceof StreamTelecomError ? error.providerMessage : error)
+    return { ok: true, resendAfterSec: OTP_SMS_RESEND_SEC, captchaRequired }
+  }
+
+  const codeHash = hashToken(String(code))
+  const expiresAt = new Date(Date.now() + OTP_TTL_MS)
+  const activeRow = await findActiveOtpRow(phone)
+
+  if (activeRow) {
+    await pool.query(
+      `UPDATE customer_otp_codes
+       SET code_hash = $1, attempts = 0, expires_at = $2
+       WHERE id = $3`,
+      [codeHash, expiresAt.toISOString(), activeRow.id],
+    )
+  } else {
+    await pool.query(
+      `INSERT INTO customer_otp_codes (phone, code_hash, purpose, request_ip, expires_at)
+       VALUES ($1, $2, 'login', $3, $4)`,
+      [phone, codeHash, ip, expiresAt.toISOString()],
+    )
+  }
+
+  bumpWindowCount(otpSmsByPhone, phone, OTP_SMS_WINDOW_MS)
+  bumpWindowCount(otpSmsByIp, ip, OTP_SMS_WINDOW_MS)
+
+  return { ok: true, resendAfterSec: OTP_SMS_RESEND_SEC, captchaRequired }
+}
+
+export const requestPhoneOtp = async (
+  phoneRaw: string,
+  ip: string,
+  captchaToken?: string,
+  channel: OtpRequestChannel = 'call',
+): Promise<OtpRequestResult> => {
+  assertFlashcallEnabled()
+
+  const phone = parseOptionalPhone(phoneRaw)
+  if (!phone) {
+    const err = new Error('Invalid phone number') as Error & { status?: number; code?: string }
+    err.status = 400
+    err.code = 'VALIDATION'
+    throw err
+  }
+
+  const captchaRequired = requiresCaptchaForOtpRequest(phone, ip)
+  bumpWindowCount(otpRequestCaptchaCounts, otpCaptchaKey(phone, ip), OTP_REQUEST_WINDOW_MS)
+
+  if (captchaRequired) {
+    await verifySmartCaptcha(captchaToken, ip)
+  }
+
+  if (channel === 'sms') {
+    return requestPhoneOtpSms(phone, ip, captchaRequired)
+  }
+
+  return requestPhoneOtpCall(phone, ip, captchaRequired)
 }
 
 const findOrCreateCustomerByPhone = async (phone: string): Promise<number> => {

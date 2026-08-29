@@ -42,6 +42,7 @@ const envSchema = z.object({
   FLASHCALL_PROVIDER: z.string().optional(),
   FLASHCALL_TEST_MODE: z.string().optional(),
   STREAMTELECOM_CALLBACK_URL: z.string().optional(),
+  STREAMTELECOM_SMS_SENDER: z.string().optional(),
   DEV_TELEGRAM_USER_ID: z.string().optional(),
   ALLOWED_ORIGINS: z.string().optional(),
   ADMIN_TELEGRAM_IDS: z.string().default(''),
@@ -242,10 +243,12 @@ const streamTelecomLogin = parsed.data.STREAMTELECOM_LOGIN?.trim() ?? ''
 const streamTelecomPass = parsed.data.STREAMTELECOM_PASS?.trim() ?? ''
 const flashcallTestMode = parsed.data.FLASHCALL_TEST_MODE?.trim().toLowerCase() === 'true'
 const streamTelecomCallbackUrl = parsed.data.STREAMTELECOM_CALLBACK_URL?.trim() ?? ''
+const streamTelecomSmsSender = parsed.data.STREAMTELECOM_SMS_SENDER?.trim() || 'muru.ru'
 const flashcallConfigured =
   flashcallProvider === 'streamtelecom' &&
   streamTelecomLogin.length > 0 &&
   streamTelecomPass.length > 0
+const smsConfigured = flashcallConfigured
 
 const nodeEnv = parsed.data.NODE_ENV || 'development'
 const smartCaptchaDevBypass =
@@ -281,7 +284,9 @@ export const env = {
   streamTelecomPass,
   flashcallTestMode,
   streamTelecomCallbackUrl,
+  streamTelecomSmsSender,
   flashcallConfigured,
+  smsConfigured,
   devTelegramUserId: parsed.data.DEV_TELEGRAM_USER_ID ?? '',
   allowedOrigins,
   adminTelegramIds,

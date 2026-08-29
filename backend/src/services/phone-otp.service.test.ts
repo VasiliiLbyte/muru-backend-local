@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockQuery = vi.fn()
 const mockSendFlashCall = vi.fn()
+const mockSendSms = vi.fn()
 const mockVerifySmartCaptcha = vi.fn()
 const mockIssueCustomerSession = vi.fn()
 const mockFindCustomerByPhone = vi.fn()
@@ -22,6 +23,7 @@ vi.mock('../utils/env', () => ({
 
 vi.mock('./flashcall/streamtelecom.service', () => ({
   sendFlashCall: (...args: unknown[]) => mockSendFlashCall(...args),
+  sendSms: (...args: unknown[]) => mockSendSms(...args),
   StreamTelecomError: class StreamTelecomError extends Error {
     providerMessage: string
     constructor(message: string) {
@@ -48,6 +50,8 @@ vi.mock('./customer-auth.service', async (importOriginal) => {
 import {
   _resetPhoneOtpCountersForTests,
   OTP_REQUEST_LIMIT_PER_HOUR,
+  OTP_SMS_LIMIT_PER_HOUR,
+  OTP_SMS_MIN_DELAY_SEC,
   requestPhoneOtp,
   requiresCaptchaForOtpRequest,
   verifyPhoneOtp,
@@ -61,6 +65,7 @@ describe('phone-otp.service', () => {
     vi.clearAllMocks()
     _resetPhoneOtpCountersForTests()
     mockSendFlashCall.mockResolvedValue({ code: '1234' })
+    mockSendSms.mockResolvedValue({ id: 'sms-id' })
     mockVerifySmartCaptcha.mockResolvedValue(undefined)
     mockLinkGuestOrdersByPhone.mockResolvedValue(0)
   })
@@ -239,5 +244,141 @@ describe('phone-otp.service', () => {
     await expect(verifyPhoneOtp(phone, '1234', '127.0.0.1')).rejects.toMatchObject({
       status: 400,
     })
+  })
+
+  it('requestPhoneOtp sms before 45s after call returns 429', async () => {
+    const createdAt = new Date(Date.now() - 30_000).toISOString()
+    mockQuery.mockResolvedValueOnce({
+      rows: [{ last_created_at: createdAt }],
+    })
+
+    await expect(requestPhoneOtp(phone, '127.0.0.1', undefined, 'sms')).rejects.toMatchObject({
+      status: 429,
+      code: 'RATE_LIMITED',
+    })
+    expect(mockSendSms).not.toHaveBeenCalled()
+    expect(mockSendFlashCall).not.toHaveBeenCalled()
+  })
+
+  it('requestPhoneOtp sms after 45s updates active row and sends sms', async () => {
+    const createdAt = new Date(Date.now() - 50_000).toISOString()
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ last_created_at: createdAt }] }) // 45s gate
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: 11,
+            phone,
+            code_hash: hashToken('1111'),
+            attempts: 1,
+            expires_at: new Date(Date.now() + 60_000).toISOString(),
+            consumed_at: null,
+          },
+        ],
+      }) // findActiveOtpRow
+      .mockResolvedValueOnce({ rows: [] }) // update
+
+    const result = await requestPhoneOtp(phone, '127.0.0.1', undefined, 'sms')
+
+    expect(result).toEqual({ ok: true, resendAfterSec: OTP_SMS_MIN_DELAY_SEC, captchaRequired: false })
+    expect(mockSendSms).toHaveBeenCalledTimes(1)
+    expect(mockSendFlashCall).not.toHaveBeenCalled()
+    const updateSql = String(mockQuery.mock.calls[2][0])
+    expect(updateSql).toContain('UPDATE customer_otp_codes')
+    expect(updateSql).toContain('attempts = 0')
+  })
+
+  it('requestPhoneOtp sms without active row inserts new otp row', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ last_created_at: new Date(Date.now() - 50_000).toISOString() }] })
+      .mockResolvedValueOnce({ rows: [] }) // findActiveOtpRow
+      .mockResolvedValueOnce({ rows: [{ id: 12 }] }) // insert
+
+    await requestPhoneOtp(phone, '127.0.0.1', undefined, 'sms')
+
+    expect(mockSendSms).toHaveBeenCalledTimes(1)
+    const insertSql = String(mockQuery.mock.calls[2][0])
+    expect(insertSql).toContain('INSERT INTO customer_otp_codes')
+  })
+
+  it('requestPhoneOtp sms hourly cap returns 429', async () => {
+    mockQuery.mockImplementation(async (sql: unknown) => {
+      const sqlText = String(sql)
+      if (sqlText.includes('MAX(created_at)')) {
+        return { rows: [{ last_created_at: new Date(Date.now() - 50_000).toISOString() }] }
+      }
+      if (sqlText.includes('consumed_at IS NULL')) {
+        return { rows: [] }
+      }
+      return { rows: [{ id: 1 }] }
+    })
+
+    for (let i = 0; i < OTP_SMS_LIMIT_PER_HOUR; i += 1) {
+      await requestPhoneOtp(phone, '127.0.0.1', undefined, 'sms')
+    }
+
+    mockSendSms.mockClear()
+    await expect(requestPhoneOtp(phone, '127.0.0.1', undefined, 'sms')).rejects.toMatchObject({
+      status: 429,
+      code: 'RATE_LIMITED',
+    })
+    expect(mockSendSms).not.toHaveBeenCalled()
+  })
+
+  it('verifyPhoneOtp accepts code regenerated via sms', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ last_created_at: new Date(Date.now() - 50_000).toISOString() }] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: 13,
+            phone,
+            code_hash: hashToken('1111'),
+            attempts: 0,
+            expires_at: new Date(Date.now() + 60_000).toISOString(),
+            consumed_at: null,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] })
+
+    await requestPhoneOtp(phone, '127.0.0.1', undefined, 'sms')
+
+    const smsText = (mockSendSms.mock.calls[0]?.[0] as { text: string }).text
+    const smsCode = smsText.split(': ')[1]
+
+    mockQuery.mockClear()
+    mockQuery
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: 13,
+            phone,
+            code_hash: hashToken(smsCode),
+            attempts: 0,
+            expires_at: new Date(Date.now() + 60_000).toISOString(),
+            consumed_at: null,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+    mockFindCustomerByPhone.mockResolvedValueOnce({
+      id: 42,
+      phone,
+      phoneVerifiedAt: null,
+      isActive: true,
+    })
+    mockIssueCustomerSession.mockResolvedValueOnce({
+      accessToken: 'a',
+      refreshToken: 'r',
+      expiresIn: 900,
+      customer: { id: 42, phone, email: null },
+    })
+
+    const result = await verifyPhoneOtp(phone, smsCode, '127.0.0.1')
+
+    expect(result.accessToken).toBe('a')
+    expect(smsCode).toMatch(/^\d{4}$/)
   })
 })
