@@ -522,9 +522,9 @@ export const updateCatalogPlaceholderSettings = async (
     if (oldUrl && oldUrl !== newUrl) {
       await client.query(
         `UPDATE products
-         SET image_url_1 = NULL, image_url_2 = NULL, image_urls = '{}'
+         SET image_url_1 = '', image_url_2 = '', image_urls = '[]'::jsonb
          WHERE image_url_1 = $1
-           AND (image_urls IS NULL OR image_urls = ARRAY[$1]::text[] OR image_urls = '{}')`,
+           AND (image_urls = to_jsonb(ARRAY[$1]::text[]) OR image_urls = '[]'::jsonb)`,
         [oldUrl],
       )
     }

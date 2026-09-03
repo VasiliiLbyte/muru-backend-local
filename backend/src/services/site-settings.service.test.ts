@@ -401,7 +401,7 @@ describe('site-settings.service', () => {
 
     const backfillSql = String(mockClientQuery.mock.calls[3][0])
     expect(backfillSql).toContain('UPDATE products')
-    expect(backfillSql).toContain('image_url_1 = NULL')
+    expect(backfillSql).toContain("image_url_1 = ''")
     expect(mockClientQuery.mock.calls[3][1]).toEqual([oldUrl])
 
     const commitSql = String(mockClientQuery.mock.calls[4][0])
