@@ -21,10 +21,16 @@ vi.mock('../utils/env', () => ({
 }))
 
 const mockPoolQuery = vi.fn()
+const mockClientQuery = vi.fn()
+const mockClientRelease = vi.fn()
 
 vi.mock('../utils/db', () => ({
   pool: {
     query: (...args: unknown[]) => mockPoolQuery(...args),
+    connect: async () => ({
+      query: (...args: unknown[]) => mockClientQuery(...args),
+      release: () => mockClientRelease(),
+    }),
   },
 }))
 
@@ -339,22 +345,93 @@ describe('site-settings.service', () => {
   })
 
   it('updateCatalogPlaceholderSettings persists URL and returns DTO', async () => {
-    mockPoolQuery
-      .mockResolvedValueOnce({ rows: [] })
+    mockClientQuery
+      .mockResolvedValueOnce({ rows: [] }) // BEGIN
       .mockResolvedValueOnce({
-        rows: [
-          {
-            ...fullRow,
-            catalog_placeholder_image_url: '/uploads/catalog-placeholder.webp',
-          },
-        ],
-      })
+        rows: [{ catalog_placeholder_image_url: null }],
+      }) // SELECT old
+      .mockResolvedValueOnce({ rows: [] }) // UPDATE site_settings
+      .mockResolvedValueOnce({ rows: [] }) // COMMIT
+    mockPoolQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          ...fullRow,
+          catalog_placeholder_image_url: '/uploads/catalog-placeholder.webp',
+        },
+      ],
+    })
 
     const result = await updateCatalogPlaceholderSettings({
       catalogPlaceholderImageUrl: '/uploads/catalog-placeholder.webp',
     })
     expect(result.catalogPlaceholderImageUrl).toBe('/uploads/catalog-placeholder.webp')
-    expect(String(mockPoolQuery.mock.calls[0][0])).toContain('catalog_placeholder_image_url')
+    expect(mockClientRelease).toHaveBeenCalled()
+  })
+
+  it('updateCatalogPlaceholderSettings backfills products when placeholder URL changes', async () => {
+    const oldUrl = '/uploads/old-placeholder.webp'
+    const newUrl = '/uploads/new-placeholder.webp'
+
+    mockClientQuery
+      .mockResolvedValueOnce({ rows: [] }) // BEGIN
+      .mockResolvedValueOnce({
+        rows: [{ catalog_placeholder_image_url: oldUrl }],
+      }) // SELECT old
+      .mockResolvedValueOnce({ rows: [] }) // UPDATE site_settings
+      .mockResolvedValueOnce({ rows: [] }) // UPDATE products backfill
+      .mockResolvedValueOnce({ rows: [] }) // COMMIT
+    mockPoolQuery.mockResolvedValueOnce({
+      rows: [{ ...fullRow, catalog_placeholder_image_url: newUrl }],
+    })
+
+    await updateCatalogPlaceholderSettings({
+      catalogPlaceholderImageUrl: newUrl,
+    })
+
+    expect(mockClientQuery).toHaveBeenCalledTimes(5)
+
+    const beginSql = String(mockClientQuery.mock.calls[0][0])
+    expect(beginSql).toBe('BEGIN')
+
+    const selectSql = String(mockClientQuery.mock.calls[1][0])
+    expect(selectSql).toContain('SELECT catalog_placeholder_image_url')
+
+    const updateSettingsSql = String(mockClientQuery.mock.calls[2][0])
+    expect(updateSettingsSql).toContain('UPDATE site_settings')
+
+    const backfillSql = String(mockClientQuery.mock.calls[3][0])
+    expect(backfillSql).toContain('UPDATE products')
+    expect(backfillSql).toContain('image_url_1 = NULL')
+    expect(mockClientQuery.mock.calls[3][1]).toEqual([oldUrl])
+
+    const commitSql = String(mockClientQuery.mock.calls[4][0])
+    expect(commitSql).toBe('COMMIT')
+
+    expect(mockClientRelease).toHaveBeenCalled()
+  })
+
+  it('updateCatalogPlaceholderSettings skips backfill when URL unchanged', async () => {
+    const sameUrl = '/uploads/same.webp'
+
+    mockClientQuery
+      .mockResolvedValueOnce({ rows: [] }) // BEGIN
+      .mockResolvedValueOnce({
+        rows: [{ catalog_placeholder_image_url: sameUrl }],
+      }) // SELECT old
+      .mockResolvedValueOnce({ rows: [] }) // UPDATE site_settings
+      .mockResolvedValueOnce({ rows: [] }) // COMMIT
+    mockPoolQuery.mockResolvedValueOnce({
+      rows: [{ ...fullRow, catalog_placeholder_image_url: sameUrl }],
+    })
+
+    await updateCatalogPlaceholderSettings({
+      catalogPlaceholderImageUrl: sameUrl,
+    })
+
+    expect(mockClientQuery).toHaveBeenCalledTimes(4)
+    const allSqls = mockClientQuery.mock.calls.map((c: unknown[]) => String(c[0]))
+    expect(allSqls).not.toContain(expect.stringContaining('UPDATE products'))
+    expect(mockClientRelease).toHaveBeenCalled()
   })
 
   it('getIntegrationsStatus returns booleans + shop ids, never secrets', () => {

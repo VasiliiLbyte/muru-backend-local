@@ -503,13 +503,39 @@ export const updateYookassaSettings = async (
 export const updateCatalogPlaceholderSettings = async (
   input: CatalogPlaceholderSettingsInput,
 ): Promise<SiteSettingsDto> => {
-  await pool.query(
-    `UPDATE site_settings SET
-      catalog_placeholder_image_url = $1,
-      updated_at = NOW()
-     WHERE id = $2`,
-    [input.catalogPlaceholderImageUrl ?? null, SETTINGS_ID],
-  )
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+
+    const oldResult = await client.query<{ catalog_placeholder_image_url: string | null }>(
+      `SELECT catalog_placeholder_image_url FROM site_settings WHERE id = $1`,
+      [SETTINGS_ID],
+    )
+    const oldUrl = oldResult.rows[0]?.catalog_placeholder_image_url ?? null
+    const newUrl = input.catalogPlaceholderImageUrl ?? null
+
+    await client.query(
+      `UPDATE site_settings SET catalog_placeholder_image_url = $1, updated_at = NOW() WHERE id = $2`,
+      [newUrl, SETTINGS_ID],
+    )
+
+    if (oldUrl && oldUrl !== newUrl) {
+      await client.query(
+        `UPDATE products
+         SET image_url_1 = NULL, image_url_2 = NULL, image_urls = '{}'
+         WHERE image_url_1 = $1
+           AND (image_urls IS NULL OR image_urls = ARRAY[$1]::text[] OR image_urls = '{}')`,
+        [oldUrl],
+      )
+    }
+
+    await client.query('COMMIT')
+  } catch (err) {
+    await client.query('ROLLBACK')
+    throw err
+  } finally {
+    client.release()
+  }
 
   return getSiteSettings()
 }
