@@ -4,6 +4,13 @@
  */
 export const SALE_CATEGORY_NAME = 'Распродажа' as const
 
+/**
+ * Fallback bucket the legacy sheet sync assigns to products with an unparseable/empty
+ * section (see mapSheetSectionToTopLevel below). Not a real merchandising category —
+ * must never appear in the public catalog tree, only in the CRM's own category list.
+ */
+export const UNCATEGORIZED_CATEGORY_NAME = 'Без категории' as const
+
 export const TOP_LEVEL_CATEGORIES = [
   'Флористика',
   'Натуральный декор',
@@ -22,7 +29,7 @@ const MIN_PREFIX_LEN = 4
  */
 export const mapSheetSectionToTopLevel = (raw: string): string => {
   const first = raw.split(/[>,/|]/)[0]?.trim() || raw.trim()
-  if (!first) return 'Без категории'
+  if (!first) return UNCATEGORIZED_CATEGORY_NAME
 
   const lower = first.toLowerCase()
 

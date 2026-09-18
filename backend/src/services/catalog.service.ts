@@ -1,4 +1,4 @@
-import { SALE_CATEGORY_NAME } from '../constants/catalog-top-level'
+import { SALE_CATEGORY_NAME, UNCATEGORIZED_CATEGORY_NAME } from '../constants/catalog-top-level'
 import {
   categoryHasActiveProductsSql,
   productInCategoryByNameSql,
@@ -266,9 +266,11 @@ export const getCatalogTree = async (withSubcategories = false): Promise<Catalog
   )
   const hasDiscounted = saleExistsResult.rows[0]?.ok === true
 
-  const filtered = fullTree.filter((node) =>
-    node.slug === SALE_CATEGORY_SLUG ? hasDiscounted : slugsWithProducts.has(node.slug),
-  )
+  const filtered = fullTree
+    .filter((node) => node.name !== UNCATEGORIZED_CATEGORY_NAME)
+    .filter((node) =>
+      node.slug === SALE_CATEGORY_SLUG ? hasDiscounted : slugsWithProducts.has(node.slug),
+    )
 
   const covers = await pool.query<{ slug: string; cover_image_url: string }>(
     `SELECT slug, cover_image_url FROM categories

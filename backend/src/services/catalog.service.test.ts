@@ -648,6 +648,26 @@ describe('getCatalogTree', () => {
     expect(tree.some((node) => node.slug === 'postelnoe-bele-i-pledy')).toBe(true)
   })
 
+  it('excludes the "Без категории" fallback bucket from the public tree', async () => {
+    queryMock
+      .mockResolvedValueOnce({
+        rows: [
+          { name: 'Кухня и столовая', slug: 'kukhnya-i-stolovaya' },
+          { name: 'Без категории', slug: 'bez-kategorii' },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [{ slug: 'kukhnya-i-stolovaya' }, { slug: 'bez-kategorii' }],
+      })
+      .mockResolvedValueOnce({ rows: [{ ok: false }] })
+      .mockResolvedValueOnce({ rows: [] })
+
+    const tree = await getCatalogTree(false)
+
+    expect(tree.some((node) => node.slug === 'bez-kategorii')).toBe(false)
+    expect(tree.some((node) => node.slug === 'kukhnya-i-stolovaya')).toBe(true)
+  })
+
   it('exposes SEO fields on tree nodes and product detail', async () => {
     queryMock
       .mockResolvedValueOnce({
