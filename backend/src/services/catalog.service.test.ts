@@ -629,6 +629,25 @@ describe('getCatalogTree', () => {
     expect(tree.some((node) => node.slug === 'kukhnya-i-stolovaya')).toBe(true)
   })
 
+  it('includes a top-level category not in the legacy TOP_LEVEL_CATEGORIES allowlist', async () => {
+    queryMock
+      .mockResolvedValueOnce({
+        rows: [
+          { name: 'Кухня и столовая', slug: 'kukhnya-i-stolovaya' },
+          { name: 'Постельное белье и пледы', slug: 'postelnoe-bele-i-pledy' },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [{ slug: 'kukhnya-i-stolovaya' }, { slug: 'postelnoe-bele-i-pledy' }],
+      })
+      .mockResolvedValueOnce({ rows: [{ ok: false }] })
+      .mockResolvedValueOnce({ rows: [] })
+
+    const tree = await getCatalogTree(false)
+
+    expect(tree.some((node) => node.slug === 'postelnoe-bele-i-pledy')).toBe(true)
+  })
+
   it('exposes SEO fields on tree nodes and product detail', async () => {
     queryMock
       .mockResolvedValueOnce({

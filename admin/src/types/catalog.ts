@@ -141,6 +141,7 @@ export type CrmCategoryItem = {
   slug: string
   coverImageUrl: string | null
   coverDriveFilename: string | null
+  sortOrder: number
   productCount: number
   directProductCount: number
   subcategories: CrmCategorySubcategoryItem[]
@@ -221,6 +222,7 @@ export type CrmCategoryPatchBody = {
   name?: string
   slug?: string
   coverImageUrl?: string | null
+  sortOrder?: number
   seoTitle?: string
   seoDescription?: string
   seoH1?: string

@@ -10,6 +10,9 @@ CREATE TABLE IF NOT EXISTS categories (
 ALTER TABLE categories ADD COLUMN IF NOT EXISTS cover_drive_filename TEXT;
 ALTER TABLE categories ADD COLUMN IF NOT EXISTS cover_image_url TEXT;
 
+-- Nav/tree ordering for top-level categories (migration 051)
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS sort_order INT NOT NULL DEFAULT 0;
+
 CREATE TABLE IF NOT EXISTS products (
   id SERIAL PRIMARY KEY,
   sku TEXT NOT NULL UNIQUE,

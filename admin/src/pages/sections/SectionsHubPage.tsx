@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { FolderTree } from 'lucide-react'
+import { ArrowDown, ArrowUp, FolderTree } from 'lucide-react'
 
 import {
   Badge,
@@ -8,10 +8,12 @@ import {
   Card,
   EmptyState,
   Field,
+  IconButton,
   Input,
   PageHeader,
   SkeletonTable,
   Table,
+  TableActions,
   TableBody,
   TableCell,
   TableHead,
@@ -20,7 +22,7 @@ import {
   useToast,
 } from '../../components/ui'
 import { useCatalogMetaContext } from '../../context/CatalogMetaContext'
-import { createCategory, listCategories } from '../../lib/catalog-api'
+import { createCategory, listCategories, patchCategory } from '../../lib/catalog-api'
 import { categoryCoverPreviewSrc, SALE_CATEGORY_NAME } from '../../lib/category-cover'
 import type { CrmCategoryItem } from '../../types/catalog'
 
@@ -39,6 +41,7 @@ export const SectionsHubPage = () => {
   const [error, setError] = useState('')
   const [newName, setNewName] = useState('')
   const [creating, setCreating] = useState(false)
+  const [movingKey, setMovingKey] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -73,6 +76,28 @@ export const SectionsHubPage = () => {
       toast.error(message)
     } finally {
       setCreating(false)
+    }
+  }
+
+  const moveCategory = async (index: number, direction: -1 | 1) => {
+    if (readOnly) return
+    const targetIndex = index + direction
+    if (targetIndex < 0 || targetIndex >= items.length) return
+    const current = items[index]
+    const neighbor = items[targetIndex]
+    setMovingKey(`${current.id}`)
+    setError('')
+    try {
+      await patchCategory(current.id, { sortOrder: neighbor.sortOrder })
+      await patchCategory(neighbor.id, { sortOrder: current.sortOrder })
+      await load()
+      toast.success('Порядок обновлён')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Не удалось изменить порядок'
+      setError(message)
+      toast.error(message)
+    } finally {
+      setMovingKey('')
     }
   }
 
@@ -112,7 +137,7 @@ export const SectionsHubPage = () => {
       ) : null}
 
       {loading ? (
-        <SkeletonTable rows={6} cols={5} />
+        <SkeletonTable rows={6} cols={6} />
       ) : items.length === 0 ? (
         <EmptyState icon={FolderTree} title="Категории не найдены" />
       ) : (
@@ -124,10 +149,11 @@ export const SectionsHubPage = () => {
               <TableHead numeric>Товаров</TableHead>
               <TableHead>Обложка</TableHead>
               <TableHead />
+              <TableHead />
             </TableRow>
           </TableHeader>
           <TableBody>
-            {items.map((item) => {
+            {items.map((item, index) => {
               const isSale = item.name === SALE_CATEGORY_NAME
               const coverSrc = categoryCoverPreviewSrc(item.coverImageUrl)
               return (
@@ -160,6 +186,26 @@ export const SectionsHubPage = () => {
                   </TableCell>
                   <TableCell>
                     {coverSrc ? <img src={coverSrc} alt="" className="order-thumb" /> : '—'}
+                  </TableCell>
+                  <TableCell>
+                    {!readOnly ? (
+                      <TableActions>
+                        <IconButton
+                          aria-label="Переместить вверх"
+                          disabled={index === 0 || movingKey !== ''}
+                          onClick={() => void moveCategory(index, -1)}
+                        >
+                          <ArrowUp size={16} />
+                        </IconButton>
+                        <IconButton
+                          aria-label="Переместить вниз"
+                          disabled={index === items.length - 1 || movingKey !== ''}
+                          onClick={() => void moveCategory(index, 1)}
+                        >
+                          <ArrowDown size={16} />
+                        </IconButton>
+                      </TableActions>
+                    ) : null}
                   </TableCell>
                   <TableCell>
                     <Link className="muru-page-header__back" to={`/catalog/sections/categories/${item.id}`}>

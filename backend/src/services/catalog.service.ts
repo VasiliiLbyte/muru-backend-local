@@ -1,4 +1,4 @@
-import { SALE_CATEGORY_NAME, TOP_LEVEL_CATEGORIES } from '../constants/catalog-top-level'
+import { SALE_CATEGORY_NAME } from '../constants/catalog-top-level'
 import {
   categoryHasActiveProductsSql,
   productInCategoryByNameSql,
@@ -131,17 +131,19 @@ const mapSubcategorySlug = (raw: string | null | undefined): string | undefined 
 const buildCatalogTree = (categories: Array<{ name: string; slug: string }>) => {
   const slugByName = new Map(categories.map((c) => [c.name, c.slug]))
   const rootMap = new Map<string, CatalogNode>()
-  TOP_LEVEL_CATEGORIES.forEach((name) => {
-    const slug = slugByName.get(name) ?? slugify(name)
-    rootMap.set(name, { name, slug, children: [], ...emptyCatalogSeo() })
-  })
+  const rootOrder: string[] = []
 
   for (const { name: rawPath } of categories) {
     const parts = parseCategoryPath(rawPath)
     if (parts.length === 0) continue
     const [top, second, third] = parts
-    const topNode = rootMap.get(top)
-    if (!topNode) continue
+
+    let topNode = rootMap.get(top)
+    if (!topNode) {
+      topNode = { name: top, slug: slugByName.get(top) ?? slugify(top), children: [], ...emptyCatalogSeo() }
+      rootMap.set(top, topNode)
+      rootOrder.push(top)
+    }
 
     if (second && !topNode.children.some((child) => child.name === second)) {
       topNode.children.push({ name: second, slug: slugify(second), children: [], ...emptyCatalogSeo() })
@@ -155,9 +157,7 @@ const buildCatalogTree = (categories: Array<{ name: string; slug: string }>) => 
     }
   }
 
-  return TOP_LEVEL_CATEGORIES.map((name) => rootMap.get(name)).filter(
-    (item): item is CatalogNode => Boolean(item),
-  )
+  return rootOrder.map((name) => rootMap.get(name)!)
 }
 
 const mergeSeoIntoTopNodes = (
@@ -240,7 +240,8 @@ export const getCatalogTree = async (withSubcategories = false): Promise<Catalog
     seo_text_bottom: string
   }>(
     `SELECT name, slug, seo_title, seo_description, seo_h1, seo_intro_top, seo_text_bottom
-     FROM categories`,
+     FROM categories
+     ORDER BY sort_order, name`,
   )
   const seoBySlug = new Map(
     result.rows.map((row) => [row.slug, mapCatalogSeoFromRow(row)]),

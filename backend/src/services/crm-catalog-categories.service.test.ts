@@ -16,7 +16,12 @@ vi.mock('../utils/db', () => ({
   },
 }))
 
-import { deleteCrmCategory, listCrmCategories, updateCrmCategory } from './crm-catalog-categories.service'
+import {
+  createCrmCategory,
+  deleteCrmCategory,
+  listCrmCategories,
+  updateCrmCategory,
+} from './crm-catalog-categories.service'
 
 const emptySubcategorySeo = {
   seoTitle: '',
@@ -296,6 +301,60 @@ describe('crm-catalog-categories.service', () => {
 
     expect(updated?.coverImageUrl).toBe('https://example.com/cover.webp')
     expect(String(mockQuery.mock.calls[1][0])).toContain('cover_image_url')
+  })
+
+  it('createCrmCategory appends new category at the end of the nav order', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ id: 42 }] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: 42,
+            name: 'Постельное белье и пледы',
+            slug: 'postelnoe-bele-i-pledy',
+            cover_image_url: null,
+            cover_drive_filename: null,
+            sort_order: 8,
+            direct_product_count: 0,
+            cross_placement_count: 0,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ cnt: 0 }] })
+
+    const created = await createCrmCategory({ name: 'Постельное белье и пледы' })
+
+    const insertSql = String(mockQuery.mock.calls[0][0])
+    expect(insertSql).toContain('MAX(sort_order)')
+    expect(created.sortOrder).toBe(8)
+  })
+
+  it('updateCrmCategory accepts a sortOrder-only patch (reorder swap)', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ name: 'Кухня', slug: 'kukhnya' }] })
+      .mockResolvedValueOnce({ rowCount: 1 })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: 3,
+            name: 'Кухня',
+            slug: 'kukhnya',
+            cover_image_url: null,
+            cover_drive_filename: null,
+            sort_order: 4,
+            direct_product_count: 1,
+            cross_placement_count: 0,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ cnt: 0 }] })
+
+    const updated = await updateCrmCategory(3, { sortOrder: 4 })
+
+    expect(String(mockQuery.mock.calls[1][0])).toContain('sort_order')
+    expect(updated?.sortOrder).toBe(4)
   })
 
   it('updateCrmCategory writes SEO fields', async () => {

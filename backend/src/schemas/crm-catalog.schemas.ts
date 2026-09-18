@@ -66,6 +66,7 @@ export const patchCrmCategorySchema = z
     name: z.string().min(1).optional(),
     slug: z.string().min(1).optional(),
     coverImageUrl: z.union([z.string().url(), z.null()]).optional(),
+    sortOrder: z.number().int().optional(),
     seoTitle: z.string().optional(),
     seoDescription: z.string().optional(),
     seoH1: z.string().optional(),

@@ -35,6 +35,7 @@ export type CrmCategoryItem = {
   slug: string
   coverImageUrl: string | null
   coverDriveFilename: string | null
+  sortOrder: number
   productCount: number
   directProductCount: number
   subcategories: CrmCategorySubcategoryItem[]
@@ -53,6 +54,7 @@ type CategoryRow = {
   slug: string
   cover_image_url: string | null
   cover_drive_filename: string | null
+  sort_order: number
   direct_product_count: number
   cross_placement_count: number
   seo_title: string
@@ -105,6 +107,7 @@ const mapCategoryRow = (
     slug: row.slug,
     coverImageUrl: row.cover_image_url,
     coverDriveFilename: row.cover_drive_filename,
+    sortOrder: row.sort_order,
     productCount: directProductCount,
     directProductCount,
     subcategories,
@@ -121,7 +124,7 @@ const mapCategoryRow = (
 export const listCrmCategories = async (): Promise<CrmCategoryItem[]> => {
   const [categoriesResult, subcategoriesResult, saleCountResult] = await Promise.all([
     pool.query<CategoryRow>(
-      `SELECT c.id, c.name, c.slug, c.cover_image_url, c.cover_drive_filename,
+      `SELECT c.id, c.name, c.slug, c.cover_image_url, c.cover_drive_filename, c.sort_order,
               c.seo_title, c.seo_description, c.seo_h1, c.seo_intro_top, c.seo_text_bottom,
               ${MEMBERSHIP_COUNT_SQL},
               COUNT(DISTINCT pwcp.product_id) FILTER (
@@ -131,7 +134,7 @@ export const listCrmCategories = async (): Promise<CrmCategoryItem[]> => {
        LEFT JOIN product_web_cross_placements pwcp ON pwcp.category_id = c.id
        LEFT JOIN products p2 ON p2.id = pwcp.product_id
        GROUP BY c.id
-       ORDER BY c.name`,
+       ORDER BY c.sort_order, c.name`,
     ),
     pool.query<SubcategoryRow>(
       `SELECT s.category_id, s.id, s.name, s.slug, s.cover_image_url, s.sort_order,
@@ -189,7 +192,9 @@ export const createCrmCategory = async (input: CreateCrmCategoryInput): Promise<
 
   try {
     const result = await pool.query<{ id: number }>(
-      `INSERT INTO categories (name, slug) VALUES ($1, $2) RETURNING id`,
+      `INSERT INTO categories (name, slug, sort_order)
+       VALUES ($1, $2, COALESCE((SELECT MAX(sort_order) + 1 FROM categories), 0))
+       RETURNING id`,
       [name, slug],
     )
     const categories = await listCrmCategories()
@@ -244,6 +249,10 @@ export const updateCrmCategory = async (
     params.push(input.coverImageUrl)
     sets.push(`cover_image_url = $${params.length}`)
     sets.push(`cover_drive_filename = NULL`)
+  }
+  if (input.sortOrder !== undefined) {
+    params.push(input.sortOrder)
+    sets.push(`sort_order = $${params.length}`)
   }
   if (input.seoTitle !== undefined) {
     params.push(input.seoTitle ?? '')

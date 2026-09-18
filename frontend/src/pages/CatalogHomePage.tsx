@@ -1,7 +1,5 @@
-import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { sortCatalogNodes } from '../constants/catalog-category-order'
 import { pressable, cardSurface } from '../lib/uiClasses'
 import type { CatalogNode } from '../types/catalog'
 import { SmartImage } from '../components/SmartImage'
@@ -12,7 +10,6 @@ type CatalogHomePageProps = {
 
 export const CatalogHomePage = ({ tree }: CatalogHomePageProps) => {
   const navigate = useNavigate()
-  const sorted = useMemo(() => sortCatalogNodes(tree), [tree])
 
   return (
     <section className="space-y-5">
@@ -25,7 +22,7 @@ export const CatalogHomePage = ({ tree }: CatalogHomePageProps) => {
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {sorted.map((category, index) => (
+        {tree.map((category, index) => (
           <button
             key={category.slug}
             type="button"
@@ -47,7 +44,7 @@ export const CatalogHomePage = ({ tree }: CatalogHomePageProps) => {
           </button>
         ))}
       </div>
-      {sorted.length === 0 ? (
+      {tree.length === 0 ? (
         <p className="text-center text-sm text-[#6f6666]">Категории появятся после синхронизации каталога.</p>
       ) : null}
     </section>
