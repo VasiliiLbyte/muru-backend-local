@@ -1,0 +1,64 @@
+{
+  "description": "Seeded rename/retire hints for first SEO-015 baseline (needs_human_confirmation). Sourced from SEO-012 hub remaps / live IA 2026-09-23.",
+  "updated_at": "2026-09-23",
+  "retired_or_renamed": [
+    {
+      "old_slug": "vazy-i-aksessuary",
+      "old_kind": "category",
+      "old_live_path": "/catalog/vazy-i-aksessuary/",
+      "guessed_new_live_path": "/catalog/mebel-i-svet/svet/",
+      "guessed_new_slug": "svet",
+      "guessed_new_parent_slug": "mebel-i-svet",
+      "reason": "Confirmed by Vasilii 2026-09-23: CMS manager merged vases into mebel-i-svet/svet with zero storefront/backend commits",
+      "confidence": "high",
+      "needs_human_confirmation": true
+    },
+    {
+      "old_slug": "vazy-i-kuvshiny",
+      "old_kind": "subcategory",
+      "old_live_path": "/catalog/vazy-i-aksessuary/vazy-i-kuvshiny/",
+      "guessed_new_live_path": "/catalog/mebel-i-svet/svet/",
+      "guessed_new_slug": "svet",
+      "guessed_new_parent_slug": "mebel-i-svet",
+      "reason": "Parent hub retired; products remapped under mebel-i-svet/svet in SEO-012",
+      "confidence": "medium",
+      "needs_human_confirmation": true
+    },
+    {
+      "old_slug": "podsvechniki",
+      "old_kind": "subcategory",
+      "old_parent_slug_hint": "vazy-i-aksessuary",
+      "old_live_path": "/catalog/vazy-i-aksessuary/podsvechniki/",
+      "guessed_new_live_path": "/catalog/interer/podsvechniki/",
+      "guessed_new_slug": "podsvechniki",
+      "guessed_new_parent_slug": "interer",
+      "reason": "SEO-012 leaf-match: candleholders now under interer/podsvechniki",
+      "confidence": "medium",
+      "needs_human_confirmation": true
+    },
+    {
+      "old_slug": "sukhotsvety",
+      "old_kind": "subcategory",
+      "old_parent_slug_hint": "naturalnyy-dekor",
+      "old_live_path": "/catalog/naturalnyy-dekor/sukhotsvety/",
+      "guessed_new_live_path": "/catalog/floristika-dlya-doma/sukhotsvety/",
+      "guessed_new_slug": "sukhotsvety",
+      "guessed_new_parent_slug": "floristika-dlya-doma",
+      "reason": "SEO-012 hub remap: dried flowers moved under floristika",
+      "confidence": "medium",
+      "needs_human_confirmation": true
+    },
+    {
+      "old_slug": "korziny-i-pletenye-izdeliya",
+      "old_kind": "subcategory",
+      "old_parent_slug_hint": "naturalnyy-dekor",
+      "old_live_path": "/catalog/naturalnyy-dekor/korziny-i-pletenye-izdeliya/",
+      "guessed_new_live_path": "/catalog/naturalnyy-dekor/",
+      "guessed_new_slug": "naturalnyy-dekor",
+      "guessed_new_parent_slug": null,
+      "reason": "SEO-012: subcategory missing; parent hub still live",
+      "confidence": "low",
+      "needs_human_confirmation": true
+    }
+  ]
+}
