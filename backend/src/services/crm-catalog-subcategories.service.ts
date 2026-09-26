@@ -79,17 +79,51 @@ const mapRow = (row: SubcategoryRow): CrmSubcategoryItem => ({
   seoTextBottom: row.seo_text_bottom ?? '',
 })
 
-/** Block subcategory slugs that collide with any top-level categories.slug (SF topByLeaf). */
-const assertSubcategorySlugNotTopCategory = async (slug: string): Promise<void> => {
-  const result = await pool.query<{ ok: number }>(
-    'SELECT 1 AS ok FROM categories WHERE slug = $1 LIMIT 1',
-    [slug],
+/**
+ * Subcategory slugs must be unique across the whole catalog, not just per category:
+ * the storefront and SEO redirects key subcategories by slug, so a second `svet` under
+ * another category silently moves products between listings.
+ */
+const assertSubcategorySlugAvailable = async (slug: string, categoryId: number): Promise<void> => {
+  const result = await pool.query<{ kind?: 'category' | 'subcategory'; owner?: string }>(
+    `SELECT 'category' AS kind, name AS owner FROM categories WHERE slug = $1
+     UNION ALL
+     SELECT 'subcategory' AS kind, c.name AS owner
+     FROM subcategories s JOIN categories c ON c.id = s.category_id
+     WHERE s.slug = $1 AND s.category_id <> $2
+     LIMIT 1`,
+    [slug, categoryId],
   )
-  if (result.rows.length > 0) {
+  const hit = result.rows[0]
+  if (!hit) return
+  if (hit.kind === 'subcategory') {
     throw conflictError(
-      'Slug совпадает с категорией верхнего уровня. Выберите другое название.',
+      `Slug «${slug}» уже используется подкатегорией в категории «${hit.owner}». Укажите другой slug.`,
     )
   }
+  throw conflictError('Slug совпадает с категорией верхнего уровня. Выберите другое название.')
+}
+
+/** Products copy their primary subcategory name/slug; keep the copy in sync on rename. */
+const syncProductSubcategoryDenorm = async (
+  subcategoryId: number,
+  oldSlug: string,
+  next: { name: string; slug: string },
+): Promise<void> => {
+  await pool.query(
+    `UPDATE products p SET
+       web_subcategory_name = $1,
+       web_subcategory_slug = $2,
+       subcategory = $1,
+       subcategory_slug = $2,
+       updated_at = NOW()
+     WHERE (p.web_subcategory_slug = $3 OR p.subcategory_slug = $3)
+       AND EXISTS (
+         SELECT 1 FROM product_subcategories ps
+         WHERE ps.product_id = p.id AND ps.subcategory_id = $4
+       )`,
+    [next.name, next.slug, oldSlug, subcategoryId],
+  )
 }
 
 const SUBCATEGORY_SELECT = `
@@ -128,7 +162,7 @@ export const createCrmSubcategory = async (
 
   const name = input.name.trim()
   const slug = slugify(name)
-  await assertSubcategorySlugNotTopCategory(slug)
+  await assertSubcategorySlugAvailable(slug, categoryId)
 
   try {
     const result = await pool.query<{ id: number }>(
@@ -158,24 +192,29 @@ export const updateCrmSubcategory = async (
 
   const sets: string[] = []
   const params: unknown[] = []
+  let nextName: string | undefined
+  let nextSlug: string | undefined
 
   if (input.name !== undefined) {
-    const name = input.name.trim()
-    params.push(name)
+    nextName = input.name.trim()
+    params.push(nextName)
     sets.push(`name = $${params.length}`)
     if (input.slug === undefined) {
-      const autoSlug = slugify(name)
-      await assertSubcategorySlugNotTopCategory(autoSlug)
-      params.push(autoSlug)
+      nextSlug = slugify(nextName)
+      await assertSubcategorySlugAvailable(nextSlug, categoryId)
+      params.push(nextSlug)
       sets.push(`slug = $${params.length}`)
     }
   }
   if (input.slug !== undefined) {
-    const nextSlug = input.slug.trim()
-    await assertSubcategorySlugNotTopCategory(nextSlug)
+    nextSlug = input.slug.trim()
+    await assertSubcategorySlugAvailable(nextSlug, categoryId)
     params.push(nextSlug)
     sets.push(`slug = $${params.length}`)
   }
+
+  const renaming = nextName !== undefined || nextSlug !== undefined
+  const before = renaming ? await getSubcategoryDenormById(subcategoryId) : null
   if (input.coverImageUrl !== undefined) {
     const cover =
       input.coverImageUrl === null || input.coverImageUrl.trim() === ''
@@ -228,6 +267,13 @@ export const updateCrmSubcategory = async (
       params,
     )
     if ((result.rowCount ?? 0) === 0) return null
+
+    if (before) {
+      const next = { name: nextName ?? before.name, slug: nextSlug ?? before.slug }
+      if (next.name !== before.name || next.slug !== before.slug) {
+        await syncProductSubcategoryDenorm(subcategoryId, before.slug, next)
+      }
+    }
 
     const items = await listCrmSubcategories(categoryId)
     return items.find((item) => item.id === subcategoryId) ?? null

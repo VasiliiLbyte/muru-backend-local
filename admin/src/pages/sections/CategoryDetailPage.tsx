@@ -298,9 +298,15 @@ export const CategoryDetailPage = () => {
     setSavingSub(true)
     setError('')
     try {
+      const original = category.subcategories.find((s) => s.id === editingSub.subId)
+      const nameChanged = original != null && editingSub.name.trim() !== original.name
+      const slugUntouched = original != null && editingSub.slug.trim() === original.slug
+      // Renamed without touching the slug → let the server derive a fresh slug from the new name,
+      // otherwise the old URL (e.g. «svet») silently sticks to a different section.
+      const slugPatch = nameChanged && slugUntouched ? {} : { slug: editingSub.slug.trim() }
       await patchSubcategory(category.id, editingSub.subId, {
         name: editingSub.name.trim(),
-        slug: editingSub.slug.trim(),
+        ...slugPatch,
         coverImageUrl: editingSub.coverUrl.trim() || null,
         seoTitle: editingSub.seoTitle,
         seoDescription: editingSub.seoDescription,

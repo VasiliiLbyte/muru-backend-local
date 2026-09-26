@@ -126,6 +126,56 @@ describe('crm-catalog-subcategories.service', () => {
     expect(mockQuery).toHaveBeenCalledTimes(1)
   })
 
+  it('createCrmSubcategory returns 409 when slug is used by a subcategory of another category', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ name: 'Интерьер и предметы декора' }] })
+      .mockResolvedValueOnce({ rows: [{ kind: 'subcategory', owner: 'Мебель и свет' }] })
+
+    await expect(createCrmSubcategory(5, { name: 'Свет' })).rejects.toMatchObject({
+      message: 'Slug «svet» уже используется подкатегорией в категории «Мебель и свет». Укажите другой slug.',
+      statusCode: 409,
+    })
+    expect(mockQuery.mock.calls[1][1]).toEqual(['svet', 5])
+  })
+
+  it('updateCrmSubcategory returns 409 when explicit slug collides with another category', async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [{ kind: 'subcategory', owner: 'Мебель и свет' }] })
+
+    await expect(
+      updateCrmSubcategory(5, 9, { name: 'Вазы и кувшины', slug: 'svet' }),
+    ).rejects.toMatchObject({ statusCode: 409 })
+    expect(mockQuery).toHaveBeenCalledTimes(1)
+  })
+
+  it('updateCrmSubcategory syncs product denorm fields when slug changes', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ name: 'Вазы и кувшины', slug: 'svet' }] })
+      .mockResolvedValueOnce({ rowCount: 1, rows: [] })
+      .mockResolvedValueOnce({ rowCount: 12, rows: [] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: 9,
+            category_id: 5,
+            name: 'Вазы и кувшины',
+            slug: 'vazy-i-kuvshiny',
+            cover_image_url: null,
+            sort_order: 0,
+            product_count: 12,
+          },
+        ],
+      })
+
+    const updated = await updateCrmSubcategory(5, 9, { slug: 'vazy-i-kuvshiny' })
+
+    const syncSql = String(mockQuery.mock.calls[3][0])
+    expect(syncSql).toContain('UPDATE products')
+    expect(syncSql).toContain('product_subcategories')
+    expect(mockQuery.mock.calls[3][1]).toEqual(['Вазы и кувшины', 'vazy-i-kuvshiny', 'svet', 9])
+    expect(updated?.slug).toBe('vazy-i-kuvshiny')
+  })
+
   it('updateCrmSubcategory versions Drive cover and invalidates cache', async () => {
     mockQuery
       .mockResolvedValueOnce({ rowCount: 1, rows: [] })
