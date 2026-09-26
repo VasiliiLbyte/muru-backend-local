@@ -6,6 +6,17 @@
 
 BEGIN;
 
+-- 0) Guard: the target slug must be free outside `interer`, otherwise we'd create a new duplicate.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM subcategories s JOIN categories c ON c.id = s.category_id
+    WHERE s.slug = 'vazy-i-kuvshiny' AND c.slug <> 'interer'
+  ) THEN
+    RAISE EXCEPTION 'slug vazy-i-kuvshiny is already used by a subcategory outside interer — resolve it first';
+  END IF;
+END $$;
+
 -- 1) Product denorm copies (primary subcategory name/slug) for products linked to the vase row.
 UPDATE products p SET
   web_subcategory_name = 'Вазы и кувшины',
