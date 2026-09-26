@@ -6,7 +6,20 @@
 
 BEGIN;
 
--- 0) Guard: the target slug must be free outside `interer`, otherwise we'd create a new duplicate.
+-- 0a) Free the slug from the retired, empty «Вазы и кувшины» under the old vazy-i-aksessuary
+--     (no active products → invisible on the site; the row is kept, only its slug is parked).
+UPDATE subcategories s SET slug = 'vazy-i-kuvshiny-old-' || s.id
+FROM categories c
+WHERE c.id = s.category_id
+  AND c.slug <> 'interer'
+  AND s.slug = 'vazy-i-kuvshiny'
+  AND NOT EXISTS (
+    SELECT 1 FROM product_subcategories ps
+    JOIN products p ON p.id = ps.product_id AND p.is_archived = FALSE
+    WHERE ps.subcategory_id = s.id
+  );
+
+-- 0b) Guard: the target slug must now be free outside `interer`, otherwise we'd create a new duplicate.
 DO $$
 BEGIN
   IF EXISTS (
